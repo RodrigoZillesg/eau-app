@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   eau-backend:
     build: 
@@ -33,7 +31,7 @@ services:
       context: ./eau-members
       dockerfile: Dockerfile
     ports:
-      - "80:80"
+      - "8080:80"
     environment:
       - VITE_SUPABASE_URL=https://english-australia-eau-supabase.lkobs5.easypanel.host
       - VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE
