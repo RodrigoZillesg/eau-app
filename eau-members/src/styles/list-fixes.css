@@ -1,0 +1,95 @@
+/* List Fixes - Override Tailwind's CSS reset for lists */
+
+/* Standard HTML lists - restore default browser styles */
+ul:not([class]) {
+  list-style-type: disc;
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+ol:not([class]) {
+  list-style-type: decimal;
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+ul:not([class]) li,
+ol:not([class]) li {
+  display: list-item;
+  margin: 0.25em 0;
+}
+
+/* Nested lists */
+ul:not([class]) ul {
+  list-style-type: circle;
+}
+
+ul:not([class]) ul ul {
+  list-style-type: square;
+}
+
+/* For content from Quill editor */
+.ql-editor ul,
+.quill-content ul,
+.rich-content ul,
+[data-editor-content] ul {
+  list-style-type: disc !important;
+  padding-left: 1.5em !important;
+  margin: 0.5em 0 !important;
+}
+
+.ql-editor ol,
+.quill-content ol,
+.rich-content ol,
+[data-editor-content] ol {
+  list-style-type: decimal !important;
+  padding-left: 1.5em !important;
+  margin: 0.5em 0 !important;
+}
+
+.ql-editor ul li,
+.quill-content ul li,
+.rich-content ul li,
+[data-editor-content] ul li {
+  display: list-item !important;
+  list-style-type: inherit !important;
+  margin: 0.25em 0 !important;
+}
+
+.ql-editor ol li,
+.quill-content ol li,
+.rich-content ol li,
+[data-editor-content] ol li {
+  display: list-item !important;
+  list-style-type: inherit !important;
+  margin: 0.25em 0 !important;
+}
+
+/* Nested lists in editor content */
+.ql-editor ul ul,
+.quill-content ul ul,
+.rich-content ul ul,
+[data-editor-content] ul ul {
+  list-style-type: circle !important;
+}
+
+.ql-editor ul ul ul,
+.quill-content ul ul ul,
+.rich-content ul ul ul,
+[data-editor-content] ul ul ul {
+  list-style-type: square !important;
+}
+
+.ql-editor ol ol,
+.quill-content ol ol,
+.rich-content ol ol,
+[data-editor-content] ol ol {
+  list-style-type: lower-alpha !important;
+}
+
+.ql-editor ol ol ol,
+.quill-content ol ol ol,
+.rich-content ol ol ol,
+[data-editor-content] ol ol ol {
+  list-style-type: lower-roman !important;
+}

@@ -1,0 +1,73 @@
+/* FINAL FIX: Force bullets without touching ::marker */
+
+/* Global fix for all UL elements */
+ul {
+  list-style-type: disc !important;
+  list-style-position: inside !important;
+  padding-left: 1em !important;
+}
+
+ul li {
+  list-style-type: disc !important;
+  display: list-item !important;
+}
+
+/* Remove any ::before pseudo elements */
+ul li::before {
+  display: none !important;
+  content: none !important;
+}
+
+/* DO NOT TOUCH ::marker - let browser handle it naturally */
+
+/* Nested lists */
+ul ul {
+  list-style-type: circle !important;
+}
+
+ul ul ul {
+  list-style-type: square !important;
+}
+
+/* Specific containers */
+.ql-editor ul,
+.ql-container ul,
+.rendered-content ul,
+.rich-content ul,
+.quill-content ul,
+div ul {
+  list-style-type: disc !important;
+  list-style-position: inside !important;
+  padding-left: 1em !important;
+  margin: 0.5em 0 !important;
+}
+
+.ql-editor ul li,
+.ql-container ul li,
+.rendered-content ul li,
+.rich-content ul li,
+.quill-content ul li,
+div ul li {
+  list-style-type: disc !important;
+  display: list-item !important;
+  margin: 0.25em 0 !important;
+}
+
+/* OL remains numbered */
+ol {
+  list-style-type: decimal !important;
+  list-style-position: inside !important;
+  padding-left: 1em !important;
+}
+
+ol li {
+  list-style-type: decimal !important;
+  display: list-item !important;
+}
+
+/* Disable counters on UL */
+ul,
+ul li {
+  counter-reset: none !important;
+  counter-increment: none !important;
+}

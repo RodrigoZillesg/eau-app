@@ -1,0 +1,278 @@
+/* Rich Content Styles - For rendering HTML from Quill Editor */
+
+.rich-content {
+  /* Base Typography */
+  font-size: 1rem;
+  line-height: 1.75;
+  color: #374151;
+}
+
+/* Headings */
+.rich-content h1 {
+  font-size: 2.25rem;
+  font-weight: 700;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  line-height: 1.2;
+  color: #111827;
+}
+
+.rich-content h2 {
+  font-size: 1.875rem;
+  font-weight: 600;
+  margin-top: 1.75rem;
+  margin-bottom: 0.875rem;
+  line-height: 1.3;
+  color: #1f2937;
+}
+
+.rich-content h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.4;
+  color: #1f2937;
+}
+
+.rich-content h4 {
+  font-size: 1.25rem;
+  font-weight: 500;
+  margin-top: 1.25rem;
+  margin-bottom: 0.625rem;
+  line-height: 1.5;
+  color: #374151;
+}
+
+/* Paragraphs */
+.rich-content p {
+  margin-top: 0;
+  margin-bottom: 1rem;
+}
+
+.rich-content p:last-child {
+  margin-bottom: 0;
+}
+
+/* Lists */
+.rich-content ul,
+.rich-content ol {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  padding-left: 1.5rem;
+}
+
+.rich-content ul {
+  list-style-type: disc;
+}
+
+.rich-content ol {
+  list-style-type: decimal;
+}
+
+.rich-content li {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+  line-height: 1.75;
+}
+
+.rich-content li > ul,
+.rich-content li > ol {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Nested lists */
+.rich-content ul ul {
+  list-style-type: circle;
+}
+
+.rich-content ul ul ul {
+  list-style-type: square;
+}
+
+/* Links */
+.rich-content a {
+  color: #2563eb;
+  text-decoration: underline;
+  transition: color 0.15s ease;
+}
+
+.rich-content a:hover {
+  color: #1d4ed8;
+}
+
+/* Blockquotes */
+.rich-content blockquote {
+  border-left: 4px solid #e5e7eb;
+  padding-left: 1rem;
+  margin: 1.5rem 0;
+  font-style: italic;
+  color: #6b7280;
+}
+
+/* Code */
+.rich-content code {
+  background-color: #f3f4f6;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  font-family: 'Monaco', 'Courier New', monospace;
+  color: #991b1b;
+}
+
+.rich-content pre {
+  background-color: #1f2937;
+  color: #f3f4f6;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+.rich-content pre code {
+  background-color: transparent;
+  padding: 0;
+  color: inherit;
+  font-size: 0.875rem;
+}
+
+/* Images */
+.rich-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 1.5rem 0;
+  display: block;
+}
+
+/* Tables (if needed in future) */
+.rich-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+}
+
+.rich-content th {
+  background-color: #f9fafb;
+  font-weight: 600;
+  text-align: left;
+  padding: 0.75rem;
+  border: 1px solid #e5e7eb;
+}
+
+.rich-content td {
+  padding: 0.75rem;
+  border: 1px solid #e5e7eb;
+}
+
+/* Horizontal Rule */
+.rich-content hr {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 2rem 0;
+}
+
+/* Text Formatting */
+.rich-content strong,
+.rich-content b {
+  font-weight: 600;
+  color: #111827;
+}
+
+.rich-content em,
+.rich-content i {
+  font-style: italic;
+}
+
+.rich-content u {
+  text-decoration: underline;
+}
+
+.rich-content s,
+.rich-content strike {
+  text-decoration: line-through;
+  opacity: 0.75;
+}
+
+/* Text Alignment (Quill classes) */
+.rich-content .ql-align-center {
+  text-align: center;
+}
+
+.rich-content .ql-align-right {
+  text-align: right;
+}
+
+.rich-content .ql-align-justify {
+  text-align: justify;
+}
+
+/* Indentation (Quill classes) */
+.rich-content .ql-indent-1 {
+  padding-left: 3em;
+}
+
+.rich-content .ql-indent-2 {
+  padding-left: 6em;
+}
+
+.rich-content .ql-indent-3 {
+  padding-left: 9em;
+}
+
+.rich-content .ql-indent-4 {
+  padding-left: 12em;
+}
+
+.rich-content .ql-indent-5 {
+  padding-left: 15em;
+}
+
+.rich-content .ql-indent-6 {
+  padding-left: 18em;
+}
+
+.rich-content .ql-indent-7 {
+  padding-left: 21em;
+}
+
+.rich-content .ql-indent-8 {
+  padding-left: 24em;
+}
+
+/* Video embeds */
+.rich-content .ql-video {
+  display: block;
+  max-width: 100%;
+  margin: 1.5rem 0;
+}
+
+/* Ensure first element has no top margin */
+.rich-content > *:first-child {
+  margin-top: 0;
+}
+
+/* Ensure last element has no bottom margin */
+.rich-content > *:last-child {
+  margin-bottom: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .rich-content h1 {
+    font-size: 1.875rem;
+  }
+  
+  .rich-content h2 {
+    font-size: 1.5rem;
+  }
+  
+  .rich-content h3 {
+    font-size: 1.25rem;
+  }
+  
+  .rich-content {
+    font-size: 0.9375rem;
+  }
+}

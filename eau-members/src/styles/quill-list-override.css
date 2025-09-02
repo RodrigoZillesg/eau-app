@@ -1,0 +1,116 @@
+/* CRITICAL: Override ANY CSS that makes UL show as numbers */
+
+/* Target UL specifically - NOT OL */
+ul:where(:not(ol)) {
+  list-style: disc !important;
+  list-style-type: disc !important;
+  counter-reset: none !important;
+}
+
+ul:where(:not(ol)) > li {
+  list-style: disc !important;
+  list-style-type: disc !important;
+  counter-increment: none !important;
+}
+
+/* For any container with editor content */
+div ul:not(ol) {
+  list-style: disc outside !important;
+  list-style-type: disc !important;
+  padding-left: 1.5em !important;
+  counter-reset: none !important;
+}
+
+div ul:not(ol) > li {
+  display: list-item !important;
+  list-style: disc outside !important;
+  list-style-type: disc !important;
+  counter-increment: none !important;
+}
+
+/* Specific class overrides */
+.ql-editor ul,
+.ql-container ul,
+.ql-snow ul,
+.rendered-content ul,
+.rich-content ul,
+.quill-content ul {
+  list-style: disc outside !important;
+  list-style-type: disc !important;
+  padding-left: 1.5em !important;
+  margin: 0.5em 0 !important;
+  counter-reset: none !important;
+}
+
+.ql-editor ul > li,
+.ql-container ul > li,
+.ql-snow ul > li,
+.rendered-content ul > li,
+.rich-content ul > li,
+.quill-content ul > li {
+  display: list-item !important;
+  list-style: inherit !important;
+  list-style-type: disc !important;
+  margin: 0.25em 0 !important;
+  counter-increment: none !important;
+}
+
+/* Remove any pseudo elements that might interfere */
+ul > li::before,
+.ql-editor ul > li::before,
+.rendered-content ul > li::before {
+  content: none !important;
+  display: none !important;
+}
+
+/* Force the marker to be a bullet */
+ul > li::marker,
+.ql-editor ul > li::marker,
+.rendered-content ul > li::marker {
+  content: "•" !important;
+}
+
+/* Nested lists */
+ul ul {
+  list-style-type: circle !important;
+}
+
+ul ul > li::marker {
+  content: "○" !important;
+}
+
+ul ul ul {
+  list-style-type: square !important;
+}
+
+ul ul ul > li::marker {
+  content: "▪" !important;
+}
+
+/* OL should remain numbered */
+ol {
+  list-style: decimal outside !important;
+  list-style-type: decimal !important;
+  padding-left: 1.5em !important;
+  margin: 0.5em 0 !important;
+}
+
+ol > li {
+  display: list-item !important;
+  list-style: inherit !important;
+  list-style-type: decimal !important;
+  margin: 0.25em 0 !important;
+}
+
+/* Debug: Make absolutely sure no CSS counters are applied to UL */
+ul,
+ul *,
+ul > li,
+.ql-editor ul,
+.ql-editor ul *,
+.rendered-content ul,
+.rendered-content ul * {
+  counter-reset: none !important;
+  counter-increment: none !important;
+  counter-set: none !important;
+}

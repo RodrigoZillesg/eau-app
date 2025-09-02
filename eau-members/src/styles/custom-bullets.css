@@ -1,0 +1,129 @@
+/* CUSTOM BULLETS - Bypass browser ::marker completely */
+
+/* Disable all list styles and create our own */
+ul {
+  list-style: none !important;
+  list-style-type: none !important;
+  padding-left: 0 !important;
+  margin: 0.5em 0 !important;
+}
+
+ul li {
+  list-style: none !important;
+  list-style-type: none !important;
+  display: block !important;
+  position: relative !important;
+  padding-left: 1.5em !important;
+  margin: 0.25em 0 !important;
+}
+
+/* Create custom bullet with ::before */
+ul li::before {
+  content: "•" !important;
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  color: inherit !important;
+  font-weight: bold !important;
+  display: inline-block !important;
+  width: 1em !important;
+}
+
+/* Hide native ::marker completely */
+ul li::marker {
+  content: none !important;
+  display: none !important;
+}
+
+/* Nested bullets */
+ul ul li::before {
+  content: "○" !important;
+}
+
+ul ul ul li::before {
+  content: "▪" !important;
+}
+
+/* OL keeps normal behavior but ensure no interference */
+ol {
+  list-style: decimal !important;
+  list-style-type: decimal !important;
+  padding-left: 1.5em !important;
+  margin: 0.5em 0 !important;
+}
+
+ol li {
+  list-style: decimal !important;
+  list-style-type: decimal !important;
+  display: list-item !important;
+  margin: 0.25em 0 !important;
+}
+
+ol li::before {
+  content: none !important;
+  display: none !important;
+}
+
+/* Apply to all our content areas */
+.ql-editor ul,
+.ql-container ul,
+.rendered-content ul,
+.rich-content ul,
+.quill-content ul {
+  list-style: none !important;
+  list-style-type: none !important;
+  padding-left: 0 !important;
+}
+
+.ql-editor ul li,
+.ql-container ul li,
+.rendered-content ul li,
+.rich-content ul li,
+.quill-content ul li {
+  list-style: none !important;
+  list-style-type: none !important;
+  display: block !important;
+  position: relative !important;
+  padding-left: 1.5em !important;
+}
+
+.ql-editor ul li::before,
+.ql-container ul li::before,
+.rendered-content ul li::before,
+.rich-content ul li::before,
+.quill-content ul li::before {
+  content: "•" !important;
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  color: inherit !important;
+  font-weight: bold !important;
+  display: inline-block !important;
+  width: 1em !important;
+}
+
+.ql-editor ul li::marker,
+.ql-container ul li::marker,
+.rendered-content ul li::marker,
+.rich-content ul li::marker,
+.quill-content ul li::marker {
+  content: none !important;
+  display: none !important;
+}
+
+/* Nested bullets in content areas */
+.ql-editor ul ul li::before,
+.ql-container ul ul li::before,
+.rendered-content ul ul li::before,
+.rich-content ul ul li::before,
+.quill-content ul ul li::before {
+  content: "○" !important;
+}
+
+.ql-editor ul ul ul li::before,
+.ql-container ul ul ul li::before,
+.rendered-content ul ul ul li::before,
+.rich-content ul ul ul li::before,
+.quill-content ul ul ul li::before {
+  content: "▪" !important;
+}

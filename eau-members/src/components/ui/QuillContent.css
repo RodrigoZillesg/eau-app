@@ -1,0 +1,339 @@
+/* QuillContent.css - Styles for rendering Quill content in read-only mode */
+
+/* Remove editor-specific styles */
+.ql-editor {
+  padding: 0 !important;
+  border: none !important;
+  min-height: auto !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+
+/* Ensure the content is not editable */
+.ql-editor[contenteditable="true"] {
+  contenteditable: false !important;
+}
+
+/* Fix list styles - Force correct list markers */
+.ql-editor ul {
+  display: block !important;
+  list-style: disc !important;
+  list-style-type: disc !important;
+  list-style-position: outside !important;
+  padding-left: 1.5em !important;
+  margin: 0.5em 0 !important;
+}
+
+.ql-editor ul li {
+  display: list-item !important;
+  list-style: inherit !important;
+  list-style-type: disc !important;
+  margin: 0.25em 0 !important;
+}
+
+.ql-editor ul li::before {
+  content: none !important;
+  display: none !important;
+}
+
+.ql-editor ul li::marker {
+  content: "•" !important;
+}
+
+.ql-editor ul ul {
+  list-style-type: circle !important;
+}
+
+.ql-editor ul ul li::marker {
+  content: "◦" !important;
+}
+
+.ql-editor ul ul ul {
+  list-style-type: square !important;
+}
+
+.ql-editor ul ul ul li::marker {
+  content: "▪" !important;
+}
+
+.ql-editor ol {
+  display: block !important;
+  list-style: decimal !important;
+  list-style-type: decimal !important;
+  list-style-position: outside !important;
+  padding-left: 1.5em !important;
+  margin: 0.5em 0 !important;
+  counter-reset: list-counter !important;
+}
+
+.ql-editor ol li {
+  display: list-item !important;
+  list-style: inherit !important;
+  list-style-type: decimal !important;
+  margin: 0.25em 0 !important;
+  counter-increment: list-counter !important;
+}
+
+.ql-editor ol li::before {
+  content: none !important;
+  display: none !important;
+}
+
+/* Nested ordered lists */
+.ql-editor ol ol {
+  list-style-type: lower-alpha !important;
+}
+
+.ql-editor ol ol ol {
+  list-style-type: lower-roman !important;
+}
+
+/* Ensure headers have proper spacing - Reduced */
+.ql-editor h1 {
+  font-size: 2em;
+  margin: 0.5em 0;
+  font-weight: bold;
+}
+
+.ql-editor h2 {
+  font-size: 1.5em;
+  margin: 0.5em 0;
+  font-weight: bold;
+}
+
+.ql-editor h3 {
+  font-size: 1.17em;
+  margin: 0.5em 0;
+  font-weight: bold;
+}
+
+/* Paragraph spacing - Reduced */
+.ql-editor p {
+  margin: 0.5em 0;
+}
+
+.ql-editor p:last-child {
+  margin-bottom: 0;
+}
+
+.ql-editor p:first-child {
+  margin-top: 0;
+}
+
+/* Blockquote styling to match Quill editor */
+.ql-editor blockquote {
+  border-left: 4px solid #ccc;
+  margin: 0.5em 0;
+  padding-left: 1em;
+  color: #666;
+  font-style: italic;
+}
+
+/* Code blocks */
+.ql-editor pre {
+  background-color: #23241f;
+  color: #f8f8f2;
+  overflow: visible;
+  padding: 10px;
+  border-radius: 3px;
+  margin-bottom: 10px;
+}
+
+.ql-editor pre.ql-syntax {
+  background-color: #23241f;
+  color: #f8f8f2;
+}
+
+/* Inline code */
+.ql-editor code {
+  background-color: #f0f0f0;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 85%;
+  color: #c7254e;
+}
+
+/* Links */
+.ql-editor a {
+  color: #06c;
+  text-decoration: underline;
+}
+
+.ql-editor a:hover {
+  color: #004080;
+}
+
+/* Images */
+.ql-editor img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1em 0;
+}
+
+/* Videos */
+.ql-editor .ql-video {
+  display: block;
+  max-width: 100%;
+  margin: 1em 0;
+  min-height: 240px;
+}
+
+/* Text alignment classes */
+.ql-editor .ql-align-center {
+  text-align: center;
+}
+
+.ql-editor .ql-align-right {
+  text-align: right;
+}
+
+.ql-editor .ql-align-justify {
+  text-align: justify;
+}
+
+/* Indentation classes */
+.ql-editor .ql-indent-1 {
+  padding-left: 3em;
+}
+
+.ql-editor .ql-indent-2 {
+  padding-left: 6em;
+}
+
+.ql-editor .ql-indent-3 {
+  padding-left: 9em;
+}
+
+.ql-editor .ql-indent-4 {
+  padding-left: 12em;
+}
+
+.ql-editor .ql-indent-5 {
+  padding-left: 15em;
+}
+
+.ql-editor .ql-indent-6 {
+  padding-left: 18em;
+}
+
+.ql-editor .ql-indent-7 {
+  padding-left: 21em;
+}
+
+.ql-editor .ql-indent-8 {
+  padding-left: 24em;
+}
+
+/* Font sizes */
+.ql-editor .ql-size-small {
+  font-size: 0.75em;
+}
+
+.ql-editor .ql-size-large {
+  font-size: 1.5em;
+}
+
+.ql-editor .ql-size-huge {
+  font-size: 2.5em;
+}
+
+/* Font families */
+.ql-editor .ql-font-serif {
+  font-family: Georgia, Times New Roman, serif;
+}
+
+.ql-editor .ql-font-monospace {
+  font-family: Monaco, Courier New, monospace;
+}
+
+/* Colors - maintain Quill's color classes */
+.ql-editor .ql-color-red {
+  color: #e60000;
+}
+
+.ql-editor .ql-color-orange {
+  color: #f90;
+}
+
+.ql-editor .ql-color-yellow {
+  color: #ff0;
+}
+
+.ql-editor .ql-color-green {
+  color: #008a00;
+}
+
+.ql-editor .ql-color-blue {
+  color: #06c;
+}
+
+.ql-editor .ql-color-purple {
+  color: #93f;
+}
+
+/* Background colors */
+.ql-editor .ql-bg-red {
+  background-color: #e60000;
+}
+
+.ql-editor .ql-bg-orange {
+  background-color: #f90;
+}
+
+.ql-editor .ql-bg-yellow {
+  background-color: #ff0;
+}
+
+.ql-editor .ql-bg-green {
+  background-color: #008a00;
+}
+
+.ql-editor .ql-bg-blue {
+  background-color: #06c;
+}
+
+.ql-editor .ql-bg-purple {
+  background-color: #93f;
+}
+
+/* Remove any cursor or selection styles */
+.ql-editor::selection {
+  background: #b3d4fc;
+}
+
+.ql-editor::-moz-selection {
+  background: #b3d4fc;
+}
+
+/* Ensure consistent line height */
+.ql-editor {
+  line-height: 1.42;
+  color: #333;
+  font-size: 16px;
+  font-family: 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
+}
+
+/* Remove outline on focus since it's read-only */
+.ql-editor:focus {
+  outline: none;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .ql-editor {
+    font-size: 14px;
+  }
+  
+  .ql-editor h1 {
+    font-size: 1.75em;
+  }
+  
+  .ql-editor h2 {
+    font-size: 1.35em;
+  }
+  
+  .ql-editor h3 {
+    font-size: 1.1em;
+  }
+}
