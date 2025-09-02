@@ -17,6 +17,9 @@
 ### Página do Projeto (eau-app)
 - **Barra Superior de Ações**:
   - Botão "+ Service" - Criar novo serviço
+    - Elemento: `<a href="/projects/eau-app/create">`
+    - Ícone: SVG lucide-plus
+    - Link direto: /projects/eau-app/create
   - Botão "Templates" - Ver templates disponíveis
   - Ícone de menu (três linhas) - Opções adicionais
 
