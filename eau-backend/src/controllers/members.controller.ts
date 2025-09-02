@@ -217,7 +217,7 @@ export class MembersController {
 
   async getStatistics(req: AuthRequest, res: Response) {
     try {
-      let baseQuery = supabaseAdmin.from('members');
+      let baseQuery = supabaseAdmin.from('members').select('*');
 
       // Apply permission-based filtering
       if (req.user?.userType !== USER_TYPES.SUPER_ADMIN) {
@@ -271,7 +271,8 @@ export class MembersController {
         });
 
       // Get total count
-      const { count: totalMembers } = await baseQuery
+      const { count: totalMembers } = await supabaseAdmin
+        .from('members')
         .select('*', { count: 'exact', head: true });
 
       res.json({
@@ -357,8 +358,8 @@ export class MembersController {
         member.first_name || '',
         member.last_name || '',
         member.phone || '',
-        member.institutions?.name || '',
-        member.institutions?.membership_type || '',
+        (member.institutions as any)?.name || '',
+        (member.institutions as any)?.membership_type || '',
         member.membership_type || '',
         member.membership_status || '',
         member.interest_group || '',

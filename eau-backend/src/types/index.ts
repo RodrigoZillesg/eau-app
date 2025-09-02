@@ -58,6 +58,10 @@ export interface Member {
   cpd_points_current_year?: number;
   created_at: Date;
   updated_at: Date;
+  institutions?: {
+    name: string;
+    membership_type: string;
+  };
 }
 
 export interface CPDActivity {

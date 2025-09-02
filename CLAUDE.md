@@ -72,6 +72,14 @@
 
 - **Console Messages**: Development mode shows cache-clearing instructions in console
 
+### Server Access (VPS)
+**SSH Access - Use whenever server access is needed**
+- **IP**: 91.108.104.122
+- **SSH Command**: `ssh root@91.108.104.122`
+- **Password**: `Y#n9nah@=E@6ws8m!F/q\`
+- **EasyPanel URL**: http://91.108.104.122:3000/
+- **EasyPanel Login**: dev@platty.tech / F27i486fb3gVyPC
+
 ### Supabase Connection Details
 **IMPORTANT: ALWAYS USE ONLINE SUPABASE - NEVER LOCAL**
 - **Online URL**: https://english-australia-eau-supabase.lkobs5.easypanel.host
