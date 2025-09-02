@@ -1,21 +1,4 @@
-# Build stage
-FROM node:18-alpine AS builder
-
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-
-# Install ALL dependencies (including dev dependencies)
-RUN npm install
-
-# Copy all source files
-COPY . .
-
-# Build TypeScript using explicit path
-RUN node_modules/.bin/tsc
-
-# Production stage  
+# Production stage
 FROM node:18-alpine
 
 WORKDIR /app
@@ -24,10 +7,10 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install only production dependencies
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
-# Copy built application from builder stage
-COPY --from=builder /app/dist ./dist
+# Copy pre-compiled application
+COPY dist ./dist
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
