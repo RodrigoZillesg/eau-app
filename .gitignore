@@ -95,3 +95,8 @@ temp/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Scripts with secrets
+restore-*.js
+*-smtp*.js
+*.secret.js
