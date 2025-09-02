@@ -12,8 +12,8 @@ RUN npm ci
 # Copy application files (includes tsconfig.json)
 COPY . .
 
-# Build TypeScript
-RUN npx tsc
+# Build TypeScript (use local typescript from node_modules)
+RUN ./node_modules/.bin/tsc
 
 # Production stage
 FROM node:18-alpine
