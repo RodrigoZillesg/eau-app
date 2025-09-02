@@ -9,8 +9,9 @@ COPY package*.json ./
 # Install only production dependencies
 RUN npm ci --omit=dev
 
-# Copy pre-compiled application
-COPY dist ./dist
+# Copy all files first, then use the dist folder
+COPY . .
+# The dist folder is now available
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
