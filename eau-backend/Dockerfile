@@ -1,24 +1,3 @@
-# Build stage
-FROM node:18-alpine AS builder
-
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-
-# Install all dependencies (including dev dependencies for building)
-RUN npm install
-
-# Copy application files (includes tsconfig.json)
-COPY . .
-
-# Debug: List installed packages and check tsc
-RUN ls -la node_modules/.bin/ | grep tsc || echo "tsc not found"
-RUN npm list typescript || echo "typescript not installed"
-
-# Build TypeScript (use npm run build which should work)
-RUN npm run build
-
 # Production stage
 FROM node:18-alpine
 
@@ -30,8 +9,8 @@ COPY package*.json ./
 # Install only production dependencies
 RUN npm ci --only=production
 
-# Copy built application from builder
-COPY --from=builder /app/dist ./dist
+# Copy pre-built application
+COPY dist ./dist
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
