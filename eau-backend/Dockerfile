@@ -7,13 +7,17 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install all dependencies (including dev dependencies for building)
-RUN npm ci --include=dev
+RUN npm install
 
 # Copy application files (includes tsconfig.json)
 COPY . .
 
-# Build TypeScript (use local typescript from node_modules)
-RUN ./node_modules/.bin/tsc
+# Debug: List installed packages and check tsc
+RUN ls -la node_modules/.bin/ | grep tsc || echo "tsc not found"
+RUN npm list typescript || echo "typescript not installed"
+
+# Build TypeScript (use npm run build which should work)
+RUN npm run build
 
 # Production stage
 FROM node:18-alpine
