@@ -1,14 +1,14 @@
 # Production stage - use pre-built dist folder
 FROM nginx:alpine
 
-# Copy all files first to access nginx.conf and dist
-COPY . /tmp/app
+# Copy all source files including dist and nginx.conf
+COPY . .
 
-# Copy pre-built application
-COPY /tmp/app/dist /usr/share/nginx/html
+# Move dist to nginx html folder
+RUN mv dist/* /usr/share/nginx/html/
 
-# Copy nginx configuration
-COPY /tmp/app/nginx.conf /etc/nginx/conf.d/default.conf
+# Move nginx config
+RUN mv nginx.conf /etc/nginx/conf.d/default.conf
 
 # Expose port
 EXPOSE 80
