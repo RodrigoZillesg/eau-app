@@ -7,15 +7,19 @@ RUN rm -rf /usr/share/nginx/html/*
 # Copy everything to container
 COPY . .
 
-# Move dist contents to nginx html folder
-RUN if [ -d "dist" ]; then \
+# Since EasyPanel uses root context, dist is in eau-members/dist
+RUN if [ -d "eau-members/dist" ]; then \
+      cp -r eau-members/dist/* /usr/share/nginx/html/; \
+    elif [ -d "dist" ]; then \
       cp -r dist/* /usr/share/nginx/html/; \
     else \
       echo "ERROR: dist folder not found!" && ls -la && exit 1; \
     fi
 
-# Copy nginx config
-RUN if [ -f "nginx.conf" ]; then \
+# Copy nginx config (try both locations)
+RUN if [ -f "eau-members/nginx.conf" ]; then \
+      cp eau-members/nginx.conf /etc/nginx/conf.d/default.conf; \
+    elif [ -f "nginx.conf" ]; then \
       cp nginx.conf /etc/nginx/conf.d/default.conf; \
     else \
       echo "ERROR: nginx.conf not found!" && ls -la && exit 1; \
