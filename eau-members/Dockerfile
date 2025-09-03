@@ -1,19 +1,17 @@
 # Production stage - use pre-built dist folder
 FROM nginx:alpine
 
-WORKDIR /app
+# Copy everything to temporary location
+COPY . /tmp/source
 
-# Copy all source files including dist and nginx.conf
-COPY . .
+# Copy pre-built application
+RUN cp -r /tmp/source/dist/* /usr/share/nginx/html/ 2>/dev/null || true
 
-# Debug: Check what we have
-RUN ls -la && ls -la dist/ || echo "No dist folder found"
+# Copy nginx config
+RUN cp /tmp/source/nginx.conf /etc/nginx/conf.d/default.conf 2>/dev/null || true
 
-# Move dist to nginx html folder (if it exists)
-RUN if [ -d "dist" ]; then mv dist/* /usr/share/nginx/html/; else echo "Warning: dist folder not found"; fi
-
-# Move nginx config (if it exists)
-RUN if [ -f "nginx.conf" ]; then mv nginx.conf /etc/nginx/conf.d/default.conf; else echo "Warning: nginx.conf not found"; fi
+# Clean up
+RUN rm -rf /tmp/source
 
 # Expose port
 EXPOSE 80
