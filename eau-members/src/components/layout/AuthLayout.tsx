@@ -1,4 +1,5 @@
 import React from 'react'
+import { APP_VERSION } from '../../config/version'
 
 interface AuthLayoutProps {
   children: React.ReactNode
@@ -17,6 +18,10 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children }) => {
               alt="English Australia" 
               className="mx-auto h-16 w-auto mb-4"
             />
+            {/* Version info */}
+            <div className="text-xs text-gray-500">
+              {APP_VERSION.withEnv}
+            </div>
           </div>
           
           {/* Form container */}

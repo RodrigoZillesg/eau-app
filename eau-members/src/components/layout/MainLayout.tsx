@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase/client'
 import { PermissionGuard } from '../shared/PermissionGuard'
 import { User } from 'lucide-react'
 import { RoleSwitcher } from '../dev/RoleSwitcher'
+import { APP_VERSION } from '../../config/version'
 
 interface MainLayoutProps {
   children: React.ReactNode
@@ -147,9 +148,30 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       </nav>
 
       {/* Main Content */}
-      <main>
+      <main className="min-h-[calc(100vh-120px)]">
         {children}
       </main>
+      
+      {/* Footer with Version */}
+      <footer className="bg-gray-100 border-t border-gray-200 mt-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <div className="flex justify-between items-center text-sm text-gray-600">
+            <div>
+              © {new Date().getFullYear()} English Australia Union - All rights reserved
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="font-mono text-xs">
+                {APP_VERSION.withEnv}
+              </span>
+              {import.meta.env.DEV && (
+                <span className="text-xs text-orange-600 font-semibold">
+                  Build: {APP_VERSION.build}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </footer>
       
       {/* Role Switcher - Only in Development */}
       <RoleSwitcher />

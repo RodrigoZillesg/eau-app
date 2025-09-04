@@ -10,7 +10,10 @@
     "preview": "vite preview",
     "kill": "kill-server.bat",
     "restart": "powershell -ExecutionPolicy Bypass -File ../kill-server.ps1 && npm run dev",
-    "dev:clean": "powershell -ExecutionPolicy Bypass -File ../kill-server.ps1 && vite"
+    "dev:clean": "powershell -ExecutionPolicy Bypass -File ../kill-server.ps1 && vite",
+    "version:patch": "node ../scripts/update-version.js patch",
+    "version:minor": "node ../scripts/update-version.js minor",
+    "version:major": "node ../scripts/update-version.js major"
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",
