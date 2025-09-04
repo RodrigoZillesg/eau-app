@@ -5,6 +5,7 @@ import { useAuthStore } from '../../stores/authStore'
 import { supabase } from '../../lib/supabase/client'
 import { PermissionGuard } from '../shared/PermissionGuard'
 import { User } from 'lucide-react'
+import { RoleSwitcher } from '../dev/RoleSwitcher'
 
 interface MainLayoutProps {
   children: React.ReactNode
@@ -12,8 +13,11 @@ interface MainLayoutProps {
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const navigate = useNavigate()
-  const { user, roles, reset } = useAuthStore()
+  const { user, roles, reset, getEffectiveRoles, simulatedRole } = useAuthStore()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  
+  // Get effective roles (considering simulation)
+  const effectiveRoles = getEffectiveRoles()
 
   const handleLogout = async () => {
     setIsLoggingOut(true)
@@ -107,7 +111,15 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             <div className="flex items-center space-x-4">
               <div className="hidden md:block text-sm text-gray-700">
                 <p className="font-medium">{user?.user_metadata?.full_name || user?.email}</p>
-                <p className="text-xs text-gray-500">{roles.join(', ') || 'No roles'}</p>
+                <p className="text-xs text-gray-500">
+                  {simulatedRole && !import.meta.env.PROD ? (
+                    <span className="text-orange-600 font-semibold">
+                      🎭 {effectiveRoles.join(', ')} (simulated)
+                    </span>
+                  ) : (
+                    effectiveRoles.join(', ') || 'No roles'
+                  )}
+                </p>
               </div>
 
               <Button
@@ -138,6 +150,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       <main>
         {children}
       </main>
+      
+      {/* Role Switcher - Only in Development */}
+      <RoleSwitcher />
     </div>
   )
 }

@@ -79,7 +79,7 @@ export function ListDebugPage() {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <h1 className="text-3xl font-bold mb-8">List Debug Tool</h1>
       
       {/* PRIORITY: Forced Bullet Test - THIS MUST WORK */}

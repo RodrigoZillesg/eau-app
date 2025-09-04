@@ -104,10 +104,9 @@ class CPDService {
   static async createActivity(formData: CPDFormData, userId: string, userEmail: string): Promise<CPDActivity> {
     try {
       // Get settings and category configuration
-      const [settings, categorySettings, member] = await Promise.all([
+      const [settings, categorySettings] = await Promise.all([
         CPDService.getCPDSettings(),
-        CPDService.getCategorySettings(),
-        supabase.from('members').select('id').eq('email', userEmail).single()
+        CPDService.getCategorySettings()
       ])
 
       // Find category configuration
@@ -124,7 +123,7 @@ class CPDService {
       const initialStatus = 'approved'
       const approvalData = {
         approved_at: new Date().toISOString(),
-        approved_by: 'auto-approved'
+        approved_by: userId  // Use the user's own ID for auto-approval
       }
 
       // Upload evidence if provided
@@ -132,33 +131,49 @@ class CPDService {
       let evidence_filename = null
       
       if (formData.evidence) {
-        const fileExt = formData.evidence.name.split('.').pop()
-        const fileName = `cpd-evidence-${userId}-${Date.now()}.${fileExt}`
-        const filePath = `cpd-evidence/${fileName}`
+        console.log('Processing evidence file:', formData.evidence.name)
         
-        const { error: uploadError } = await supabase.storage
-          .from('profiles')
-          .upload(filePath, formData.evidence)
-        
-        if (!uploadError) {
-          const { data: { publicUrl } } = supabase.storage
-            .from('profiles')
-            .getPublicUrl(filePath)
+        // Since there are no storage buckets configured, we'll save the file as base64
+        // This is a temporary solution until storage buckets are properly configured
+        try {
+          // Convert file to base64
+          const reader = new FileReader()
+          const base64Promise = new Promise<string>((resolve, reject) => {
+            reader.onload = () => {
+              const result = reader.result as string
+              resolve(result)
+            }
+            reader.onerror = reject
+          })
+          reader.readAsDataURL(formData.evidence)
           
-          evidence_url = publicUrl
+          const base64Data = await base64Promise
+          
+          // For now, store the base64 data as the URL
+          // In production, this should be uploaded to a proper storage service
+          evidence_url = base64Data
           evidence_filename = formData.evidence.name
+          
+          console.log('Evidence processed as base64, filename:', evidence_filename)
+          
+          // Note: Base64 data can be large, so we should limit file size
+          if (formData.evidence.size > 2 * 1024 * 1024) { // 2MB limit for base64
+            showNotification('warning', 'Certificate file is large and may not save properly. Consider using a smaller file.')
+          }
+        } catch (error) {
+          console.error('Error processing evidence file:', error)
+          showNotification('warning', 'Could not process certificate file, but activity will be created')
         }
       }
 
-      // Create activity
+      // Create activity - simplified without member_id
       const activityData = {
         user_id: userId,
-        member_id: member.data?.id || null,
         category_id: formData.category_id,
         category_name: categoryName,
         activity_title: formData.activity_title,
-        description: formData.description,
-        provider: formData.provider,
+        description: formData.description || '',
+        provider: formData.provider || '',
         date_completed: formData.date_completed,
         hours: formData.hours,
         minutes: formData.minutes,
@@ -171,13 +186,19 @@ class CPDService {
         ...approvalData
       }
 
+      console.log('Attempting to insert CPD activity with data:', activityData)
+      
       const { data, error } = await supabase
         .from('cpd_activities')
         .insert(activityData)
         .select()
         .single()
 
-      if (error) throw error
+      if (error) {
+        console.error('Supabase error details:', error)
+        console.error('Activity data that failed:', activityData)
+        throw error
+      }
       
       const message = 'CPD activity added and automatically approved!'
       

@@ -6,6 +6,41 @@
 - **Communication**: All conversation with the user should be in Portuguese (PT-BR)
 - **Code and Application**: All code, UI text, error messages, and application content must be in English
 
+### UI DESIGN SYSTEM
+**⚠️ CRITICAL: SEMPRE CONSULTE O DESIGN SYSTEM ANTES DE CRIAR QUALQUER COMPONENTE**
+- **📖 LEIA PRIMEIRO**: `UI_DESIGN_SYSTEM.md`
+- **🎨 MANTENHA CONSISTÊNCIA**: Use apenas os padrões documentados
+- **📐 LARGURA PADRÃO**: Todas as páginas devem usar `max-w-7xl mx-auto px-4 sm:px-6 lg:px-8`
+- **🚫 NÃO INVENTE**: Não crie novos estilos sem atualizar o Design System
+
+**Regras de UI:**
+1. **SEMPRE** use o container padrão `max-w-7xl` para páginas
+2. **NUNCA** crie novos componentes sem consultar o Design System
+3. **SEMPRE** mantenha a mesma largura do Header em todas as páginas
+4. **USE** apenas as cores e espaçamentos definidos
+5. **TESTE** responsividade em todos os breakpoints
+
+### DEPLOYMENT TO EASYPANEL
+**⚠️ CRITICAL: SEMPRE CONSULTE A DOCUMENTAÇÃO DE DEPLOY ANTES DE FAZER DEPLOY**
+- **📖 LEIA PRIMEIRO**: `EASYPANEL_DEPLOYMENT_COMPLETE_GUIDE.md`
+- **🚨 NÃO FAÇA DEPLOY** sem consultar o guia completo
+- **❌ EVITE ERROS**: O guia contém todas as lições aprendidas e soluções
+
+**Regras de Deploy:**
+1. **SEMPRE** faça build local antes (`npm run build`)
+2. **NUNCA** compile TypeScript no Docker do EasyPanel
+3. **SEMPRE** commite as pastas `dist` antes do push
+4. **USE** os Dockerfiles simplificados do guia
+5. **LEMBRE-SE** que EasyPanel usa contexto root
+
+**Comando Rápido de Deploy:**
+```bash
+# Build e deploy completo
+cd eau-backend && npm run build && cd ../eau-members && npm run build && cd ..
+git add -A && git commit -m "Production build" && git push
+# Depois vá para EasyPanel e clique em Deploy
+```
+
 ### Development Server Management
 **CRITICAL: Port Management Rules**
 - **ALWAYS use port 5180** - This is our standard development port
@@ -215,11 +250,16 @@ When implementing WYSIWYG in new areas:
 - **TypeScript**: Configuração em `tsconfig.json`
 - **Tests**: Estrutura preparada para Jest
 
+### Production URLs (DEPLOYMENT SUCCESSFUL!)
+- **Frontend (Official Domain)**: https://eauapp.platty.tech/
+- **Backend API**: https://eau-app-servico-eau-backend.lkobs5.easypanel.host/
+- **Admin Login Page**: https://eauapp.platty.tech/login
+
 ### Credentials & Access
 - **Admin Login**: rrzillesg@gmail.com / Salmo119:97
 - **Supabase Admin**: supabase / this_password_is_insecure_and_should_be_updated
-- **Frontend**: Port 5180 (http://localhost:5180)
-- **Backend**: Port 3001 (http://localhost:3001)
+- **Frontend (Dev)**: Port 5180 (http://localhost:5180)
+- **Backend (Dev)**: Port 3001 (http://localhost:3001)
 
 ### Development Guidelines
 - Ao executar uma tarefa, sempre consulte @agents\index.md para definir o melhor agente

@@ -24,3 +24,9 @@
     -moz-osx-font-smoothing: grayscale;
   }
 }
+
+@layer components {
+  .rounded-lg {
+    background-color: #fff;
+  }
+}

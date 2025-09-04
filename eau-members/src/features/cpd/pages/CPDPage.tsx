@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Calendar, Clock, Award, FileText, Search } from 'lucide-react'
+import { Plus, Calendar, Clock, Award, FileText, Search, Eye, Download } from 'lucide-react'
 import { Card } from '../../../components/ui/Card'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
@@ -96,7 +96,7 @@ export function CPDPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">My CPD Activities</h1>
@@ -308,14 +308,72 @@ export function CPDPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       {activity.evidence_url ? (
-                        <a
-                          href={activity.evidence_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800"
-                        >
-                          View
-                        </a>
+                        <div className="flex items-center gap-2">
+                          {/* View button */}
+                          <button
+                            onClick={() => {
+                              if (activity.evidence_url.startsWith('data:')) {
+                                // For base64 data, open in new tab
+                                const newTab = window.open()
+                                if (newTab) {
+                                  // Check if it's an image or PDF
+                                  if (activity.evidence_url.includes('image/') || 
+                                      activity.evidence_url.includes('application/pdf')) {
+                                    newTab.document.write(`
+                                      <html>
+                                        <head>
+                                          <title>${activity.evidence_filename || 'Certificate'}</title>
+                                          <style>
+                                            body { 
+                                              margin: 0; 
+                                              display: flex; 
+                                              justify-content: center; 
+                                              align-items: center; 
+                                              min-height: 100vh; 
+                                              background: #f3f4f6; 
+                                            }
+                                            img { max-width: 90%; max-height: 90vh; }
+                                            embed { width: 100vw; height: 100vh; }
+                                          </style>
+                                        </head>
+                                        <body>
+                                          ${activity.evidence_url.includes('application/pdf') 
+                                            ? `<embed src="${activity.evidence_url}" type="application/pdf" />` 
+                                            : `<img src="${activity.evidence_url}" alt="${activity.evidence_filename || 'Certificate'}" />`
+                                          }
+                                        </body>
+                                      </html>
+                                    `)
+                                    newTab.document.close()
+                                  } else {
+                                    // For other file types, just open the data URL
+                                    newTab.location.href = activity.evidence_url
+                                  }
+                                }
+                              } else {
+                                // For regular URLs, open in new tab
+                                window.open(activity.evidence_url, '_blank')
+                              }
+                            }}
+                            className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                            title="View certificate"
+                          >
+                            <Eye className="w-4 h-4" />
+                            View
+                          </button>
+                          
+                          {/* Download button (only for base64 data) */}
+                          {activity.evidence_url.startsWith('data:') && (
+                            <a
+                              href={activity.evidence_url}
+                              download={activity.evidence_filename || 'certificate'}
+                              className="text-green-600 hover:text-green-800 flex items-center gap-1"
+                              title="Download certificate"
+                            >
+                              <Download className="w-4 h-4" />
+                            </a>
+                          )}
+                        </div>
                       ) : (
                         <span className="text-gray-400">-</span>
                       )}
