@@ -1,8 +1,7 @@
-version: '3'
-
+version: '3.8'
 services:
-  app:
-    build: .
-    ports:
-      - "80:80"
+  frontend:
+    build:
+      context: ..
+      dockerfile: eau-members/Dockerfile
     restart: unless-stopped
