@@ -49,7 +49,10 @@
       "WebSearch",
       "WebFetch(domain:api.openlearning.com)",
       "WebFetch(domain:help.openlearning.com)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "mcp__firecrawl__firecrawl_scrape"
     ],
     "deny": []
   }

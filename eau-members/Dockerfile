@@ -1,17 +1,20 @@
-# Production stage - use pre-built dist folder
+# Frontend - serve pre-built static files
 FROM nginx:alpine
 
-# Remove default nginx files
+# Debug: Show current directory
+RUN pwd && ls -la
+
+# Remove ALL default nginx files
 RUN rm -rf /usr/share/nginx/html/*
 
-# Copy built dist folder directly (EasyPanel context is root)
-COPY eau-members/dist /usr/share/nginx/html
+# Copy dist folder - Note: context depends on EasyPanel setup
+# If context is eau-members folder:
+COPY ./dist/. /usr/share/nginx/html/
+# Debug: Show what was copied
+RUN ls -la /usr/share/nginx/html/
 
 # Copy nginx config
-COPY eau-members/nginx.conf /etc/nginx/conf.d/default.conf
+COPY ./nginx.conf /etc/nginx/conf.d/default.conf
 
-# Expose port
 EXPOSE 80
-
-# Start nginx
 CMD ["nginx", "-g", "daemon off;"]

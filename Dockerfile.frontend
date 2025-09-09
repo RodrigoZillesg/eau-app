@@ -1,0 +1,16 @@
+# Dockerfile for frontend (eau-members)
+FROM nginx:alpine
+
+# Remove default nginx files
+RUN rm -rf /usr/share/nginx/html/*
+
+# Copy dist folder and nginx config
+# EasyPanel clones repo at root, so paths are relative to root
+COPY ./eau-members/dist/. /usr/share/nginx/html/
+COPY ./eau-members/nginx.conf /etc/nginx/conf.d/default.conf
+
+# Expose port
+EXPOSE 80
+
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]
