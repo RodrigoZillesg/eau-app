@@ -5,9 +5,23 @@ import { Button } from '../../../components/ui/Button'
 import { useAuthStore } from '../../../stores/authStore'
 import { PermissionGuard } from '../../../components/shared/PermissionGuard'
 import { supabase } from '../../../lib/supabase/client'
+import { impersonationService } from '../../../services/impersonationService'
 
 export const MemberDashboard: React.FC = () => {
-  const { user, roles } = useAuthStore()
+  const { user, roles, getEffectiveRoles, getEffectiveUserId } = useAuthStore()
+  const effectiveUserId = getEffectiveUserId()
+  
+  // Get display user and roles (considering impersonation)
+  const isImpersonating = impersonationService.isImpersonating()
+  const impersonationInfo = impersonationService.getDisplayInfo()
+  
+  const displayUser = isImpersonating 
+    ? { 
+        email: impersonationInfo.targetEmail,
+        user_metadata: { full_name: null } // Impersonated user doesn't have full name metadata
+      }
+    : user
+  const displayRoles = getEffectiveRoles()
   const navigate = useNavigate()
   
   // State for CPD statistics
@@ -29,15 +43,47 @@ export const MemberDashboard: React.FC = () => {
   // Fetch CPD statistics
   useEffect(() => {
     const fetchCPDStats = async () => {
-      if (!user?.id) return
+      if (!effectiveUserId) return
       
       try {
+        // Check if we're in impersonation mode
+        const impersonationSession = localStorage.getItem('eau_impersonation_session')
+        let query
+        
+        if (impersonationSession) {
+          // In impersonation mode, effectiveUserId is actually the member.id
+          const memberId = effectiveUserId
+          console.log('Dashboard: Fetching CPD activities for impersonated member:', memberId)
+          
+          query = supabase
+            .from('cpd_activities')
+            .select('*')
+            .eq('member_id', memberId)
+            .eq('status', 'approved')
+        } else {
+          // Normal mode: first get member_id from user_id
+          const { data: memberData, error: memberError } = await supabase
+            .from('members')
+            .select('id')
+            .eq('user_id', effectiveUserId)
+            .single()
+          
+          if (memberError || !memberData) {
+            console.error('Error fetching member data:', memberError)
+            setCpdStats(prev => ({ ...prev, loading: false }))
+            setActivitiesLoading(false)
+            return
+          }
+          
+          query = supabase
+            .from('cpd_activities')
+            .select('*')
+            .eq('member_id', memberData.id)
+            .eq('status', 'approved')
+        }
+        
         // Get all CPD activities for the user
-        const { data: activities, error } = await supabase
-          .from('cpd_activities')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('status', 'approved')
+        const { data: activities, error } = await query
         
         if (error) throw error
         
@@ -77,7 +123,7 @@ export const MemberDashboard: React.FC = () => {
     }
     
     fetchCPDStats()
-  }, [user?.id])
+  }, [effectiveUserId])
   
   // Fetch upcoming events
   useEffect(() => {
@@ -112,10 +158,10 @@ export const MemberDashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
-                Welcome back, {user?.user_metadata?.full_name || user?.email}
+                Welcome back, {displayUser?.user_metadata?.full_name || displayUser?.email}
               </h1>
               <p className="text-gray-600">
-                Roles: {roles.join(', ') || 'No roles assigned'}
+                Roles: {displayRoles.join(', ') || 'No roles assigned'}
               </p>
             </div>
           </div>

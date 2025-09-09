@@ -19,22 +19,23 @@ export function CPDPage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [totalPoints, setTotalPoints] = useState(0)
   const [yearlyPoints, setYearlyPoints] = useState(0)
-  const { user } = useAuthStore()
+  const { user, getEffectiveUserId } = useAuthStore()
+  const effectiveUserId = getEffectiveUserId()
   const yearlyGoal = 20 // Meta anual de 20 pontos
 
   useEffect(() => {
-    if (user) {
+    if (effectiveUserId) {
       loadActivities()
       loadPoints()
     }
-  }, [user, selectedYear])
+  }, [effectiveUserId, selectedYear])
 
   const loadActivities = async () => {
-    if (!user) return
+    if (!effectiveUserId) return
     
     try {
       setLoading(true)
-      const data = await CPDService.getUserActivities(user.id)
+      const data = await CPDService.getUserActivities(effectiveUserId)
       setActivities(data)
     } catch (error) {
       console.error('Error loading activities:', error)
@@ -44,12 +45,12 @@ export function CPDPage() {
   }
 
   const loadPoints = async () => {
-    if (!user) return
+    if (!effectiveUserId) return
     
     try {
       const [total, yearly] = await Promise.all([
-        CPDService.getTotalPoints(user.id),
-        CPDService.getYearlyPoints(user.id, selectedYear)
+        CPDService.getTotalPoints(effectiveUserId),
+        CPDService.getYearlyPoints(effectiveUserId, selectedYear)
       ])
       setTotalPoints(total)
       setYearlyPoints(yearly)

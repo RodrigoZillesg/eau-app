@@ -1,5 +1,6 @@
 import app from './app';
 import { logInfo } from './utils/logger';
+import { initializeReminderCron } from './jobs/reminder.cron';
 
 const PORT = process.env.PORT || 3001;
 const NODE_ENV = process.env.NODE_ENV || 'development';
@@ -18,6 +19,9 @@ async function startServer() {
     }
 
     logInfo('✅ Database connection successful');
+
+    // Initialize cron jobs for reminders
+    initializeReminderCron();
 
     // Start server
     const server = app.listen(PORT, () => {

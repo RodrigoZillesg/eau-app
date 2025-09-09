@@ -122,7 +122,7 @@ export const LoginForm: React.FC = () => {
           </button>
         </form>
         
-        <div className="mt-6 text-center">
+        <div className="text-center">
           <a 
             href="/forgot-password" 
             className="text-sm text-blue-600 hover:text-blue-500"

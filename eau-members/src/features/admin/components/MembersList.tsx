@@ -3,10 +3,14 @@ import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { Card } from '../../../components/ui/Card'
 import { MembersService, type MemberWithRoles } from '../../../lib/supabase/members'
-import { Search, Plus, Mail, Phone, Edit, Trash2, UserPlus, ChevronLeft, ChevronRight, Trash, CheckSquare } from 'lucide-react'
+import { Search, Plus, Mail, Phone, Edit, Trash2, UserPlus, ChevronLeft, ChevronRight, Trash, CheckSquare, Eye } from 'lucide-react'
 import type { MembershipStatus, MembershipType } from '../../../types/supabase'
 import { InviteUserModal } from './InviteUserModal'
 import { notifications } from '../../../lib/notifications'
+import { impersonationService } from '../../../services/impersonationService'
+import { useAuthStore } from '../../../stores/authStore'
+import { useNavigate } from 'react-router-dom'
+import { showNotification } from '../../../utils/notifications'
 
 interface MembersListProps {
   onMemberSelect?: (member: MemberWithRoles) => void
@@ -42,6 +46,11 @@ export const MembersList: React.FC<MembersListProps> = ({
   // Selection state
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set())
   const [isSelectionMode, setIsSelectionMode] = useState(false)
+  
+  // Navigation and auth
+  const navigate = useNavigate()
+  const { roles } = useAuthStore()
+  const canImpersonate = roles.includes('AdminSuper')
 
   const loadMembers = async (page: number = 1) => {
     try {
@@ -181,6 +190,22 @@ export const MembersList: React.FC<MembersListProps> = ({
 
   const closeInviteModal = () => {
     setInviteModal({ show: false, memberEmail: '' })
+  }
+
+  const handleImpersonate = async (member: MemberWithRoles) => {
+    if (!canImpersonate) {
+      showNotification('error', 'Only SuperAdmin can impersonate users')
+      return
+    }
+
+    const result = await impersonationService.startImpersonation(member.id)
+    if (result.success) {
+      showNotification('success', `Now viewing as ${member.first_name} ${member.last_name}`)
+      navigate('/dashboard')
+      window.location.reload() // Force reload to update all components
+    } else {
+      showNotification('error', result.error || 'Failed to start impersonation')
+    }
   }
 
   const getStatusBadge = (status: MembershipStatus) => {
@@ -444,6 +469,20 @@ export const MembersList: React.FC<MembersListProps> = ({
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       {!isSelectionMode && (
                         <div className="flex items-center justify-end gap-2">
+                          {canImpersonate && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleImpersonate(member)
+                              }}
+                              className="text-purple-600 hover:text-purple-700 hover:border-purple-300"
+                              title="View as this user"
+                            >
+                              <Eye size={14} />
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
                             size="sm"

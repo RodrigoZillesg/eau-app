@@ -6,11 +6,14 @@ import { Label } from '../../../components/ui/Label'
 import { MembersService, type MemberWithRoles } from '../../../lib/supabase/members'
 import { 
   Search, Plus, Download, Filter, X, Users, 
-  ChevronLeft, ChevronRight, Edit, Eye 
+  ChevronLeft, ChevronRight, Edit, Eye, UserCheck
 } from 'lucide-react'
 import type { MembershipStatus, MembershipType, InterestGroup } from '../../../types/supabase'
 import { exportMembersToCSV } from '../../../utils/csvExport'
 import { showNotification } from '../../../lib/notifications'
+import { impersonationService } from '../../../services/impersonationService'
+import { useAuthStore } from '../../../stores/authStore'
+import { useNavigate } from 'react-router-dom'
 
 interface MembersListEnhancedProps {
   onMemberSelect?: (member: MemberWithRoles) => void
@@ -52,6 +55,11 @@ export const MembersListEnhanced: React.FC<MembersListEnhancedProps> = ({
     state: '',
     hasRoles: false
   })
+  
+  // Navigation and auth
+  const navigate = useNavigate()
+  const { roles } = useAuthStore()
+  const canImpersonate = roles.includes('AdminSuper')
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
@@ -130,6 +138,22 @@ export const MembersListEnhanced: React.FC<MembersListEnhancedProps> = ({
     } catch (err) {
       console.error('Error exporting members:', err)
       showNotification('error', 'Failed to export members')
+    }
+  }
+
+  const handleImpersonate = async (member: MemberWithRoles) => {
+    if (!canImpersonate) {
+      showNotification('error', 'Only SuperAdmin can impersonate users')
+      return
+    }
+
+    const result = await impersonationService.startImpersonation(member.id)
+    if (result.success) {
+      showNotification('success', `Now viewing as ${member.first_name} ${member.last_name}`)
+      navigate('/dashboard')
+      window.location.reload() // Force reload to update all components
+    } else {
+      showNotification('error', result.error || 'Failed to start impersonation')
     }
   }
 
@@ -442,6 +466,15 @@ export const MembersListEnhanced: React.FC<MembersListEnhancedProps> = ({
                               title="Edit member"
                             >
                               <Edit className="w-4 h-4" />
+                            </button>
+                          )}
+                          {canImpersonate && (
+                            <button
+                              onClick={() => handleImpersonate(member)}
+                              className="text-purple-400 hover:text-purple-600"
+                              title="View as this user"
+                            >
+                              <UserCheck className="w-4 h-4" />
                             </button>
                           )}
                         </div>

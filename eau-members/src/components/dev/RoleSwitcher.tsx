@@ -3,6 +3,7 @@ import { ChevronDown, User, Shield, Building, Users, Eye, X } from 'lucide-react
 import { useAuthStore } from '../../stores/authStore'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
+import { impersonationService } from '../../services/impersonationService'
 
 interface RoleOption {
   value: string
@@ -17,14 +18,14 @@ const roleOptions: RoleOption[] = [
     value: 'AdminSuper',
     label: 'Super Admin',
     icon: <Shield className="w-4 h-4" />,
-    description: 'Full system access',
+    description: 'Full system & technical access',
     color: 'bg-purple-100 text-purple-700 border-purple-300'
   },
   {
     value: 'Admin',
-    label: 'Institution Admin',
+    label: 'Admin',
     icon: <Building className="w-4 h-4" />,
-    description: 'Manage institution & events',
+    description: 'Operational management only',
     color: 'bg-blue-100 text-blue-700 border-blue-300'
   },
   {
@@ -55,11 +56,25 @@ export function RoleSwitcher() {
   const [isOpen, setIsOpen] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
   
-  // Only show in development mode
-  if (import.meta.env.PROD) return null
+  // Load simulated role from localStorage only after roles are loaded
+  useEffect(() => {
+    const { rolesLoaded } = useAuthStore.getState()
+    if (rolesLoaded && user) {
+      const actualRole = roles.length > 0 ? roles[0] : 'Members'
+      const saved = localStorage.getItem('simulatedRole')
+      if (saved && saved !== actualRole) {
+        setSimulatedRole(saved as any)
+      }
+    }
+  }, [user, roles, setSimulatedRole])
   
-  // Don't show if user is not authenticated or roles not loaded
-  if (!user || !rolesLoaded) return null
+  // Check conditions after hooks
+  const shouldHide = import.meta.env.PROD || 
+                    !user || 
+                    !rolesLoaded || 
+                    impersonationService.isImpersonating()
+  
+  if (shouldHide) return null
   
   // Get actual role from roles array
   const actualRole = roles.length > 0 ? roles[0] : 'Members'
@@ -80,16 +95,6 @@ export function RoleSwitcher() {
     window.location.reload()
   }
   
-  // Load simulated role from localStorage only after roles are loaded
-  useEffect(() => {
-    const { rolesLoaded } = useAuthStore.getState()
-    if (rolesLoaded && user) {
-      const saved = localStorage.getItem('simulatedRole')
-      if (saved && saved !== actualRole) {
-        setSimulatedRole(saved as any)
-      }
-    }
-  }, [user, actualRole])
   
   // Minimized view
   if (isMinimized) {

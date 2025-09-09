@@ -4,8 +4,7 @@ import { showNotification } from '../../lib/notifications'
 // Types - ALL IN ONE FILE TO AVOID IMPORT ISSUES
 interface CPDActivity {
   id: string
-  member_id?: string
-  user_id: string
+  member_id: string
   category_id: number
   category_name: string
   activity_title: string
@@ -87,10 +86,50 @@ const CPD_CATEGORIES: CPDCategory[] = [
 class CPDService {
   static async getUserActivities(userId: string): Promise<CPDActivity[]> {
     try {
+      // Check if we're in impersonation mode
+      const impersonationSession = localStorage.getItem('eau_impersonation_session')
+      let memberId: string
+      
+      if (impersonationSession) {
+        try {
+          const session = JSON.parse(impersonationSession)
+          // In impersonation mode, impersonatedUserId is actually the member.id
+          memberId = session.impersonatedUserId
+          console.log('Getting activities for impersonated member:', memberId)
+        } catch (e) {
+          console.error('Error parsing impersonation session:', e)
+          // Fallback to normal flow
+          const { data: memberData, error: memberError } = await supabase
+            .from('members')
+            .select('id')
+            .eq('user_id', userId)
+            .single()
+          
+          if (memberError || !memberData) {
+            console.error('Error fetching member data:', memberError)
+            return []
+          }
+          memberId = memberData.id
+        }
+      } else {
+        // Normal mode: get member_id from user_id
+        const { data: memberData, error: memberError } = await supabase
+          .from('members')
+          .select('id')
+          .eq('user_id', userId)
+          .single()
+        
+        if (memberError || !memberData) {
+          console.error('Error fetching member data:', memberError)
+          return []
+        }
+        memberId = memberData.id
+      }
+
       const { data, error } = await supabase
         .from('cpd_activities')
         .select('*')
-        .eq('user_id', userId)
+        .eq('member_id', memberId)
         .order('date_completed', { ascending: false })
 
       if (error) throw error
@@ -103,6 +142,48 @@ class CPDService {
 
   static async createActivity(formData: CPDFormData, userId: string, userEmail: string): Promise<CPDActivity> {
     try {
+      // Check if we're in impersonation mode
+      const impersonationSession = localStorage.getItem('eau_impersonation_session')
+      let memberId: string
+      
+      if (impersonationSession) {
+        try {
+          const session = JSON.parse(impersonationSession)
+          // In impersonation mode, impersonatedUserId is actually the member.id
+          memberId = session.impersonatedUserId
+          console.log('Creating activity for impersonated member:', memberId)
+        } catch (e) {
+          console.error('Error parsing impersonation session:', e)
+          // Fallback to normal flow
+          const { data: memberData, error: memberError } = await supabase
+            .from('members')
+            .select('id')
+            .eq('user_id', userId)
+            .single()
+          
+          if (memberError || !memberData) {
+            console.error('Error fetching member data:', memberError)
+            throw new Error('Member record not found for this user')
+          }
+          memberId = memberData.id
+        }
+      } else {
+        // Normal mode: get member_id from user_id
+        const { data: memberData, error: memberError } = await supabase
+          .from('members')
+          .select('id')
+          .eq('user_id', userId)
+          .single()
+        
+        if (memberError || !memberData) {
+          console.error('Error fetching member data:', memberError)
+          throw new Error('Member record not found for this user')
+        }
+        memberId = memberData.id
+      }
+      
+      console.log('Using member_id:', memberId)
+
       // Get settings and category configuration
       const [settings, categorySettings] = await Promise.all([
         CPDService.getCPDSettings(),
@@ -121,9 +202,13 @@ class CPDService {
 
       // ALWAYS auto-approve activities (as per client requirements)
       const initialStatus = 'approved'
-      const approvalData = {
-        approved_at: new Date().toISOString(),
-        approved_by: userId  // Use the user's own ID for auto-approval
+      const approvalData: any = {
+        approved_at: new Date().toISOString()
+      }
+      
+      // Only add approved_by if NOT in impersonation mode
+      if (!impersonationSession) {
+        approvalData.approved_by = userId  // Use the user's own ID for auto-approval
       }
 
       // Upload evidence if provided
@@ -166,9 +251,9 @@ class CPDService {
         }
       }
 
-      // Create activity - simplified without member_id
-      const activityData = {
-        user_id: userId,
+      // Create activity with proper member_id and user_id
+      const activityData: any = {
+        member_id: memberId,  // Use the actual member_id from the members table
         category_id: formData.category_id,
         category_name: categoryName,
         activity_title: formData.activity_title,
@@ -181,9 +266,15 @@ class CPDService {
         evidence_url,
         evidence_filename,
         status: initialStatus,
-        created_by: userId,
         // Auto-approved, set approval fields
         ...approvalData
+      }
+      
+      // Only add user_id and created_by if NOT in impersonation mode
+      // Since impersonated members don't have user_id in auth.users table
+      if (!impersonationSession) {
+        activityData.user_id = userId
+        activityData.created_by = userId
       }
 
       console.log('Attempting to insert CPD activity with data:', activityData)
@@ -250,10 +341,49 @@ class CPDService {
 
   static async getTotalPoints(userId: string): Promise<number> {
     try {
+      // Check if we're in impersonation mode
+      const impersonationSession = localStorage.getItem('eau_impersonation_session')
+      let memberId: string
+      
+      if (impersonationSession) {
+        try {
+          const session = JSON.parse(impersonationSession)
+          // In impersonation mode, impersonatedUserId is actually the member.id
+          memberId = session.impersonatedUserId
+        } catch (e) {
+          console.error('Error parsing impersonation session:', e)
+          // Fallback to normal flow
+          const { data: memberData, error: memberError } = await supabase
+            .from('members')
+            .select('id')
+            .eq('user_id', userId)
+            .single()
+          
+          if (memberError || !memberData) {
+            console.error('Error fetching member data:', memberError)
+            return 0
+          }
+          memberId = memberData.id
+        }
+      } else {
+        // Normal mode: get member_id from user_id
+        const { data: memberData, error: memberError } = await supabase
+          .from('members')
+          .select('id')
+          .eq('user_id', userId)
+          .single()
+        
+        if (memberError || !memberData) {
+          console.error('Error fetching member data:', memberError)
+          return 0
+        }
+        memberId = memberData.id
+      }
+
       const { data, error } = await supabase
         .from('cpd_activities')
         .select('points')
-        .eq('user_id', userId)
+        .eq('member_id', memberId)
         .eq('status', 'approved')
 
       if (error) throw error
@@ -267,13 +397,52 @@ class CPDService {
 
   static async getYearlyPoints(userId: string, year: number): Promise<number> {
     try {
+      // Check if we're in impersonation mode
+      const impersonationSession = localStorage.getItem('eau_impersonation_session')
+      let memberId: string
+      
+      if (impersonationSession) {
+        try {
+          const session = JSON.parse(impersonationSession)
+          // In impersonation mode, impersonatedUserId is actually the member.id
+          memberId = session.impersonatedUserId
+        } catch (e) {
+          console.error('Error parsing impersonation session:', e)
+          // Fallback to normal flow
+          const { data: memberData, error: memberError } = await supabase
+            .from('members')
+            .select('id')
+            .eq('user_id', userId)
+            .single()
+          
+          if (memberError || !memberData) {
+            console.error('Error fetching member data:', memberError)
+            return 0
+          }
+          memberId = memberData.id
+        }
+      } else {
+        // Normal mode: get member_id from user_id
+        const { data: memberData, error: memberError } = await supabase
+          .from('members')
+          .select('id')
+          .eq('user_id', userId)
+          .single()
+        
+        if (memberError || !memberData) {
+          console.error('Error fetching member data:', memberError)
+          return 0
+        }
+        memberId = memberData.id
+      }
+
       const startDate = `${year}-01-01`
       const endDate = `${year}-12-31`
       
       const { data, error } = await supabase
         .from('cpd_activities')
         .select('points')
-        .eq('user_id', userId)
+        .eq('member_id', memberId)
         .eq('status', 'approved')
         .gte('date_completed', startDate)
         .lte('date_completed', endDate)
@@ -284,6 +453,42 @@ class CPDService {
     } catch (error) {
       console.error('Error calculating yearly points:', error)
       return 0
+    }
+  }
+
+  // Admin methods for managing CPD activities
+  static async getAllActivities(filters?: {
+    status?: string
+    userId?: string
+    search?: string
+  }): Promise<CPDActivity[]> {
+    try {
+      let query = supabase
+        .from('cpd_activities')
+        .select(`
+          *,
+          members(id, first_name, last_name, email)
+        `)
+        .order('created_at', { ascending: false })
+
+      // Apply filters
+      if (filters?.status) {
+        query = query.eq('status', filters.status)
+      }
+      if (filters?.userId) {
+        query = query.eq('member_id', filters.userId)
+      }
+      if (filters?.search) {
+        query = query.ilike('activity_title', `%${filters.search}%`)
+      }
+
+      const { data, error } = await query
+
+      if (error) throw error
+      return data || []
+    } catch (error) {
+      console.error('Error fetching all activities:', error)
+      return []
     }
   }
 
@@ -345,6 +550,47 @@ class CPDService {
     } catch (error) {
       console.error('Error getting activities stats:', error)
       return { total: 0, pending: 0, approved: 0, rejected: 0 }
+    }
+  }
+
+  static async getPointsStats(): Promise<{
+    totalPoints: number
+    monthlyPoints: number
+  }> {
+    try {
+      // Get start of current month
+      const now = new Date()
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+      const startOfMonthISO = startOfMonth.toISOString()
+
+      // Get all approved activities
+      const { data: allActivities, error: allError } = await supabase
+        .from('cpd_activities')
+        .select('points')
+        .eq('status', 'approved')
+
+      if (allError) throw allError
+
+      // Get current month approved activities
+      const { data: monthActivities, error: monthError } = await supabase
+        .from('cpd_activities')
+        .select('points')
+        .eq('status', 'approved')
+        .gte('created_at', startOfMonthISO)
+
+      if (monthError) throw monthError
+
+      // Calculate totals
+      const totalPoints = allActivities?.reduce((sum, activity) => sum + (activity.points || 0), 0) || 0
+      const monthlyPoints = monthActivities?.reduce((sum, activity) => sum + (activity.points || 0), 0) || 0
+
+      return {
+        totalPoints,
+        monthlyPoints
+      }
+    } catch (error) {
+      console.error('Error getting points stats:', error)
+      return { totalPoints: 0, monthlyPoints: 0 }
     }
   }
 

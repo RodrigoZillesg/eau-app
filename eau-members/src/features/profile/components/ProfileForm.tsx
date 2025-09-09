@@ -34,7 +34,8 @@ type ProfileFormData = z.infer<typeof profileSchema>
 export function ProfileForm() {
   const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(true)
-  const { user } = useAuthStore()
+  const { user, getEffectiveUserId } = useAuthStore()
+  const effectiveUserId = getEffectiveUserId()
   
   const {
     register,
@@ -52,10 +53,10 @@ export function ProfileForm() {
 
   useEffect(() => {
     loadUserProfile()
-  }, [user])
+  }, [effectiveUserId])
 
   const loadUserProfile = async () => {
-    if (!user) return
+    if (!effectiveUserId) return
     
     try {
       setLoadingData(true)
@@ -68,7 +69,7 @@ export function ProfileForm() {
       const queryPromise = supabase
         .from('members')
         .select('*')
-        .eq('email', user.email)
+        .eq('id', effectiveUserId)
         .single()
       
       let memberData = null
@@ -89,7 +90,7 @@ export function ProfileForm() {
 
       // Preencher o formulário com os dados do membro
       const formData = {
-        email: user.email || '',
+        email: memberData?.email || user.email || '',
         first_name: memberData?.first_name || '',
         last_name: memberData?.last_name || '',
         phone: memberData?.phone || '',
@@ -135,16 +136,16 @@ export function ProfileForm() {
   }
 
   const onSubmit = async (data: ProfileFormData) => {
-    if (!user) return
+    if (!effectiveUserId) return
 
     try {
       setLoading(true)
 
-      // Verificar se o membro existe pelo email
+      // Verificar se o membro existe pelo ID
       const { data: existingMember } = await supabase
         .from('members')
         .select('id')
-        .eq('email', user.email)
+        .eq('id', effectiveUserId)
         .single()
 
       const memberData = {
@@ -163,7 +164,7 @@ export function ProfileForm() {
         experience_years: data.experience_years ? Number(data.experience_years) : null,
         qualifications: data.qualifications || null,
         updated_at: new Date().toISOString(),
-        updated_by: user.id
+        updated_by: effectiveUserId
       }
 
       if (existingMember) {
@@ -184,7 +185,7 @@ export function ProfileForm() {
             membership_type: 'standard',
             receive_newsletters: true,
             receive_event_notifications: true,
-            created_by: user.id
+            created_by: effectiveUserId
           })
 
         if (memberError) throw memberError

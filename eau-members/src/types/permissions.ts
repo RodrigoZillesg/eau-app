@@ -22,7 +22,7 @@ export const PERMISSIONS = {
   REGISTER_EVENT: ['Admin', 'AdminSuper', 'Members', 'MemberColleges', 'ConsultantsAgents', 'BoardMembers', 'Affiliates'],
   
   // User Management
-  MANAGE_USERS: ['AdminSuper'],
+  MANAGE_USERS: ['Admin', 'AdminSuper'],
   ASSIGN_ROLES: ['AdminSuper'],
   VIEW_USER_REPORTS: ['Admin', 'AdminSuper'],
   

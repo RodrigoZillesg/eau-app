@@ -3,10 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { Card } from '../../../components/ui/Card'
 import { Button } from '../../../components/ui/Button'
 import { MemberStats } from './MemberStats'
-import { Users, Calendar, BookOpen, Settings, UserCheck, FileText, Upload, UserPlus, Database } from 'lucide-react'
+import { useAuthStore } from '../../../stores/authStore'
+import { Users, Calendar, BookOpen, Settings, UserCheck, FileText, Upload, Database, Trash2, GraduationCap } from 'lucide-react'
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate()
+  const { user } = useAuthStore()
+  const isSuperAdmin = user?.user_metadata?.role === 'AdminSuper'
 
   const adminCards = [
     {
@@ -42,14 +45,6 @@ export const AdminDashboard: React.FC = () => {
       onClick: () => navigate('/admin/reports')
     },
     {
-      title: 'Import Users',
-      description: 'Import users from CSV',
-      icon: UserPlus,
-      color: 'text-indigo-600',
-      bgColor: 'bg-indigo-100',
-      onClick: () => navigate('/admin/import-users')
-    },
-    {
       title: 'Import Activities',
       description: 'Import CPD activities from CSV',
       icon: Upload,
@@ -58,12 +53,29 @@ export const AdminDashboard: React.FC = () => {
       onClick: () => navigate('/admin/import-activities')
     },
     {
-      title: 'Complete Import',
+      title: 'Import System',
       description: 'Import members, companies & memberships',
       icon: Database,
       color: 'text-rose-600',
       bgColor: 'bg-rose-100',
-      onClick: () => navigate('/admin/import-complete')
+      onClick: () => navigate('/admin/import-system')
+    },
+    {
+      title: 'OpenLearning',
+      description: 'Manage OpenLearning integration',
+      icon: GraduationCap,
+      color: 'text-green-600',
+      bgColor: 'bg-green-100',
+      onClick: () => navigate('/admin/openlearning')
+    },
+    {
+      title: 'Bulk Management',
+      description: 'Mass delete and manage members',
+      icon: Trash2,
+      color: 'text-red-600',
+      bgColor: 'bg-red-100',
+      onClick: () => navigate('/admin/bulk-management'),
+      requireSuperAdmin: true
     },
     {
       title: 'Settings',
@@ -92,7 +104,9 @@ export const AdminDashboard: React.FC = () => {
       <div className="mb-8">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Administrative Tools</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {adminCards.map((card) => {
+          {adminCards
+            .filter(card => !card.requireSuperAdmin || isSuperAdmin)
+            .map((card) => {
             const IconComponent = card.icon
             return (
               <Card 

@@ -42,7 +42,14 @@
       "Bash(dir)",
       "mcp__context7__resolve-library-id",
       "mcp__context7__get-library-docs",
-      "Bash(RUN_MODE=continuous node production-reminder-worker.js)"
+      "Bash(RUN_MODE=continuous node production-reminder-worker.js)",
+      "mcp__playwright__playwright_select",
+      "mcp__playwright__playwright_press_key",
+      "Bash(awk:*)",
+      "WebSearch",
+      "WebFetch(domain:api.openlearning.com)",
+      "WebFetch(domain:help.openlearning.com)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }

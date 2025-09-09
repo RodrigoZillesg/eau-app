@@ -29,24 +29,25 @@ interface RegisteredEvent {
 
 export function MyRegistrationsPage() {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, getEffectiveUserId } = useAuthStore();
+  const effectiveUserId = getEffectiveUserId();
   const [registrations, setRegistrations] = useState<RegisteredEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
 
   useEffect(() => {
-    if (user) {
+    if (effectiveUserId) {
       loadRegistrations();
     }
-  }, [user]);
+  }, [effectiveUserId]);
 
   const loadRegistrations = async () => {
-    if (!user) return;
+    if (!effectiveUserId) return;
     
     try {
       setLoading(true);
       // Get user's registrations
-      const userRegistrations = await EventRegistrationService.getUserRegistrations(user.id);
+      const userRegistrations = await EventRegistrationService.getUserRegistrations(effectiveUserId);
       
       // Load event details for each registration
       const registeredEvents: RegisteredEvent[] = await Promise.all(

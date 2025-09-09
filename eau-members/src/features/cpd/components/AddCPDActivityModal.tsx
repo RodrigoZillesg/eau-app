@@ -31,7 +31,8 @@ export function AddCPDActivityModal({ isOpen, onClose, onSuccess }: AddCPDActivi
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null)
   const [categorySettings, setCategorySettings] = useState<CPDCategorySettings[]>([])
-  const { user } = useAuthStore()
+  const { user, getEffectiveUserId } = useAuthStore()
+  const effectiveUserId = getEffectiveUserId()
   
   const {
     register,
@@ -49,8 +50,8 @@ export function AddCPDActivityModal({ isOpen, onClose, onSuccess }: AddCPDActivi
   })
 
   const selectedCategoryId = watch('category_id')
-  const hours = watch('hours') || 0
-  const minutes = watch('minutes') || 0
+  const hours = Number(watch('hours')) || 0
+  const minutes = Number(watch('minutes')) || 0
 
   useEffect(() => {
     if (isOpen) {
@@ -74,22 +75,34 @@ export function AddCPDActivityModal({ isOpen, onClose, onSuccess }: AddCPDActivi
     const fallbackCategory = CPD_CATEGORIES.find(c => c.id === Number(selectedCategoryId))
     
     const pointsPerHour = categoryConfig?.points_per_hour || fallbackCategory?.points_per_hour || 1
-    const totalHours = hours + (minutes / 60)
+    const safeHours = isNaN(hours) ? 0 : hours
+    const safeMinutes = isNaN(minutes) ? 0 : minutes
+    const totalHours = safeHours + (safeMinutes / 60)
     return (totalHours * pointsPerHour).toFixed(2)
   }
 
   const onSubmit = async (data: CPDFormData) => {
-    if (!user) return
+    if (!effectiveUserId) return
     
     try {
       setIsSubmitting(true)
+      
+      // Get the email for the effective user
+      const { supabase } = await import('../../../lib/supabase/client')
+      const { data: memberData } = await supabase
+        .from('members')
+        .select('email')
+        .eq('id', effectiveUserId)
+        .single()
+      
+      const effectiveEmail = memberData?.email || user?.email || ''
       
       const formDataWithEvidence = {
         ...data,
         evidence: evidenceFile || undefined
       }
       
-      await CPDService.createActivity(formDataWithEvidence, user.id, user.email || '')
+      await CPDService.createActivity(formDataWithEvidence, effectiveUserId, effectiveEmail)
       
       reset()
       setEvidenceFile(null)

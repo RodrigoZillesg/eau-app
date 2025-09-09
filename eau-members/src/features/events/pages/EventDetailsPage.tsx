@@ -33,7 +33,8 @@ import { EventCountdown } from '../../../components/EventCountdown';
 export function EventDetailsPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, getEffectiveUserId } = useAuthStore();
+  const effectiveUserId = getEffectiveUserId();
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [userRegistration, setUserRegistration] = useState<EventRegistration | null>(null);
@@ -66,16 +67,16 @@ export function EventDetailsPage() {
       setRegistrationCount(regs.length);
       
       // Check if current user is registered and auto check-in if applicable
-      if (user) {
-        const isRegistered = await EventRegistrationService.isUserRegistered(eventData.id, user.id);
+      if (effectiveUserId) {
+        const isRegistered = await EventRegistrationService.isUserRegistered(eventData.id, effectiveUserId);
         if (isRegistered) {
           // Get full registration details
-          const userRegs = await EventRegistrationService.getUserRegistrations(user.id);
+          const userRegs = await EventRegistrationService.getUserRegistrations(effectiveUserId);
           const userReg = userRegs.find(r => r.event_id === eventData.id);
           setUserRegistration(userReg || null);
           
           // Auto check-in if within event time
-          await EventRegistrationService.autoCheckIn(eventData.id, user.id);
+          await EventRegistrationService.autoCheckIn(eventData.id, effectiveUserId);
         }
       }
     } catch (error) {
@@ -141,7 +142,7 @@ export function EventDetailsPage() {
       await EventRegistrationService.logAttendance(
         userRegistration.id,
         event.id,
-        user.id,
+        effectiveUserId,
         'video_start'
       );
       

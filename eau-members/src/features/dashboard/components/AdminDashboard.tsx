@@ -10,13 +10,22 @@ import { EventService } from '../../../services/eventService'
 
 const { CPDService } = cpd
 
+interface CPDSettings {
+  id: string
+  auto_approval_enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
 export const AdminDashboard: React.FC = () => {
-  const { user, roles } = useAuthStore()
+  const { user, roles, getEffectiveRoles } = useAuthStore()
   const navigate = useNavigate()
   const [cpdStats, setCpdStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 })
   const [pendingActivities, setPendingActivities] = useState<CPDActivity[]>([])
   const [memberStats, setMemberStats] = useState({ total: 0, active: 0, newThisMonth: 0, inactive: 0 })
   const [eventStats, setEventStats] = useState({ active: 0, upcoming: 0, past: 0 })
+  const [cpdSettings, setCpdSettings] = useState<CPDSettings | null>(null)
+  const [pointsStats, setPointsStats] = useState({ totalPoints: 0, monthlyPoints: 0 })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -26,15 +35,19 @@ export const AdminDashboard: React.FC = () => {
   const loadDashboardData = async () => {
     try {
       setLoading(true)
-      const [stats, pending, members, events] = await Promise.all([
+      const [stats, pending, members, events, settings, points] = await Promise.all([
         CPDService.getAllActivitiesStats(),
         CPDService.getAllPendingActivities(),
         MembersService.getMemberStats(),
-        EventService.getEvents()
+        EventService.getEvents(),
+        CPDService.getCPDSettings(),
+        CPDService.getPointsStats()
       ])
       setCpdStats(stats)
       setPendingActivities(pending)
       setMemberStats(members)
+      setCpdSettings(settings)
+      setPointsStats(points)
       
       // Calculate event statistics
       const now = new Date()
@@ -95,7 +108,10 @@ export const AdminDashboard: React.FC = () => {
           </Card>
 
           {/* Total CPD Activities */}
-          <Card>
+          <Card 
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => navigate('/cpd/management')}
+          >
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -136,11 +152,15 @@ export const AdminDashboard: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Points Awarded</p>
-                  <p className="text-3xl font-bold text-gray-900">0</p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {loading ? '...' : pointsStats.totalPoints}
+                  </p>
                 </div>
                 <div className="text-3xl">⭐</div>
               </div>
-              <p className="text-xs text-gray-500 mt-2">This month: 0</p>
+              <p className="text-xs text-gray-500 mt-2">
+                This month: {loading ? '...' : pointsStats.monthlyPoints}
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -159,17 +179,30 @@ export const AdminDashboard: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                <PermissionGuard permission="APPROVE_CPD">
+                {/* Review CPD: Show for SuperAdmin always, or for Admin only if auto-approval is disabled */}
+                {(getEffectiveRoles().includes('AdminSuper') || (cpdSettings && !cpdSettings.auto_approval_enabled)) && (
+                  <PermissionGuard permission="APPROVE_CPD">
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-start"
+                      onClick={() => navigate('/cpd/review')}
+                    >
+                      ✅ Review CPD Submissions ({loading ? '...' : `${cpdStats.pending} pending`})
+                    </Button>
+                  </PermissionGuard>
+                )}
+
+                <PermissionGuard roles={['Admin', 'AdminSuper']}>
                   <Button 
                     variant="outline" 
                     className="w-full justify-start"
-                    onClick={() => navigate('/cpd/review')}
+                    onClick={() => navigate('/cpd/management')}
                   >
-                    ✅ Review CPD Submissions ({loading ? '...' : `${cpdStats.pending} pending`})
+                    📚 Manage All CPD Activities
                   </Button>
                 </PermissionGuard>
 
-                <PermissionGuard permission="ACCESS_ADMIN_DASHBOARD">
+                <PermissionGuard roles={['AdminSuper']}>
                   <Button 
                     variant="outline" 
                     className="w-full justify-start"
@@ -219,7 +252,8 @@ export const AdminDashboard: React.FC = () => {
                   </Button>
                 </PermissionGuard>
                 
-                <PermissionGuard permission="ACCESS_ADMIN_DASHBOARD">
+                {/* Technical Settings - SuperAdmin Only */}
+                <PermissionGuard roles={['AdminSuper']}>
                   <Button 
                     variant="outline" 
                     className="w-full justify-start"
@@ -229,7 +263,7 @@ export const AdminDashboard: React.FC = () => {
                   </Button>
                 </PermissionGuard>
                 
-                <PermissionGuard permission="ACCESS_ADMIN_DASHBOARD">
+                <PermissionGuard roles={['AdminSuper']}>
                   <Button 
                     variant="outline" 
                     className="w-full justify-start"
@@ -239,13 +273,45 @@ export const AdminDashboard: React.FC = () => {
                   </Button>
                 </PermissionGuard>
                 
-                <PermissionGuard permission="ACCESS_ADMIN_DASHBOARD">
+                {/* Event Reminders - SuperAdmin Only */}
+                <PermissionGuard roles={['AdminSuper']}>
                   <Button 
                     variant="outline" 
                     className="w-full justify-start"
                     onClick={() => navigate('/admin/event-reminders')}
                   >
                     🔔 Event Reminders
+                  </Button>
+                </PermissionGuard>
+                
+                {/* Import System - SuperAdmin Only */}
+                <PermissionGuard roles={['AdminSuper']}>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => navigate('/admin/import-system')}
+                  >
+                    📥 Import System (CSV)
+                  </Button>
+                </PermissionGuard>
+                
+                <PermissionGuard roles={['Admin', 'AdminSuper']}>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => navigate('/admin/duplicates')}
+                  >
+                    🔍 Review Member Duplicates
+                  </Button>
+                </PermissionGuard>
+
+                <PermissionGuard roles={['AdminSuper']}>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start text-red-600 hover:text-red-700 border-red-300 hover:border-red-400"
+                    onClick={() => navigate('/admin/bulk-management')}
+                  >
+                    🗑️ Bulk Member Management
                   </Button>
                 </PermissionGuard>
               </div>

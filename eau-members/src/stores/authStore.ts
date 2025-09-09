@@ -15,6 +15,7 @@ interface AuthState {
   setSimulatedRole: (role: UserRole | null) => void
   hasRole: (role: UserRole) => boolean
   getEffectiveRoles: () => UserRole[]
+  getEffectiveUserId: () => string | undefined
   reset: () => void
 }
 
@@ -48,6 +49,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   
   hasRole: (role) => {
     const state = get()
+    
+    // During impersonation, use the impersonated user's roles from session
+    const impersonationSession = localStorage.getItem('eau_impersonation_session')
+    if (impersonationSession) {
+      try {
+        const session = JSON.parse(impersonationSession)
+        const impersonatedRoles = session.impersonatedRoles || ['Members']
+        return impersonatedRoles.includes(role)
+      } catch {
+        // If session parsing fails, fall back to state roles
+        return state.roles.includes(role)
+      }
+    }
+    
     // Only use simulated role if user is authenticated and roles are loaded
     if (state.simulatedRole && !import.meta.env.PROD && state.user && state.rolesLoaded) {
       return state.simulatedRole === role
@@ -58,12 +73,45 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   
   getEffectiveRoles: () => {
     const state = get()
+    
+    // During impersonation, use the impersonated user's roles from session
+    const impersonationSession = localStorage.getItem('eau_impersonation_session')
+    if (impersonationSession) {
+      try {
+        const session = JSON.parse(impersonationSession)
+        const impersonatedRoles = session.impersonatedRoles || ['Members']
+        return impersonatedRoles
+      } catch {
+        // If session parsing fails, fall back to state roles
+        return state.roles
+      }
+    }
+    
     // Only use simulated role if user is authenticated and roles are loaded
     if (state.simulatedRole && !import.meta.env.PROD && state.user && state.rolesLoaded) {
       return [state.simulatedRole]
     }
     // Otherwise return actual roles
     return state.roles
+  },
+  
+  getEffectiveUserId: () => {
+    const state = get()
+    
+    // During impersonation, use the impersonated user's ID from session
+    const impersonationSession = localStorage.getItem('eau_impersonation_session')
+    if (impersonationSession) {
+      try {
+        const session = JSON.parse(impersonationSession)
+        return session.impersonatedUserId
+      } catch {
+        // If session parsing fails, fall back to state user
+        return state.user?.id
+      }
+    }
+    
+    // Otherwise return actual user ID
+    return state.user?.id
   },
   
   reset: () => {

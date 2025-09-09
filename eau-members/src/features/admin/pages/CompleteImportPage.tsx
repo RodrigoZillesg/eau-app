@@ -1,9 +1,11 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Card } from '../../../components/ui/Card'
 import { Button } from '../../../components/ui/Button'
-import { Building2, Users, CreditCard, Upload, AlertTriangle } from 'lucide-react'
+import { Building2, Users, CreditCard, Upload, AlertTriangle, Search } from 'lucide-react'
 import { showNotification } from '../../../lib/notifications'
 import { supabaseAdmin } from '../../../lib/supabase/adminClient'
+import { memberDuplicateService } from '../../../services/memberDuplicateService'
 import Papa from 'papaparse'
 
 interface CompleteImportData {
@@ -97,11 +99,13 @@ interface ImportStats {
 }
 
 export const CompleteImportPage: React.FC = () => {
+  const navigate = useNavigate()
   const [file, setFile] = useState<File | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [importStats, setImportStats] = useState<ImportStats | null>(null)
   const [errors, setErrors] = useState<string[]>([])
   const [progress, setProgress] = useState({ phase: '', message: '', current: 0, total: 0 })
+  const [duplicatesFound, setDuplicatesFound] = useState(0)
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0]
@@ -496,6 +500,23 @@ export const CompleteImportPage: React.FC = () => {
       }
       
       setImportStats(stats)
+      
+      // Run duplicate detection after import
+      if (stats.members.created > 0) {
+        setProgress({ phase: 'complete', message: 'Scanning for duplicates...', current: 95, total: 100 })
+        try {
+          const foundDuplicates = await memberDuplicateService.scanForDuplicates()
+          setDuplicatesFound(foundDuplicates)
+          if (foundDuplicates > 0) {
+            showNotification('info', `Found ${foundDuplicates} potential duplicate members`, 
+              'Review them in the Duplicates Management page')
+          }
+        } catch (error) {
+          console.warn('Duplicate scan failed:', error)
+          // Don't fail the import if duplicate scan fails
+        }
+      }
+      
       setProgress({ phase: 'complete', message: 'Import completed!', current: 100, total: 100 })
       
       // Show notifications
@@ -520,7 +541,7 @@ export const CompleteImportPage: React.FC = () => {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Complete System Import</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Import System</h1>
         <p className="mt-2 text-gray-600">
           Import members, companies, and memberships from the complete CSV export
         </p>
@@ -624,6 +645,29 @@ export const CompleteImportPage: React.FC = () => {
               </div>
             </Card>
           </div>
+        )}
+
+        {/* Duplicates Found */}
+        {duplicatesFound > 0 && (
+          <Card className="p-6 border-2 border-yellow-400 bg-yellow-50">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center space-x-3 mb-2">
+                  <Search className="h-6 w-6 text-yellow-600" />
+                  <h3 className="text-lg font-medium text-gray-900">Duplicates Detected</h3>
+                </div>
+                <p className="text-sm text-gray-600">
+                  Found {duplicatesFound} potential duplicate members that need review
+                </p>
+              </div>
+              <Button
+                onClick={() => navigate('/admin/duplicates')}
+                className="bg-yellow-600 hover:bg-yellow-700"
+              >
+                Review Duplicates
+              </Button>
+            </div>
+          </Card>
         )}
 
         {/* Errors */}

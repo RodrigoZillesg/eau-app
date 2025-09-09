@@ -261,6 +261,32 @@ When implementing WYSIWYG in new areas:
 - **Frontend (Dev)**: Port 5180 (http://localhost:5180)
 - **Backend (Dev)**: Port 3001 (http://localhost:3001)
 
+### OpenLearning Integration
+**IMPORTANT: OAuth/SSO Integration with OpenLearning Platform**
+
+#### OpenLearning Credentials
+- **Institution Admin URL**: https://www.openlearning.com/institution/admin/?institution=english-australia
+- **Client ID**: 1000.EJ1GYWGUO2JSYY38D545AOHEVIGQGS
+- **Client Secret**: 1f5c48aec5e199565b870f9d87a932ef99f5bf9e00
+- **API Documentation**: https://api.openlearning.com/docs
+- **Help Documentation**: https://help.openlearning.com/category/apis
+
+#### Integration Requirements
+1. **User Provisioning**: Create OpenLearning accounts automatically for EAU members
+2. **SSO Implementation**: Enable single sign-on between EAU and OpenLearning
+3. **CPD Sync**: Import course completions from OpenLearning as CPD activities
+
+#### API Endpoints
+- **User Provisioning**: `POST /institutions/{institution_id}/managed-users/`
+- **SSO Launch**: `POST /institutions/{institution_id}/managed-users/{user_id}/sign-on/`
+- **Course Completions**: TBD (needs further investigation)
+
+#### Implementation Notes
+- OpenLearning supports LTI, SAML, and custom API SSO methods
+- Managed users can be provisioned without sending welcome emails
+- Launch links can be generated for specific classes/courses
+- Store OpenLearning user IDs for each EAU member
+
 ### Development Guidelines
 - Ao executar uma tarefa, sempre consulte @agents\index.md para definir o melhor agente
 - Use Playwright para acessar Supabase e executar comandos SQL necessários

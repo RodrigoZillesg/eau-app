@@ -60,8 +60,26 @@ export function SMTPSettingsPage() {
       
       // Load settings
       const result = await EmailService.getSMTPSettings();
+      console.log('SMTP Settings received from backend:', result);
       if (result.data) {
-        setSettings(result.data);
+        console.log('Setting SMTP data in form:', result.data);
+        // Ensure we're getting the data properly
+        const settingsData = {
+          ...result.data,
+          smtp_host: result.data.smtp_host || '',
+          smtp_port: result.data.smtp_port || 587,
+          smtp_username: result.data.smtp_username || '',
+          smtp_password: result.data.smtp_password || '',
+          from_email: result.data.from_email || '',
+          from_name: result.data.from_name || ''
+        };
+        console.log('Final settings to apply:', settingsData);
+        setSettings(settingsData);
+        
+        // Force a re-render after a small delay to ensure values are displayed
+        setTimeout(() => {
+          setSettings(prev => ({ ...prev }));
+        }, 100);
       }
       setUsingLocalStorage(result.isLocal);
     } catch (error) {
@@ -114,7 +132,7 @@ export function SMTPSettingsPage() {
   const handleTestConnection = async () => {
     try {
       setTesting(true);
-      const result = await EmailService.testSMTPConnection(settings);
+      const result = await EmailService.testSMTPConnection();
       
       if (result.success) {
         showNotification('success', result.message);
@@ -159,45 +177,20 @@ export function SMTPSettingsPage() {
         <p className="text-gray-600">Configure email sending settings for the system</p>
       </div>
 
-      {/* Email Configuration Options */}
-      <Card className="mb-6 bg-blue-50 border-blue-200">
-        <div className="p-4">
-          <div className="flex gap-3">
-            <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-            <div className="text-sm">
-              <p className="font-semibold mb-2 text-blue-900">Choose Your Email Setup Method:</p>
-              <div className="space-y-3">
-                <div className="p-3 bg-green-50 border border-green-200 rounded">
-                  <p className="font-semibold text-green-900 mb-1">✅ Option 1: EmailJS (Recommended - Works Immediately!)</p>
-                  <p className="text-green-800 mb-2">
-                    Send emails directly from the browser. No server setup needed!
-                  </p>
-                  <a 
-                    href="/admin/emailjs-config" 
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-                  >
-                    <Settings className="w-4 h-4" />
-                    Configure EmailJS Now
-                  </a>
-                </div>
-                <div className="p-3 bg-white border border-blue-200 rounded">
-                  <p className="font-semibold text-blue-900 mb-1">Option 2: SMTP + Edge Function (Advanced)</p>
-                  <p className="text-blue-800">
-                    Configure SMTP settings below, then deploy an Edge Function for server-side sending.
-                  </p>
-                </div>
+      {/* SMTP Configuration Status */}
+      {settings.enabled && (
+        <Card className="mb-6 bg-green-50 border-green-200">
+          <div className="p-4">
+            <div className="flex gap-3">
+              <AlertCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm">
+                <p className="font-semibold text-green-900">SMTP is configured and enabled</p>
+                <p className="text-green-800">Email sending is active using the configuration below.</p>
               </div>
-              {usingLocalStorage && (
-                <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded">
-                  <p className="text-yellow-800">
-                    <strong>Note:</strong> Settings are being saved locally in your browser.
-                  </p>
-                </div>
-              )}
             </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+      )}
 
       {/* Quick Setup */}
       <Card className="mb-6">

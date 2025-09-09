@@ -12,12 +12,12 @@ import { AdminDashboard } from '../features/admin/components/AdminDashboard'
 import { MembersPage } from '../features/admin/pages/MembersPage'
 import { MembershipManagementPage } from '../features/admin/pages/MembershipManagementPage'
 import { ActivityImportPage } from '../features/admin/pages/ActivityImportPage'
-import { UserImportPage } from '../features/admin/pages/UserImportPage'
 import { CompleteImportPage } from '../features/admin/pages/CompleteImportPage'
 import { ProfilePage } from '../features/profile/pages/ProfilePage'
 import { CPDPage } from '../features/cpd/pages/CPDPage'
 import { CPDReviewPage } from '../features/cpd/pages/CPDReviewPage'
 import { CPDSettingsPage } from '../features/cpd/pages/CPDSettingsPage'
+import { CPDManagementPage } from '../features/cpd/pages/CPDManagementPage'
 import { EventsListPage } from '../features/events/pages/EventsListPage'
 import { EventDetailsPage } from '../features/events/pages/EventDetailsPage'
 import { MyRegistrationsPage } from '../features/events/pages/MyRegistrationsPage'
@@ -33,6 +33,9 @@ import { WysiwygTestPage } from '../features/admin/pages/WysiwygTestPage'
 import { QuillDebugPage } from '../features/admin/pages/QuillDebugPage'
 import { OverflowTestPage } from '../features/admin/pages/OverflowTestPage'
 import { ListDebugPage } from '../features/admin/pages/ListDebugPage'
+import { MemberDuplicatesPage } from '../pages/admin/MemberDuplicatesPage'
+import { BulkManagementPage } from '../features/admin/pages/BulkManagementPage'
+import { OpenLearningIntegrationPage } from '../features/admin/pages/OpenLearningIntegrationPage'
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isLoading } = useAuthStore()
@@ -154,8 +157,19 @@ export const AppRoutes: React.FC = () => {
         path="/cpd/settings"
         element={
           <ProtectedRoute>
-            <RoleBasedRoute permission="ACCESS_ADMIN_DASHBOARD">
+            <RoleBasedRoute roles={['AdminSuper']}>
               <CPDSettingsPage />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />
+      
+      <Route
+        path="/cpd/management"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute roles={['Admin', 'AdminSuper']}>
+              <CPDManagementPage />
             </RoleBasedRoute>
           </ProtectedRoute>
         }
@@ -238,13 +252,13 @@ export const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       />
-
+      
       <Route
-        path="/admin/import-users"
+        path="/admin/openlearning"
         element={
           <ProtectedRoute>
             <RoleBasedRoute permission="ACCESS_ADMIN_DASHBOARD">
-              <UserImportPage />
+              <OpenLearningIntegrationPage />
             </RoleBasedRoute>
           </ProtectedRoute>
         }
@@ -328,7 +342,7 @@ export const AppRoutes: React.FC = () => {
       />
 
       <Route
-        path="/admin/import-complete"
+        path="/admin/import-system"
         element={
           <ProtectedRoute>
             <RoleBasedRoute permission="ACCESS_ADMIN_DASHBOARD">
@@ -353,7 +367,7 @@ export const AppRoutes: React.FC = () => {
         path="/admin/smtp-settings"
         element={
           <ProtectedRoute>
-            <RoleBasedRoute permission="ACCESS_ADMIN_DASHBOARD">
+            <RoleBasedRoute roles={['AdminSuper']}>
               <SMTPSettingsPage />
             </RoleBasedRoute>
           </ProtectedRoute>
@@ -364,7 +378,7 @@ export const AppRoutes: React.FC = () => {
         path="/admin/emailjs-config"
         element={
           <ProtectedRoute>
-            <RoleBasedRoute permission="ACCESS_ADMIN_DASHBOARD">
+            <RoleBasedRoute roles={['AdminSuper']}>
               <EmailJSConfigPage />
             </RoleBasedRoute>
           </ProtectedRoute>
@@ -375,7 +389,7 @@ export const AppRoutes: React.FC = () => {
         path="/admin/email-templates"
         element={
           <ProtectedRoute>
-            <RoleBasedRoute permission="ACCESS_ADMIN_DASHBOARD">
+            <RoleBasedRoute roles={['AdminSuper']}>
               <EmailTemplatesPage />
             </RoleBasedRoute>
           </ProtectedRoute>
@@ -386,7 +400,7 @@ export const AppRoutes: React.FC = () => {
         path="/admin/event-reminders"
         element={
           <ProtectedRoute>
-            <RoleBasedRoute permission="ACCESS_ADMIN_DASHBOARD">
+            <RoleBasedRoute roles={['AdminSuper']}>
               <EventReminderSettingsPage />
             </RoleBasedRoute>
           </ProtectedRoute>
@@ -399,6 +413,28 @@ export const AppRoutes: React.FC = () => {
           <ProtectedRoute>
             <RoleBasedRoute permission="ACCESS_ADMIN_DASHBOARD">
               <SetupMediaLibrary />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />
+      
+      <Route
+        path="/admin/duplicates"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute roles={['Admin', 'AdminSuper']}>
+              <MemberDuplicatesPage />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />
+      
+      <Route
+        path="/admin/bulk-management"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute roles={['AdminSuper']}>
+              <BulkManagementPage />
             </RoleBasedRoute>
           </ProtectedRoute>
         }
