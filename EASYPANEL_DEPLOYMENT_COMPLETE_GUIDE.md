@@ -1,5 +1,5 @@
 # EasyPanel Deployment Complete Guide - EAU App
-**Last Updated: 2025-09-03**
+**Last Updated: 2025-09-09**
 
 ## 🎯 Deployment Overview
 Este guia documenta o processo completo de deploy do EAU App no EasyPanel, incluindo todas as lições aprendidas e soluções para problemas comuns.
@@ -20,10 +20,21 @@ Este guia documenta o processo completo de deploy do EAU App no EasyPanel, inclu
 - **Problema**: Variáveis VITE_* precisam estar disponíveis durante o build
 - **Solução**: Para produção, commite o build já pronto com as variáveis corretas
 
+### 4. **REMOVA dist/ DO .gitignore** ⚠️ CRÍTICO!
+- **Problema**: Por padrão, `dist/` está no `.gitignore`, impedindo deploy no EasyPanel
+- **Solução**: Comente ou remova `dist/` do `.gitignore` em `eau-members/.gitignore`
+- **Importante**: Use `git add -f eau-members/dist/` se necessário
+
+### 5. **USE .dockerignore NA RAIZ** 
+- **Problema**: Sem `.dockerignore`, Docker copia todo o projeto incluindo node_modules (gigabytes!)
+- **Solução**: Crie `.dockerignore` na raiz do projeto para excluir arquivos desnecessários
+- **Impacto**: Build passa de minutos/timeout para segundos
+
 ## 📁 Estrutura de Arquivos Necessária
 
 ```
 eau-app/
+├── .dockerignore           # ⚠️ CRÍTICO! Evita timeout no build
 ├── eau-backend/
 │   ├── dist/               # ⚠️ COMMIT ESSA PASTA
 │   │   └── index.js        # Build do TypeScript
@@ -34,6 +45,7 @@ eau-app/
 │   ├── dist/               # ⚠️ COMMIT ESSA PASTA
 │   │   ├── index.html
 │   │   └── assets/
+│   ├── .gitignore          # ⚠️ REMOVA ou COMENTE dist/
 │   ├── nginx.conf
 │   ├── Dockerfile          # Dockerfile simplificado
 │   └── package.json
@@ -56,8 +68,12 @@ npm install
 npm run build
 # Verifique se a pasta dist foi criada
 
-# Commit as pastas dist
+# IMPORTANTE: Remova dist/ do .gitignore
+# Edite eau-members/.gitignore e comente a linha: # dist/
+
+# Commit as pastas dist (use -f se necessário)
 cd ..
+git add -f eau-members/dist/ eau-backend/dist/
 git add -A
 git commit -m "Build for EasyPanel deployment"
 git push origin main
@@ -243,6 +259,13 @@ git push
 - Verifique o caminho no Dockerfile
 - Certifique-se que `rm -rf /usr/share/nginx/html/*` está sendo executado
 
+### Erro: Assets (CSS/JS) retornam 404
+**Soluções**:
+1. **dist/ está no .gitignore** - Remova ou comente `dist/` em `eau-members/.gitignore`
+2. **Arquivos não commitados** - Use `git add -f eau-members/dist/` para forçar
+3. **Falta .dockerignore** - Crie `.dockerignore` na raiz para evitar timeout
+4. **Build desatualizado** - Refaça: `cd eau-members && npm run build`
+
 ### Erro: "DEMO MODE" aparecendo no frontend
 **Solução**: As variáveis de ambiente não foram incluídas no build
 ```bash
@@ -257,7 +280,9 @@ git push
 
 - [ ] Build local do backend funcionando (`npm run build`)
 - [ ] Build local do frontend funcionando (`npm run build`)
-- [ ] Pastas `dist` commitadas no Git
+- [ ] **dist/ removido ou comentado do .gitignore** ⚠️
+- [ ] **.dockerignore criado na raiz do projeto** ⚠️
+- [ ] Pastas `dist` commitadas no Git (use -f se necessário)
 - [ ] Dockerfiles usando caminhos corretos (eau-backend/, eau-members/)
 - [ ] docker-compose.yml com context: `..`
 - [ ] EasyPanel configurado com Build Path: `/`
@@ -300,4 +325,8 @@ git push origin main
 ---
 
 **Mantido por**: EAU Development Team
-**Última atualização bem-sucedida**: 2025-09-03
+**Última atualização bem-sucedida**: 2025-09-09
+**Principais correções desta versão**:
+- Adicionado `.dockerignore` na raiz para evitar timeout no Docker build
+- Removido `dist/` do `.gitignore` para permitir deploy dos assets
+- Documentado uso de `git add -f` para forçar adição de arquivos dist
