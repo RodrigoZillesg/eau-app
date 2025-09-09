@@ -1,0 +1,71 @@
+# Node modules
+node_modules/
+*/node_modules/
+**/node_modules/
+
+# Git
+.git/
+.gitignore
+
+# Development files
+*.log
+npm-debug.log*
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.vscode/
+.idea/
+
+# Build outputs (exceto dist que precisamos)
+*.cache
+*.tmp
+.cache/
+temp/
+tmp/
+
+# Backend (não precisa no frontend)
+eau-backend/node_modules/
+eau-backend/src/
+eau-backend/tests/
+eau-backend/*.ts
+eau-backend/*.json
+!eau-backend/dist/
+
+# Email server
+email-server/
+
+# Docs
+*.md
+docs/
+documentation/
+
+# Scripts
+scripts/
+
+# Tests
+__tests__/
+*.test.*
+*.spec.*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+
+# Misc
+*.swp
+*.swo
+*~
+.claude/
