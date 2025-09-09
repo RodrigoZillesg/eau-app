@@ -15,7 +15,8 @@ import {
   Users, 
   Settings, 
   LogOut,
-  Shield
+  Shield,
+  Building2
 } from 'lucide-react'
 import { RoleSwitcher } from '../dev/RoleSwitcher'
 import { APP_VERSION } from '../../config/version'
@@ -213,6 +214,14 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                   >
                     <Settings className="h-4 w-4 mr-3 text-gray-500" />
                     Membership
+                  </button>
+
+                  <button
+                    onClick={() => handleNavigateAndClose('/admin/institutions')}
+                    className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                  >
+                    <Building2 className="h-4 w-4 mr-3 text-purple-500" />
+                    Institutions
                   </button>
 
                   <button

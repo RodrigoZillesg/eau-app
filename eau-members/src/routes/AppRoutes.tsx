@@ -11,6 +11,7 @@ import { useAuthStore } from '../stores/authStore'
 import { AdminDashboard } from '../features/admin/components/AdminDashboard'
 import { MembersPage } from '../features/admin/pages/MembersPage'
 import { MembershipManagementPage } from '../features/admin/pages/MembershipManagementPage'
+import { InstitutionsManagementPage } from '../features/admin/pages/InstitutionsManagementPage'
 import { ActivityImportPage } from '../features/admin/pages/ActivityImportPage'
 import { CompleteImportPage } from '../features/admin/pages/CompleteImportPage'
 import { ProfilePage } from '../features/profile/pages/ProfilePage'
@@ -248,6 +249,17 @@ export const AppRoutes: React.FC = () => {
           <ProtectedRoute>
             <RoleBasedRoute permission="ACCESS_ADMIN_DASHBOARD">
               <MembershipManagementPage />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/institutions"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute permission="ACCESS_ADMIN_DASHBOARD">
+              <InstitutionsManagementPage />
             </RoleBasedRoute>
           </ProtectedRoute>
         }
