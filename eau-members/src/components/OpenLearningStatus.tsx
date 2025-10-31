@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { openLearningService, OpenLearningStatus as StatusType } from '../services/openlearningService';
+import { openLearningService } from '../services/openlearningService';
+import type { OpenLearningStatus as StatusType } from '../services/openlearningService';
 import { OpenLearningSSOButton } from './OpenLearningSSOButton';
-import { showNotification } from '../utils/notifications';
+import { showNotification } from '../lib/notifications';
 
 interface OpenLearningStatusProps {
   memberId?: string;
@@ -20,6 +21,7 @@ export const OpenLearningStatus: React.FC<OpenLearningStatusProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isProvisioning, setIsProvisioning] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
 
   useEffect(() => {
     loadStatus();
@@ -71,6 +73,26 @@ export const OpenLearningStatus: React.FC<OpenLearningStatusProps> = ({
       showNotification('error', 'Error syncing courses');
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const handleImportCertificates = async () => {
+    setIsImporting(true);
+    try {
+      const result = await openLearningService.importCertificates();
+      if (result.success) {
+        const message = result.imported && result.total
+          ? `Successfully imported ${result.imported}/${result.total} certificates as CPD activities`
+          : result.message || 'Certificates imported successfully';
+        showNotification('success', message);
+        await loadStatus();
+      } else {
+        showNotification('error', result.error || 'Failed to import certificates');
+      }
+    } catch (error) {
+      showNotification('error', 'Error importing certificates');
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -219,6 +241,29 @@ export const OpenLearningStatus: React.FC<OpenLearningStatusProps> = ({
                   )}
                 </button>
               )}
+
+              <button
+                onClick={handleImportCertificates}
+                disabled={isImporting}
+                className="inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+              >
+                {isImporting ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Import Certificates
+                  </>
+                )}
+              </button>
             </>
           )}
         </div>

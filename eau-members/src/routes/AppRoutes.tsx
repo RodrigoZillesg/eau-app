@@ -9,11 +9,14 @@ import { RoleBasedRoute } from '../components/shared/RoleBasedRoute'
 import { MainLayout } from '../components/layout/MainLayout'
 import { useAuthStore } from '../stores/authStore'
 import { AdminDashboard } from '../features/admin/components/AdminDashboard'
+import { MemberDashboard } from '../features/dashboard/components/MemberDashboard'
 import { MembersPage } from '../features/admin/pages/MembersPage'
 import { MembershipManagementPage } from '../features/admin/pages/MembershipManagementPage'
+import { MembershipFeesPage } from '../features/admin/pages/MembershipFeesPage'
 import { InstitutionsManagementPage } from '../features/admin/pages/InstitutionsManagementPage'
 import { ActivityImportPage } from '../features/admin/pages/ActivityImportPage'
-import { CompleteImportPage } from '../features/admin/pages/CompleteImportPage'
+import { ActivityImportPageFixed } from '../features/admin/pages/ActivityImportPageFixed'
+import CompleteImportPageFixed from '../features/admin/pages/CompleteImportPageFixed'
 import { ProfilePage } from '../features/profile/pages/ProfilePage'
 import { CPDPage } from '../features/cpd/pages/CPDPage'
 import { CPDReviewPage } from '../features/cpd/pages/CPDReviewPage'
@@ -37,6 +40,22 @@ import { ListDebugPage } from '../features/admin/pages/ListDebugPage'
 import { MemberDuplicatesPage } from '../pages/admin/MemberDuplicatesPage'
 import { BulkManagementPage } from '../features/admin/pages/BulkManagementPage'
 import { OpenLearningIntegrationPage } from '../features/admin/pages/OpenLearningIntegrationPage'
+import { CertificateBatchPage } from '../features/admin/pages/CertificateBatchPage'
+import { CertificateTestPage } from '../features/admin/pages/CertificateTestPage'
+import { PaymentHistoryPage } from '../features/membership/pages/PaymentHistoryPage'
+import { WelcomeEmailPage } from '../features/admin/pages/WelcomeEmailPage'
+import { MembershipApplicationsPage } from '../features/admin/pages/MembershipApplicationsPage'
+import { JoinPage } from '../pages/public/JoinPage'
+import { ReportBuilderPage } from '../features/admin/pages/ReportBuilderPage'
+// import ScheduledReportsPage from '../features/admin/pages/ScheduledReportsPage' // Temporarily disabled
+import { StandardReportsPage } from '../features/admin/pages/StandardReportsPage'
+import OpenLearningSyncPage from '../features/admin/pages/OpenLearningSyncPage'
+import EmailLogsPage from '../features/admin/pages/EmailLogsPage'
+import OpenLearningSSOTestPage from '../features/admin/pages/OpenLearningSSOTestPage'
+import MemberImpersonationPage from '../features/admin/pages/MemberImpersonationPage'
+import { SystemSettingsPage } from '../features/admin/pages/SystemSettingsPage'
+import TestLogin from '../pages/TestLogin'
+import DebugLogin from '../pages/DebugLogin'
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isLoading } = useAuthStore()
@@ -113,6 +132,21 @@ export const AppRoutes: React.FC = () => {
         } 
       />
       
+      <Route
+        path="/join"
+        element={<JoinPage />}
+      />
+
+      <Route
+        path="/test-login"
+        element={<TestLogin />}
+      />
+
+      <Route
+        path="/debug-login"
+        element={<DebugLogin />}
+      />
+
       {/* Default redirect */}
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       
@@ -127,6 +161,26 @@ export const AppRoutes: React.FC = () => {
             <RoleBasedRoute permission="ACCESS_MEMBER_DASHBOARD">
               <DashboardPage />
             </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Member Dashboard Route - accessible by all authenticated users */}
+      <Route
+        path="/member-dashboard"
+        element={
+          <ProtectedRoute>
+            <MemberDashboard />
+          </ProtectedRoute>
+        }
+      />
+      
+      {/* Membership Routes */}
+      <Route
+        path="/membership/payment-history"
+        element={
+          <ProtectedRoute>
+            <PaymentHistoryPage />
           </ProtectedRoute>
         }
       />
@@ -147,7 +201,7 @@ export const AppRoutes: React.FC = () => {
         path="/cpd/review"
         element={
           <ProtectedRoute>
-            <RoleBasedRoute permission="ACCESS_ADMIN_DASHBOARD">
+            <RoleBasedRoute roles={['AdminSuper', 'Admin', 'InstitutionAdmin']}>
               <CPDReviewPage />
             </RoleBasedRoute>
           </ProtectedRoute>
@@ -225,7 +279,7 @@ export const AppRoutes: React.FC = () => {
         path="/admin"
         element={
           <ProtectedRoute>
-            <RoleBasedRoute permission="ACCESS_ADMIN_DASHBOARD">
+            <RoleBasedRoute roles={['AdminSuper', 'Admin', 'InstitutionAdmin']}>
               <AdminDashboard />
             </RoleBasedRoute>
           </ProtectedRoute>
@@ -236,7 +290,7 @@ export const AppRoutes: React.FC = () => {
         path="/admin/members"
         element={
           <ProtectedRoute>
-            <RoleBasedRoute permission="ACCESS_ADMIN_DASHBOARD">
+            <RoleBasedRoute roles={['AdminSuper', 'Admin', 'InstitutionAdmin']}>
               <MembersPage />
             </RoleBasedRoute>
           </ProtectedRoute>
@@ -247,8 +301,19 @@ export const AppRoutes: React.FC = () => {
         path="/admin/membership"
         element={
           <ProtectedRoute>
-            <RoleBasedRoute permission="ACCESS_ADMIN_DASHBOARD">
+            <RoleBasedRoute roles={['AdminSuper']}>
               <MembershipManagementPage />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/membership-fees"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute roles={['AdminSuper']}>
+              <MembershipFeesPage />
             </RoleBasedRoute>
           </ProtectedRoute>
         }
@@ -258,7 +323,7 @@ export const AppRoutes: React.FC = () => {
         path="/admin/institutions"
         element={
           <ProtectedRoute>
-            <RoleBasedRoute permission="ACCESS_ADMIN_DASHBOARD">
+            <RoleBasedRoute roles={['AdminSuper']}>
               <InstitutionsManagementPage />
             </RoleBasedRoute>
           </ProtectedRoute>
@@ -269,8 +334,51 @@ export const AppRoutes: React.FC = () => {
         path="/admin/openlearning"
         element={
           <ProtectedRoute>
-            <RoleBasedRoute permission="ACCESS_ADMIN_DASHBOARD">
+            <RoleBasedRoute roles={['AdminSuper', 'Admin']}>
               <OpenLearningIntegrationPage />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/openlearning/sync"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute roles={['AdminSuper', 'Admin']}>
+              <OpenLearningSyncPage />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/openlearning/sso-test"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute roles={['AdminSuper', 'Admin']}>
+              <OpenLearningSSOTestPage />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/certificates"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute roles={['AdminSuper', 'Admin']}>
+              <CertificateBatchPage />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/certificates/test"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute roles={['AdminSuper', 'Admin']}>
+              <CertificateTestPage />
             </RoleBasedRoute>
           </ProtectedRoute>
         }
@@ -280,8 +388,8 @@ export const AppRoutes: React.FC = () => {
         path="/admin/import-activities"
         element={
           <ProtectedRoute>
-            <RoleBasedRoute permission="ACCESS_ADMIN_DASHBOARD">
-              <ActivityImportPage />
+            <RoleBasedRoute roles={['AdminSuper', 'Admin']}>
+              <ActivityImportPageFixed />
             </RoleBasedRoute>
           </ProtectedRoute>
         }
@@ -291,7 +399,7 @@ export const AppRoutes: React.FC = () => {
         path="/admin/editor-test"
         element={
           <ProtectedRoute>
-            <RoleBasedRoute permission="ACCESS_ADMIN_DASHBOARD">
+            <RoleBasedRoute roles={['AdminSuper']}>
               <EditorTestPage />
             </RoleBasedRoute>
           </ProtectedRoute>
@@ -302,7 +410,7 @@ export const AppRoutes: React.FC = () => {
         path="/admin/rich-content-test"
         element={
           <ProtectedRoute>
-            <RoleBasedRoute permission="ACCESS_ADMIN_DASHBOARD">
+            <RoleBasedRoute roles={['AdminSuper']}>
               <RichContentTestPage />
             </RoleBasedRoute>
           </ProtectedRoute>
@@ -313,7 +421,7 @@ export const AppRoutes: React.FC = () => {
         path="/admin/wysiwyg-test"
         element={
           <ProtectedRoute>
-            <RoleBasedRoute permission="ACCESS_ADMIN_DASHBOARD">
+            <RoleBasedRoute roles={['AdminSuper']}>
               <WysiwygTestPage />
             </RoleBasedRoute>
           </ProtectedRoute>
@@ -324,7 +432,7 @@ export const AppRoutes: React.FC = () => {
         path="/admin/quill-debug"
         element={
           <ProtectedRoute>
-            <RoleBasedRoute permission="ACCESS_ADMIN_DASHBOARD">
+            <RoleBasedRoute roles={['AdminSuper']}>
               <QuillDebugPage />
             </RoleBasedRoute>
           </ProtectedRoute>
@@ -335,7 +443,7 @@ export const AppRoutes: React.FC = () => {
         path="/admin/overflow-test"
         element={
           <ProtectedRoute>
-            <RoleBasedRoute permission="ACCESS_ADMIN_DASHBOARD">
+            <RoleBasedRoute roles={['AdminSuper']}>
               <OverflowTestPage />
             </RoleBasedRoute>
           </ProtectedRoute>
@@ -346,7 +454,7 @@ export const AppRoutes: React.FC = () => {
         path="/admin/list-debug"
         element={
           <ProtectedRoute>
-            <RoleBasedRoute permission="ACCESS_ADMIN_DASHBOARD">
+            <RoleBasedRoute roles={['AdminSuper']}>
               <ListDebugPage />
             </RoleBasedRoute>
           </ProtectedRoute>
@@ -357,8 +465,8 @@ export const AppRoutes: React.FC = () => {
         path="/admin/import-system"
         element={
           <ProtectedRoute>
-            <RoleBasedRoute permission="ACCESS_ADMIN_DASHBOARD">
-              <CompleteImportPage />
+            <RoleBasedRoute roles={['AdminSuper']}>
+              <CompleteImportPageFixed />
             </RoleBasedRoute>
           </ProtectedRoute>
         }
@@ -368,7 +476,7 @@ export const AppRoutes: React.FC = () => {
         path="/admin/events"
         element={
           <ProtectedRoute>
-            <RoleBasedRoute permission="ACCESS_ADMIN_DASHBOARD">
+            <RoleBasedRoute roles={['AdminSuper', 'Admin', 'InstitutionAdmin']}>
               <AdminEventsPage />
             </RoleBasedRoute>
           </ProtectedRoute>
@@ -420,10 +528,88 @@ export const AppRoutes: React.FC = () => {
       />
 
       <Route
+        path="/admin/email-logs"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute roles={['Admin', 'AdminSuper']}>
+              <EmailLogsPage />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/welcome-emails"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute roles={['AdminSuper', 'Admin']}>
+              <WelcomeEmailPage />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/applications"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute roles={['Admin', 'AdminSuper']}>
+              <MembershipApplicationsPage />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/reports"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute roles={['Admin', 'AdminSuper']}>
+              <ReportBuilderPage />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Temporarily disabled due to import issues
+      <Route
+        path="/admin/scheduled-reports"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute roles={['Admin', 'AdminSuper']}>
+              <ScheduledReportsPage />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />
+      */}
+      <Route
+        path="/admin/standard-reports"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute roles={['Admin', 'AdminSuper']}>
+              <StandardReportsPage />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/membership-applications"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute roles={['AdminSuper', 'Admin']}>
+              <MembershipApplicationsPage />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
         path="/admin/setup-media"
         element={
           <ProtectedRoute>
-            <RoleBasedRoute permission="ACCESS_ADMIN_DASHBOARD">
+            <RoleBasedRoute roles={['AdminSuper']}>
               <SetupMediaLibrary />
             </RoleBasedRoute>
           </ProtectedRoute>
@@ -434,7 +620,7 @@ export const AppRoutes: React.FC = () => {
         path="/admin/duplicates"
         element={
           <ProtectedRoute>
-            <RoleBasedRoute roles={['Admin', 'AdminSuper']}>
+            <RoleBasedRoute roles={['AdminSuper']}>
               <MemberDuplicatesPage />
             </RoleBasedRoute>
           </ProtectedRoute>
@@ -451,7 +637,30 @@ export const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       />
-      
+
+      <Route
+        path="/admin/member-impersonation"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute roles={['AdminSuper']}>
+              <MemberImpersonationPage />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* System Settings - SuperAdmin Only */}
+      <Route
+        path="/admin/settings"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute roles={['AdminSuper']}>
+              <SystemSettingsPage />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />
+
       {/* Catch all route */}
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

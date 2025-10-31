@@ -2,28 +2,27 @@ import { supabase } from '../../lib/supabase/client'
 import { showNotification } from '../../lib/notifications'
 
 // Types - ALL IN ONE FILE TO AVOID IMPORT ISSUES
+// UPDATED TO MATCH ACTUAL DATABASE SCHEMA
 interface CPDActivity {
   id: string
-  member_id: string
-  category_id: number
-  category_name: string
+  user_id: string
+  activity_type: string  // Maps to activity type in database
+  cpd_category?: string  // Optional category field
   activity_title: string
   description?: string
   provider?: string
-  date_completed: string
-  hours: number
-  minutes: number
-  points: number
+  activity_date: string  // Changed from date_completed
+  cpd_points: number     // Already correct
+  certificate_number?: string
+  certificate_url?: string
   evidence_url?: string
-  evidence_filename?: string
+  event_id?: string
   status: 'pending' | 'approved' | 'rejected'
   approved_by?: string
-  approved_at?: string
+  approved_date?: string  // Changed from approved_at
   rejection_reason?: string
   created_at: string
   updated_at: string
-  created_by?: string
-  updated_by?: string
 }
 
 interface CPDCategory {
@@ -86,51 +85,14 @@ const CPD_CATEGORIES: CPDCategory[] = [
 class CPDService {
   static async getUserActivities(userId: string): Promise<CPDActivity[]> {
     try {
-      // Check if we're in impersonation mode
-      const impersonationSession = localStorage.getItem('eau_impersonation_session')
-      let memberId: string
-      
-      if (impersonationSession) {
-        try {
-          const session = JSON.parse(impersonationSession)
-          // In impersonation mode, impersonatedUserId is actually the member.id
-          memberId = session.impersonatedUserId
-          console.log('Getting activities for impersonated member:', memberId)
-        } catch (e) {
-          console.error('Error parsing impersonation session:', e)
-          // Fallback to normal flow
-          const { data: memberData, error: memberError } = await supabase
-            .from('members')
-            .select('id')
-            .eq('user_id', userId)
-            .single()
-          
-          if (memberError || !memberData) {
-            console.error('Error fetching member data:', memberError)
-            return []
-          }
-          memberId = memberData.id
-        }
-      } else {
-        // Normal mode: get member_id from user_id
-        const { data: memberData, error: memberError } = await supabase
-          .from('members')
-          .select('id')
-          .eq('user_id', userId)
-          .single()
-        
-        if (memberError || !memberData) {
-          console.error('Error fetching member data:', memberError)
-          return []
-        }
-        memberId = memberData.id
-      }
+      // SIMPLIFIED: Use auth.users.id directly since cpd_activities.user_id references auth.users.id
+      console.log('Getting CPD activities for user:', userId)
 
       const { data, error } = await supabase
         .from('cpd_activities')
         .select('*')
-        .eq('member_id', memberId)
-        .order('date_completed', { ascending: false })
+        .eq('user_id', userId)
+        .order('activity_date', { ascending: false })
 
       if (error) throw error
       return data || []
@@ -142,47 +104,9 @@ class CPDService {
 
   static async createActivity(formData: CPDFormData, userId: string, userEmail: string): Promise<CPDActivity> {
     try {
-      // Check if we're in impersonation mode
-      const impersonationSession = localStorage.getItem('eau_impersonation_session')
-      let memberId: string
-      
-      if (impersonationSession) {
-        try {
-          const session = JSON.parse(impersonationSession)
-          // In impersonation mode, impersonatedUserId is actually the member.id
-          memberId = session.impersonatedUserId
-          console.log('Creating activity for impersonated member:', memberId)
-        } catch (e) {
-          console.error('Error parsing impersonation session:', e)
-          // Fallback to normal flow
-          const { data: memberData, error: memberError } = await supabase
-            .from('members')
-            .select('id')
-            .eq('user_id', userId)
-            .single()
-          
-          if (memberError || !memberData) {
-            console.error('Error fetching member data:', memberError)
-            throw new Error('Member record not found for this user')
-          }
-          memberId = memberData.id
-        }
-      } else {
-        // Normal mode: get member_id from user_id
-        const { data: memberData, error: memberError } = await supabase
-          .from('members')
-          .select('id')
-          .eq('user_id', userId)
-          .single()
-        
-        if (memberError || !memberData) {
-          console.error('Error fetching member data:', memberError)
-          throw new Error('Member record not found for this user')
-        }
-        memberId = memberData.id
-      }
-      
-      console.log('Using member_id:', memberId)
+      // ALWAYS use auth.users.id - cpd_activities.user_id references auth.users.id, NOT members.id
+      const finalUserId: string = userId
+      console.log('Using auth user_id for CPD activity:', finalUserId)
 
       // Get settings and category configuration
       const [settings, categorySettings] = await Promise.all([
@@ -203,12 +127,8 @@ class CPDService {
       // ALWAYS auto-approve activities (as per client requirements)
       const initialStatus = 'approved'
       const approvalData: any = {
-        approved_at: new Date().toISOString()
-      }
-      
-      // Only add approved_by if NOT in impersonation mode
-      if (!impersonationSession) {
-        approvalData.approved_by = userId  // Use the user's own ID for auto-approval
+        approved_date: new Date().toISOString(),  // Column is approved_date, not approved_at
+        approved_by: userId  // Use the user's own ID for auto-approval
       }
 
       // Upload evidence if provided
@@ -251,30 +171,20 @@ class CPDService {
         }
       }
 
-      // Create activity with proper member_id and user_id
+      // Create activity with proper user_id - MAPPED TO CORRECT DATABASE SCHEMA
       const activityData: any = {
-        member_id: memberId,  // Use the actual member_id from the members table
-        category_id: formData.category_id,
-        category_name: categoryName,
+        user_id: finalUserId,  // Use the user_id (member_id if exists, auth user_id otherwise)
+        activity_type: categoryName,  // Maps to activity_type column
+        cpd_category: categoryName,   // Maps to cpd_category column
         activity_title: formData.activity_title,
         description: formData.description || '',
         provider: formData.provider || '',
-        date_completed: formData.date_completed,
-        hours: formData.hours,
-        minutes: formData.minutes,
-        points: points,
+        activity_date: formData.date_completed,  // Maps to activity_date column
+        cpd_points: points,  // Maps to cpd_points column
         evidence_url,
-        evidence_filename,
         status: initialStatus,
         // Auto-approved, set approval fields
         ...approvalData
-      }
-      
-      // Only add user_id and created_by if NOT in impersonation mode
-      // Since impersonated members don't have user_id in auth.users table
-      if (!impersonationSession) {
-        activityData.user_id = userId
-        activityData.created_by = userId
       }
 
       console.log('Attempting to insert CPD activity with data:', activityData)
@@ -341,54 +251,18 @@ class CPDService {
 
   static async getTotalPoints(userId: string): Promise<number> {
     try {
-      // Check if we're in impersonation mode
-      const impersonationSession = localStorage.getItem('eau_impersonation_session')
-      let memberId: string
-      
-      if (impersonationSession) {
-        try {
-          const session = JSON.parse(impersonationSession)
-          // In impersonation mode, impersonatedUserId is actually the member.id
-          memberId = session.impersonatedUserId
-        } catch (e) {
-          console.error('Error parsing impersonation session:', e)
-          // Fallback to normal flow
-          const { data: memberData, error: memberError } = await supabase
-            .from('members')
-            .select('id')
-            .eq('user_id', userId)
-            .single()
-          
-          if (memberError || !memberData) {
-            console.error('Error fetching member data:', memberError)
-            return 0
-          }
-          memberId = memberData.id
-        }
-      } else {
-        // Normal mode: get member_id from user_id
-        const { data: memberData, error: memberError } = await supabase
-          .from('members')
-          .select('id')
-          .eq('user_id', userId)
-          .single()
-        
-        if (memberError || !memberData) {
-          console.error('Error fetching member data:', memberError)
-          return 0
-        }
-        memberId = memberData.id
-      }
+      // SIMPLIFIED: Use auth.users.id directly since cpd_activities.user_id references auth.users.id
+      console.log('Getting total CPD points for user:', userId)
 
       const { data, error } = await supabase
         .from('cpd_activities')
-        .select('points')
-        .eq('member_id', memberId)
+        .select('cpd_points')
+        .eq('user_id', userId)
         .eq('status', 'approved')
 
       if (error) throw error
-      
-      return data?.reduce((total, activity) => total + (activity.points || 0), 0) || 0
+
+      return data?.reduce((total, activity) => total + (activity.cpd_points || 0), 0) || 0
     } catch (error) {
       console.error('Error calculating total points:', error)
       return 0
@@ -397,59 +271,23 @@ class CPDService {
 
   static async getYearlyPoints(userId: string, year: number): Promise<number> {
     try {
-      // Check if we're in impersonation mode
-      const impersonationSession = localStorage.getItem('eau_impersonation_session')
-      let memberId: string
-      
-      if (impersonationSession) {
-        try {
-          const session = JSON.parse(impersonationSession)
-          // In impersonation mode, impersonatedUserId is actually the member.id
-          memberId = session.impersonatedUserId
-        } catch (e) {
-          console.error('Error parsing impersonation session:', e)
-          // Fallback to normal flow
-          const { data: memberData, error: memberError } = await supabase
-            .from('members')
-            .select('id')
-            .eq('user_id', userId)
-            .single()
-          
-          if (memberError || !memberData) {
-            console.error('Error fetching member data:', memberError)
-            return 0
-          }
-          memberId = memberData.id
-        }
-      } else {
-        // Normal mode: get member_id from user_id
-        const { data: memberData, error: memberError } = await supabase
-          .from('members')
-          .select('id')
-          .eq('user_id', userId)
-          .single()
-        
-        if (memberError || !memberData) {
-          console.error('Error fetching member data:', memberError)
-          return 0
-        }
-        memberId = memberData.id
-      }
+      // SIMPLIFIED: Use auth.users.id directly since cpd_activities.user_id references auth.users.id
+      console.log('Getting yearly CPD points for user:', userId, 'year:', year)
 
       const startDate = `${year}-01-01`
       const endDate = `${year}-12-31`
-      
+
       const { data, error } = await supabase
         .from('cpd_activities')
-        .select('points')
-        .eq('member_id', memberId)
+        .select('cpd_points')
+        .eq('user_id', userId)
         .eq('status', 'approved')
-        .gte('date_completed', startDate)
-        .lte('date_completed', endDate)
+        .gte('activity_date', startDate)
+        .lte('activity_date', endDate)
 
       if (error) throw error
-      
-      return data?.reduce((total, activity) => total + (activity.points || 0), 0) || 0
+
+      return data?.reduce((total, activity) => total + (activity.cpd_points || 0), 0) || 0
     } catch (error) {
       console.error('Error calculating yearly points:', error)
       return 0
@@ -465,10 +303,7 @@ class CPDService {
     try {
       let query = supabase
         .from('cpd_activities')
-        .select(`
-          *,
-          members(id, first_name, last_name, email)
-        `)
+        .select('*')
         .order('created_at', { ascending: false })
 
       // Apply filters
@@ -476,7 +311,7 @@ class CPDService {
         query = query.eq('status', filters.status)
       }
       if (filters?.userId) {
-        query = query.eq('member_id', filters.userId)
+        query = query.eq('user_id', filters.userId)
       }
       if (filters?.search) {
         query = query.ilike('activity_title', `%${filters.search}%`)
@@ -492,17 +327,166 @@ class CPDService {
     }
   }
 
-  // Admin methods for reviewing CPD submissions
-  static async getAllPendingActivities(): Promise<CPDActivity[]> {
+  // Paginated version for performance
+  static async getAllActivitiesPaginated(filters?: {
+    status?: string
+    userId?: string
+    search?: string
+    page?: number
+    pageSize?: number
+    userIds?: string[] // For institution filtering
+  }): Promise<{ data: CPDActivity[], count: number }> {
     try {
-      const { data, error } = await supabase
+      const page = filters?.page || 1
+      const pageSize = filters?.pageSize || 50
+      const from = (page - 1) * pageSize
+      const to = from + pageSize - 1
+
+      // First get CPD activities
+      let query = supabase
         .from('cpd_activities')
-        .select(`
-          *,
-          members!inner(first_name, last_name, email)
-        `)
+        .select('*', { count: 'exact' })
+        .order('activity_date', { ascending: false })
+
+      // Apply filters
+      if (filters?.status && filters.status !== 'all') {
+        query = query.eq('status', filters.status)
+      }
+      if (filters?.userId) {
+        query = query.eq('user_id', filters.userId)
+      }
+
+      // Apply institution filter (for Institution Admins)
+      if (filters?.userIds && filters.userIds.length > 0) {
+        query = query.in('user_id', filters.userIds)
+      }
+
+      // Apply search filter - search in activity title AND get member IDs that match
+      if (filters?.search) {
+        const searchTerm = filters.search.trim()
+
+        // First, try to find members that match the search term
+        // Search in first_name, last_name, email, and also try to match full name
+        const { data: matchingMembers } = await supabase
+          .from('members')
+          .select('id, first_name, last_name')
+          .or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
+
+        // Also check if the search term matches the full name (first + last)
+        const additionalMembers: string[] = []
+        if (matchingMembers) {
+          for (const member of matchingMembers) {
+            const fullName = `${member.first_name} ${member.last_name}`.toLowerCase()
+            if (fullName.includes(searchTerm.toLowerCase())) {
+              additionalMembers.push(member.id)
+            }
+          }
+        }
+
+        // If search contains a space, also search for members with matching first AND last name
+        if (searchTerm.includes(' ')) {
+          const parts = searchTerm.split(' ')
+          const firstName = parts[0]
+          const lastName = parts.slice(1).join(' ')
+
+          const { data: exactMatchMembers } = await supabase
+            .from('members')
+            .select('id')
+            .ilike('first_name', `%${firstName}%`)
+            .ilike('last_name', `%${lastName}%`)
+
+          if (exactMatchMembers) {
+            additionalMembers.push(...exactMatchMembers.map(m => m.id))
+          }
+        }
+
+        // Combine all member IDs (removing duplicates)
+        const userIds = [...new Set([...(matchingMembers?.map(m => m.id) || []), ...additionalMembers])]
+
+        // Search in activity title OR member_id if we found matching members
+        if (userIds.length > 0) {
+          // Use proper Supabase syntax for IN operator with curly braces
+          query = query.or(`activity_title.ilike.%${searchTerm}%,member_id.in.(${userIds.map(id => `"${id}"`).join(',')})`)
+        } else {
+          // Just search in activity title if no members match
+          query = query.ilike('activity_title', `%${searchTerm}%`)
+        }
+      }
+
+      // Apply range after filters for correct pagination
+      query = query.range(from, to)
+
+      const { data, error, count } = await query
+
+      if (error) {
+        console.error('Error in getAllActivitiesPaginated:', error)
+        throw error
+      }
+
+      // If no activities, return empty result
+      if (!data || data.length === 0) {
+        return {
+          data: [],
+          count: count || 0
+        }
+      }
+
+      // Get unique user_ids from activities
+      const userIds = [...new Set(data.map(activity => activity.user_id).filter(Boolean))]
+
+      // Fetch members data for these user_ids
+      const { data: membersData, error: membersError } = await supabase
+        .from('members')
+        .select('user_id, id, first_name, last_name, email')
+        .in('user_id', userIds)
+
+      if (membersError) {
+        console.error('Error fetching members data:', membersError)
+        // Return activities without member data if members fetch fails
+        return {
+          data: data.map(activity => ({ ...activity, members: null })),
+          count: count || 0
+        }
+      }
+
+      // Create a map of user_id -> member data
+      const membersMap = new Map()
+      if (membersData) {
+        membersData.forEach(member => {
+          membersMap.set(member.user_id, member)
+        })
+      }
+
+      // Combine activities with member data
+      const activitiesWithMembers = data.map(activity => ({
+        ...activity,
+        members: membersMap.get(activity.user_id) || null
+      }))
+
+      return {
+        data: activitiesWithMembers,
+        count: count || 0
+      }
+    } catch (error) {
+      console.error('Error fetching paginated activities:', error)
+      throw error
+    }
+  }
+
+  // Admin methods for reviewing CPD submissions
+  static async getAllPendingActivities(userIds?: string[]): Promise<CPDActivity[]> {
+    try {
+      let query = supabase
+        .from('cpd_activities')
+        .select('*')
         .eq('status', 'pending')
-        .order('created_at', { ascending: false })
+
+      // Filter by member IDs if provided (for Institution Admin)
+      if (userIds && userIds.length > 0) {
+        query = query.in('user_id', userIds)
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false })
 
       if (error) throw error
       return data || []
@@ -527,18 +511,32 @@ class CPDService {
     }
   }
 
-  static async getAllActivitiesStats(): Promise<{
+  static async getAllActivitiesStats(userIds?: string[]): Promise<{
     total: number
     pending: number
     approved: number
     rejected: number
   }> {
     try {
+      // Build base queries
+      let totalQuery = supabase.from('cpd_activities').select('*', { count: 'exact', head: true })
+      let pendingQuery = supabase.from('cpd_activities').select('*', { count: 'exact', head: true }).eq('status', 'pending')
+      let approvedQuery = supabase.from('cpd_activities').select('*', { count: 'exact', head: true }).eq('status', 'approved')
+      let rejectedQuery = supabase.from('cpd_activities').select('*', { count: 'exact', head: true }).eq('status', 'rejected')
+
+      // Filter by member IDs if provided (for Institution Admin)
+      if (userIds && userIds.length > 0) {
+        totalQuery = totalQuery.in('user_id', userIds)
+        pendingQuery = pendingQuery.in('user_id', userIds)
+        approvedQuery = approvedQuery.in('user_id', userIds)
+        rejectedQuery = rejectedQuery.in('user_id', userIds)
+      }
+
       const [totalResult, pendingResult, approvedResult, rejectedResult] = await Promise.all([
-        supabase.from('cpd_activities').select('*', { count: 'exact', head: true }),
-        supabase.from('cpd_activities').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-        supabase.from('cpd_activities').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
-        supabase.from('cpd_activities').select('*', { count: 'exact', head: true }).eq('status', 'rejected')
+        totalQuery,
+        pendingQuery,
+        approvedQuery,
+        rejectedQuery
       ])
 
       return {
@@ -553,7 +551,7 @@ class CPDService {
     }
   }
 
-  static async getPointsStats(): Promise<{
+  static async getPointsStats(userIds?: string[]): Promise<{
     totalPoints: number
     monthlyPoints: number
   }> {
@@ -563,26 +561,40 @@ class CPDService {
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
       const startOfMonthISO = startOfMonth.toISOString()
 
-      // Get all approved activities
-      const { data: allActivities, error: allError } = await supabase
+      // Build base query for approved activities
+      let allQuery = supabase
         .from('cpd_activities')
-        .select('points')
+        .select('cpd_points')
         .eq('status', 'approved')
+
+      // Filter by member IDs if provided (for Institution Admin)
+      if (userIds && userIds.length > 0) {
+        allQuery = allQuery.in('user_id', userIds)
+      }
+
+      const { data: allActivities, error: allError } = await allQuery
 
       if (allError) throw allError
 
       // Get current month approved activities
-      const { data: monthActivities, error: monthError } = await supabase
+      let monthQuery = supabase
         .from('cpd_activities')
-        .select('points')
+        .select('cpd_points')
         .eq('status', 'approved')
         .gte('created_at', startOfMonthISO)
+
+      // Filter by member IDs if provided (for Institution Admin)
+      if (userIds && userIds.length > 0) {
+        monthQuery = monthQuery.in('user_id', userIds)
+      }
+
+      const { data: monthActivities, error: monthError } = await monthQuery
 
       if (monthError) throw monthError
 
       // Calculate totals
-      const totalPoints = allActivities?.reduce((sum, activity) => sum + (activity.points || 0), 0) || 0
-      const monthlyPoints = monthActivities?.reduce((sum, activity) => sum + (activity.points || 0), 0) || 0
+      const totalPoints = allActivities?.reduce((sum, activity) => sum + (activity.cpd_points || 0), 0) || 0
+      const monthlyPoints = monthActivities?.reduce((sum, activity) => sum + (activity.cpd_points || 0), 0) || 0
 
       return {
         totalPoints,
@@ -647,13 +659,98 @@ class CPDService {
     }
   }
 
+  // Create CPD activity from event (called after certificate generation)
+  static async createEventCPDActivity(params: {
+    event_id: string;
+    member_id?: string;
+    user_id: string;
+    event_title: string;
+    event_date: string;
+    cpd_points?: number;
+    cpd_category?: string;
+    certificate_number?: string;
+    certificate_url?: string;
+  }): Promise<CPDActivity | null> {
+    try {
+      console.log('Creating CPD activity from event:', params);
+      
+      // Get member_id if not provided
+      let userId = params.user_id;
+      if (!userId) {
+        const { data: memberData } = await supabase
+          .from('members')
+          .select('id')
+          .eq('user_id', params.user_id)
+          .single();
+        
+        if (!memberData) {
+          console.error('Member not found for user:', params.user_id);
+          return null;
+        }
+        userId = memberData.id;
+      }
+
+      // Determine CPD category (default to "Attend English Australia PD event")
+      const categoryName = params.cpd_category || 'Attend English Australia PD event';
+      const category = CPD_CATEGORIES.find(c => c.name === categoryName) || CPD_CATEGORIES[4]; // Index 4 is "Attend English Australia PD event"
+      
+      // Calculate points (use event points if provided, otherwise calculate from duration)
+      const points = params.cpd_points || category.points_per_hour || 1;
+      
+      // Create the CPD activity
+      const activityData = {
+        user_id: params.user_id || userId,
+        category_id: category.id,
+        category_name: category.name,
+        activity_title: `Event: ${params.event_title}`,
+        description: `Attended online event "${params.event_title}" on ${params.event_date}${params.certificate_number ? `. Certificate: ${params.certificate_number}` : ''}`,
+        provider: 'English Australia',
+        date_completed: params.event_date,
+        hours: Math.floor(points), // Assume 1 hour per point as default
+        minutes: 0,
+        points: points,
+        evidence_url: params.certificate_url,
+        evidence_filename: params.certificate_number ? `Certificate_${params.certificate_number}.pdf` : null,
+        status: 'approved' as const, // Auto-approve event CPD activities
+        approved_at: new Date().toISOString(),
+        approved_by: params.user_id, // Use user_id instead of 'system'
+        created_by: params.user_id,
+        event_id: params.event_id, // Store event reference if field exists
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      console.log('Inserting CPD activity:', activityData);
+      
+      const { data, error } = await supabase
+        .from('cpd_activities')
+        .insert(activityData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating event CPD activity:', error);
+        // Don't throw - we don't want to break certificate generation
+        return null;
+      }
+
+      console.log('CPD activity created successfully:', data);
+      showNotification('success', 'CPD points automatically added for event attendance!');
+      return data;
+    } catch (error) {
+      console.error('Error in createEventCPDActivity:', error);
+      // Don't throw - we don't want to break certificate generation
+      return null;
+    }
+  }
+
   // Admin Settings Management
   static async getCPDSettings(): Promise<CPDSettings | null> {
     try {
-      const { data, error } = await supabase
+      // Get all settings and convert to the expected format
+      const { data: settings, error } = await supabase
         .from('cpd_settings')
-        .select('*')
-        .single()
+        .select('setting_key, setting_value')
 
       if (error) {
         // If table doesn't exist, return default settings
@@ -668,7 +765,31 @@ class CPDService {
         }
         throw error
       }
-      return data
+
+      if (!settings || settings.length === 0) {
+        return {
+          id: 'default',
+          auto_approval_enabled: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+      }
+
+      // Convert key-value pairs to expected format
+      const settingsObj: any = {
+        id: 'settings',
+        auto_approval_enabled: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+
+      settings.forEach(setting => {
+        if (setting.setting_key === 'auto_approve_events') {
+          settingsObj.auto_approval_enabled = setting.setting_value
+        }
+      })
+
+      return settingsObj
     } catch (error) {
       console.error('Error fetching CPD settings:', error)
       // Return default settings as fallback
@@ -795,7 +916,10 @@ class CPDService {
   }
 }
 
-// Export everything as a single default object
+// Export the service class directly for easier access
+export { CPDService };
+
+// Export everything as a single default object (for compatibility)
 export default {
   CPDService,
   CPD_CATEGORIES,

@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "supabase-novo": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "@supabase/mcp-server-supabase@latest",
+        "--access-token=sbp_ecc27aeccb072cf77abbd6bbbaf40bd129486887",
+        "--project-ref=ypsvoxelitgceclohxfu"
+      ]
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "@playwright/mcp@latest"
+      ],
+      "env": {}
+    }
+  }
+}

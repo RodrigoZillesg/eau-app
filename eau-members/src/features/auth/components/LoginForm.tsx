@@ -30,21 +30,25 @@ export const LoginForm: React.FC = () => {
     setError(null)
     
     try {
-      // Usar o novo serviço de autenticação
-      const { user, roles, error } = await AuthService.signInWithRoles(data.email, data.password)
+      // Use Supabase authentication with roles
+      const result = await AuthService.signInWithRoles(data.email, data.password)
       
-      if (error) {
-        setError(error.message)
-      } else if (user) {
-        const { useAuthStore } = await import('../../../stores/authStore')
-        const { setUser, setRoles, setIsLoading: setStoreLoading } = useAuthStore.getState()
-        
-        setUser(user)
-        setRoles(roles)
-        setStoreLoading(false)
-        navigate('/dashboard')
+      if (result.error || !result.user) {
+        setError(result.error?.message || 'Invalid email or password')
+        return
       }
+
+      // Update auth store with user data and roles
+      const { useAuthStore } = await import('../../../stores/authStore')
+      const { setUser, setRoles, setIsLoading: setStoreLoading } = useAuthStore.getState()
+      
+      setUser(result.user)
+      setRoles(result.roles)
+      setStoreLoading(false)
+      
+      navigate('/dashboard')
     } catch (err) {
+      console.error('Login error:', err)
       setError('An unexpected error occurred. Please try again.')
     } finally {
       setIsLoading(false)

@@ -4,7 +4,7 @@ import Link from '@tiptap/extension-link'
 import Image from '@tiptap/extension-image'
 import { useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
-import { showNotification } from '../../utils/notifications'
+import { showNotification } from '../../lib/notifications'
 import { 
   Bold, 
   Italic, 

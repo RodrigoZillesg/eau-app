@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Card } from '../../../components/ui/Card'
 import { MembersService } from '../../../lib/supabase/members'
+import { getUserInstitution } from '../../../services/institutionService'
 import { Users, UserCheck, UserPlus, UserX } from 'lucide-react'
 
 interface Stats {
@@ -22,7 +23,10 @@ export const MemberStats: React.FC = () => {
   useEffect(() => {
     const loadStats = async () => {
       try {
-        const data = await MembersService.getMemberStats()
+        // Get user's institution for filtering
+        const institution = await getUserInstitution()
+        // Pass institution ID to stats (null means all, string means specific)
+        const data = await MembersService.getMemberStats(institution.institutionId)
         setStats(data)
       } catch (error) {
         console.error('Error loading statistics:', error)

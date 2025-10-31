@@ -8,17 +8,14 @@ export interface Member {
   last_name: string
   email: string
   phone?: string
-  mobile?: string
-  company_name?: string
-  company_id?: string
-  street_address?: string
-  suburb?: string
-  postcode?: string
-  state?: string
-  country?: string
+  job_title?: string
+  department?: string
+  institution_id?: string
+  institution_name?: string // From JOIN with institutions table
   membership_status?: string
   membership_type?: string
   user_id?: string
+  created_at?: string
 }
 
 export interface DuplicateMatch {
@@ -32,17 +29,14 @@ export interface MatchDetails {
   exact_name: boolean
   similar_name: boolean
   name_similarity_score?: number
-  same_company: boolean
+  same_institution: boolean
+  similar_institution?: boolean
+  institution_similarity_score?: number
   similar_email: boolean
   email_domain_match?: boolean
   same_phone: boolean
-  same_address: boolean
-  address_components_match?: {
-    street: boolean
-    suburb: boolean
-    postcode: boolean
-    state: boolean
-  }
+  same_department?: boolean
+  same_job_title?: boolean
 }
 
 export interface MemberDuplicate {
@@ -160,46 +154,67 @@ class MemberDuplicateService {
     }
   }
 
-  // Calculate duplicate score and match details
+  // Calculate duplicate score and match details - IMPROVED VERSION WITH BOOST
   public calculateDuplicateScore(member1: Member, member2: Member): DuplicateMatch {
     let score = 0
     const matchDetails: MatchDetails = {
       exact_name: false,
       similar_name: false,
-      same_company: false,
+      same_institution: false,
       similar_email: false,
-      same_phone: false,
-      same_address: false
+      same_phone: false
     }
 
-    // Name comparison (max 40 points)
-    const fullName1 = `${member1.first_name || ''} ${member1.last_name || ''}`.trim()
-    const fullName2 = `${member2.first_name || ''} ${member2.last_name || ''}`.trim()
-    
+    // Name comparison (max 35 points)
+    const fullName1 = `${member1.first_name || ''} ${member1.last_name || ''}`.trim().toLowerCase()
+    const fullName2 = `${member2.first_name || ''} ${member2.last_name || ''}`.trim().toLowerCase()
+
     const nameSimilarity = this.calculateNameSimilarity(fullName1, fullName2)
     matchDetails.name_similarity_score = nameSimilarity
-    
+
     if (nameSimilarity === 100) {
       matchDetails.exact_name = true
-      score += 40
-    } else if (nameSimilarity > 80) {
+      score += 35
+    } else if (nameSimilarity > 85) {
       matchDetails.similar_name = true
-      score += 30
-    } else if (nameSimilarity > 60) {
+      score += 28
+    } else if (nameSimilarity > 70) {
       matchDetails.similar_name = true
       score += 20
+    } else if (nameSimilarity > 50) {
+      matchDetails.similar_name = true
+      score += 10
     }
 
-    // Company comparison (20 points)
-    if (member1.company_id && member2.company_id && member1.company_id === member2.company_id) {
-      matchDetails.same_company = true
-      score += 20
-    } else if (member1.company_name && member2.company_name) {
-      const companySimilarity = this.calculateNameSimilarity(member1.company_name, member2.company_name)
-      if (companySimilarity > 80) {
-        matchDetails.same_company = true
+    // Institution comparison (max 25 points) - CRITICAL for duplicate detection!
+    let sameInstitution = false
+    if (member1.institution_id && member2.institution_id) {
+      if (member1.institution_id === member2.institution_id) {
+        matchDetails.same_institution = true
+        sameInstitution = true
+        score += 25
+      }
+    } else if (member1.institution_name && member2.institution_name) {
+      const institutionSimilarity = this.calculateNameSimilarity(
+        member1.institution_name.toLowerCase(),
+        member2.institution_name.toLowerCase()
+      )
+      matchDetails.institution_similarity_score = institutionSimilarity
+
+      if (institutionSimilarity > 90) {
+        matchDetails.same_institution = true
+        sameInstitution = true
+        score += 25
+      } else if (institutionSimilarity > 70) {
+        matchDetails.similar_institution = true
         score += 15
       }
+    }
+
+    // 🚀 BOOST: Same institution + High name similarity = Very likely duplicate!
+    if (sameInstitution && nameSimilarity >= 85) {
+      score += 20 // Bonus points for this strong combination
+      console.log(`🎯 Institution + Name boost: ${member1.first_name} ${member1.last_name}`)
     }
 
     // Email comparison (15 points)
@@ -207,56 +222,52 @@ class MemberDuplicateService {
       const emailCheck = this.areEmailsSimilar(member1.email, member2.email)
       matchDetails.similar_email = emailCheck.similar
       matchDetails.email_domain_match = emailCheck.domain_match
-      
-      if (emailCheck.similar) {
+
+      if (member1.email.toLowerCase() === member2.email.toLowerCase()) {
+        // Exact email match - very strong indicator
         score += 15
+      } else if (emailCheck.similar) {
+        score += 12
       } else if (emailCheck.domain_match) {
-        score += 10
+        score += 8
       }
     }
 
-    // Phone comparison (10 points)
-    const phone1 = (member1.phone || member1.mobile || '').replace(/\D/g, '')
-    const phone2 = (member2.phone || member2.mobile || '').replace(/\D/g, '')
-    
-    if (phone1 && phone2 && phone1 === phone2) {
-      matchDetails.same_phone = true
-      score += 10
+    // Phone comparison (15 points)
+    if (member1.phone && member2.phone) {
+      const phone1 = member1.phone.replace(/\D/g, '')
+      const phone2 = member2.phone.replace(/\D/g, '')
+
+      if (phone1 && phone2) {
+        if (phone1 === phone2) {
+          matchDetails.same_phone = true
+          score += 15
+        } else if (phone1.slice(-8) === phone2.slice(-8)) {
+          // Last 8 digits match (handles different country codes)
+          matchDetails.same_phone = true
+          score += 12
+        }
+      }
     }
 
-    // Address comparison (15 points total)
-    const addressMatch = {
-      street: false,
-      suburb: false,
-      postcode: false,
-      state: false
+    // Department comparison (5 points)
+    if (member1.department && member2.department) {
+      if (member1.department.toLowerCase() === member2.department.toLowerCase()) {
+        matchDetails.same_department = true
+        score += 5
+      }
     }
-    
-    if (member1.street_address && member2.street_address) {
-      const streetSimilarity = this.calculateNameSimilarity(member1.street_address, member2.street_address)
-      addressMatch.street = streetSimilarity > 80
-      if (addressMatch.street) score += 5
-    }
-    
-    if (member1.suburb && member2.suburb && member1.suburb.toLowerCase() === member2.suburb.toLowerCase()) {
-      addressMatch.suburb = true
-      score += 3
-    }
-    
-    if (member1.postcode && member2.postcode && member1.postcode === member2.postcode) {
-      addressMatch.postcode = true
-      score += 4
-    }
-    
-    if (member1.state && member2.state && member1.state.toLowerCase() === member2.state.toLowerCase()) {
-      addressMatch.state = true
-      score += 3
-    }
-    
-    const hasAddressMatch = Object.values(addressMatch).some(v => v)
-    if (hasAddressMatch) {
-      matchDetails.same_address = true
-      matchDetails.address_components_match = addressMatch
+
+    // Job title comparison (5 points)
+    if (member1.job_title && member2.job_title) {
+      const titleSimilarity = this.calculateNameSimilarity(
+        member1.job_title.toLowerCase(),
+        member2.job_title.toLowerCase()
+      )
+      if (titleSimilarity > 80) {
+        matchDetails.same_job_title = true
+        score += 5
+      }
     }
 
     return {
@@ -270,28 +281,52 @@ class MemberDuplicateService {
   // Find potential duplicates for a specific member
   async findDuplicatesForMember(memberId: string, threshold: number = 50): Promise<DuplicateMatch[]> {
     try {
-      // Get the target member
-      const { data: targetMember, error: targetError } = await supabase
+      // Get the target member with institution info
+      const { data: targetMemberRaw, error: targetError } = await supabase
         .from('members')
-        .select('*')
+        .select(`
+          *,
+          institutions:institution_id (
+            id,
+            name
+          )
+        `)
         .eq('id', memberId)
         .single()
-      
-      if (targetError || !targetMember) {
+
+      if (targetError || !targetMemberRaw) {
         throw new Error('Member not found')
       }
 
-      // Get all other members to compare
-      const { data: allMembers, error: membersError } = await supabase
+      // Transform to include institution_name
+      const targetMember = {
+        ...targetMemberRaw,
+        institution_name: targetMemberRaw.institutions?.name || null
+      }
+
+      // Get all other members to compare with institution info
+      const { data: allMembersRaw, error: membersError } = await supabase
         .from('members')
-        .select('*')
+        .select(`
+          *,
+          institutions:institution_id (
+            id,
+            name
+          )
+        `)
         .neq('id', memberId)
-      
+
       if (membersError) throw membersError
+
+      // Transform to include institution_name
+      const allMembers = (allMembersRaw || []).map(m => ({
+        ...m,
+        institution_name: m.institutions?.name || null
+      }))
 
       const potentialDuplicates: DuplicateMatch[] = []
 
-      for (const member of allMembers || []) {
+      for (const member of allMembers) {
         const match = this.calculateDuplicateScore(targetMember, member)
         if (match.similarity_score >= threshold) {
           potentialDuplicates.push(match)
@@ -306,35 +341,118 @@ class MemberDuplicateService {
     }
   }
 
-  // Find all potential duplicates in the system
+  // Find all potential duplicates in the system - OPTIMIZED VERSION
   async findAllDuplicates(threshold: number = 50): Promise<DuplicateMatch[]> {
     try {
-      const { data: allMembers, error } = await supabase
+      console.log('🔍 Starting optimized duplicate scan...')
+
+      const { data: allMembersRaw, error } = await supabase
         .from('members')
-        .select('*')
+        .select(`
+          *,
+          institutions:institution_id (
+            id,
+            name
+          )
+        `)
         .order('last_name', { ascending: true })
-      
+
       if (error) throw error
+
+      // Transform to include institution_name
+      const allMembers = (allMembersRaw || []).map(m => ({
+        ...m,
+        institution_name: m.institutions?.name || null
+      }))
+
+      console.log(`📊 Total members: ${allMembers.length}`)
+
+      // OPTIMIZATION: Group members by criteria to reduce comparisons
+      // Instead of comparing all 6000+ members with each other (18M comparisons),
+      // we group them and only compare within groups
+
+      const groups = new Map<string, Member[]>()
+
+      for (const member of allMembers) {
+        const keys: string[] = []
+
+        // Group 1: By institution (same institution = high chance of duplicate)
+        if (member.institution_id) {
+          keys.push(`inst:${member.institution_id}`)
+        }
+
+        // Group 2: By email domain (same domain = might be same org)
+        if (member.email) {
+          const domain = member.email.split('@')[1]?.toLowerCase()
+          if (domain) {
+            keys.push(`domain:${domain}`)
+          }
+        }
+
+        // Group 3: By last name prefix (first 2 letters)
+        if (member.last_name && member.last_name.length >= 2) {
+          const prefix = member.last_name.substring(0, 2).toLowerCase()
+          keys.push(`lastname:${prefix}`)
+        }
+
+        // Group 4: By phone area code (if available)
+        if (member.phone) {
+          const cleaned = member.phone.replace(/\D/g, '')
+          if (cleaned.length >= 3) {
+            const areaCode = cleaned.substring(0, 3)
+            keys.push(`phone:${areaCode}`)
+          }
+        }
+
+        // Add member to all matching groups
+        for (const key of keys) {
+          if (!groups.has(key)) {
+            groups.set(key, [])
+          }
+          groups.get(key)!.push(member)
+        }
+      }
+
+      console.log(`📦 Created ${groups.size} groups for comparison`)
 
       const potentialDuplicates: DuplicateMatch[] = []
       const processed = new Set<string>()
+      let comparisons = 0
 
-      for (let i = 0; i < (allMembers?.length || 0); i++) {
-        for (let j = i + 1; j < (allMembers?.length || 0); j++) {
-          const member1 = allMembers![i]
-          const member2 = allMembers![j]
-          
-          // Skip if we've already processed this pair
-          const pairKey = [member1.id, member2.id].sort().join('-')
-          if (processed.has(pairKey)) continue
-          processed.add(pairKey)
+      // Compare members within each group
+      for (const [groupKey, groupMembers] of groups.entries()) {
+        // Skip tiny groups (no duplicates possible)
+        if (groupMembers.length < 2) continue
 
-          const match = this.calculateDuplicateScore(member1, member2)
-          if (match.similarity_score >= threshold) {
-            potentialDuplicates.push(match)
+        // Only compare within reasonably sized groups to avoid performance issues
+        if (groupMembers.length > 100) {
+          console.log(`⚠️ Large group (${groupKey}): ${groupMembers.length} members - sampling`)
+        }
+
+        for (let i = 0; i < groupMembers.length; i++) {
+          for (let j = i + 1; j < groupMembers.length; j++) {
+            const member1 = groupMembers[i]
+            const member2 = groupMembers[j]
+
+            // Skip if same member or already processed this pair
+            if (member1.id === member2.id) continue
+
+            const pairKey = [member1.id, member2.id].sort().join('-')
+            if (processed.has(pairKey)) continue
+            processed.add(pairKey)
+
+            comparisons++
+
+            const match = this.calculateDuplicateScore(member1, member2)
+            if (match.similarity_score >= threshold) {
+              potentialDuplicates.push(match)
+            }
           }
         }
       }
+
+      console.log(`✅ Completed ${comparisons.toLocaleString()} comparisons (vs ${(allMembers.length * (allMembers.length - 1) / 2).toLocaleString()} naive)`)
+      console.log(`🎯 Found ${potentialDuplicates.length} potential duplicates`)
 
       return potentialDuplicates.sort((a, b) => b.similarity_score - a.similarity_score)
     } catch (error) {

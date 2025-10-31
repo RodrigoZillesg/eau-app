@@ -7,6 +7,7 @@ import { PhoneInput } from '../../../components/ui/PhoneInput'
 import { MembersService, type MemberWithRoles } from '../../../lib/supabase/members'
 import type { MembershipStatus, MembershipType, MemberRole } from '../../../types/supabase'
 import { InviteUserModal } from './InviteUserModal'
+import { useAuthStore } from '../../../stores/authStore'
 
 interface MemberFormProps {
   member?: MemberWithRoles | null
@@ -44,6 +45,41 @@ export const MemberForm: React.FC<MemberFormProps> = ({
   onCancel
 }) => {
   const isEditing = !!member
+  const { roles } = useAuthStore()
+
+  // Define available roles based on current user's permissions
+  const getAvailableRoles = (): MemberRole[] => {
+    const isSuperAdmin = roles.includes('AdminSuper')
+    const isAdmin = roles.includes('Admin')
+    const isInstitutionAdmin = roles.includes('InstitutionAdmin')
+
+    if (isSuperAdmin) {
+      // SuperAdmin can assign any role
+      return ['member', 'admin', 'super_admin', 'moderator', 'instructor', 'Institution Admin']
+    } else if (isAdmin) {
+      // Admin can assign admin roles and below, but not super_admin
+      return ['member', 'admin', 'moderator', 'instructor', 'Institution Admin']
+    } else if (isInstitutionAdmin) {
+      // Institution Admin can only assign member-level roles
+      return ['member', 'moderator', 'instructor']
+    }
+
+    // Default: only member role
+    return ['member']
+  }
+
+  // Helper function to format role names for display
+  const formatRoleName = (role: MemberRole): string => {
+    const roleNames: Record<MemberRole, string> = {
+      'member': 'Member',
+      'admin': 'System Admin',
+      'super_admin': 'Super Admin',
+      'moderator': 'Moderator',
+      'instructor': 'Instructor',
+      'Institution Admin': 'Institution Admin'
+    }
+    return roleNames[role] || role
+  }
 
   const [formData, setFormData] = useState<FormData>({
     first_name: member?.first_name || '',
@@ -126,6 +162,16 @@ export const MemberForm: React.FC<MemberFormProps> = ({
     setLoading(true)
     setError(null)
 
+    // Validate roles before saving - ensure no unauthorized roles are being assigned
+    const availableRoles = getAvailableRoles()
+    const invalidRoles = formData.roles.filter(role => !availableRoles.includes(role))
+
+    if (invalidRoles.length > 0) {
+      setError(`Unauthorized role assignment: ${invalidRoles.join(', ')}. You don't have permission to assign these roles.`)
+      setLoading(false)
+      return
+    }
+
     try {
       const memberData = {
         first_name: formData.first_name,
@@ -198,6 +244,13 @@ export const MemberForm: React.FC<MemberFormProps> = ({
   }
 
   const handleRoleChange = (role: MemberRole, checked: boolean) => {
+    // Additional validation: only allow roles that are in available roles
+    const availableRoles = getAvailableRoles()
+    if (!availableRoles.includes(role)) {
+      console.warn(`Role ${role} is not available for current user level`)
+      return
+    }
+
     if (checked) {
       setFormData(prev => ({
         ...prev,
@@ -423,9 +476,21 @@ export const MemberForm: React.FC<MemberFormProps> = ({
 
         {/* Roles */}
         <div className="space-y-4">
-          <h3 className="text-lg font-medium text-gray-900">Roles</h3>
+          <div>
+            <h3 className="text-lg font-medium text-gray-900">Roles</h3>
+            {roles.includes('InstitutionAdmin') && !roles.includes('Admin') && !roles.includes('AdminSuper') && (
+              <p className="text-sm text-amber-600 mt-1">
+                ⚠️ As Institution Admin, you can only assign member-level roles (Member, Moderator, Instructor)
+              </p>
+            )}
+            {roles.includes('Admin') && !roles.includes('AdminSuper') && (
+              <p className="text-sm text-blue-600 mt-1">
+                ℹ️ As System Admin, you can assign most roles except Super Admin
+              </p>
+            )}
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {(['member', 'admin', 'super_admin', 'moderator', 'instructor'] as MemberRole[]).map((role) => (
+            {getAvailableRoles().map((role) => (
               <label key={role} className="flex items-center space-x-2">
                 <input
                   type="checkbox"
@@ -433,7 +498,7 @@ export const MemberForm: React.FC<MemberFormProps> = ({
                   onChange={(e) => handleRoleChange(role, e.target.checked)}
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
-                <span className="text-sm text-gray-700 capitalize">{role.replace('_', ' ')}</span>
+                <span className="text-sm text-gray-700">{formatRoleName(role)}</span>
               </label>
             ))}
           </div>

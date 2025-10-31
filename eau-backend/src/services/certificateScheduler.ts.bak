@@ -1,0 +1,61 @@
+import { EventRegistrationService } from '../../eau-members/src/services/eventRegistrationService';
+import cron from 'node-cron';
+
+/**
+ * Certificate Scheduler Service
+ * Automatically processes completed events and generates certificates/CPD
+ */
+export class CertificateScheduler {
+  private static isRunning = false;
+
+  /**
+   * Start the automated certificate generation scheduler
+   * Runs every hour to process recently completed events
+   */
+  static startScheduler() {
+    // Run every hour at minute 0
+    cron.schedule('0 * * * *', async () => {
+      if (this.isRunning) {
+        console.log('Certificate processor already running, skipping...');
+        return;
+      }
+
+      this.isRunning = true;
+      console.log(`[${new Date().toISOString()}] Starting automatic certificate processing...`);
+
+      try {
+        await EventRegistrationService.processCompletedEvents();
+        console.log('Certificate processing completed successfully');
+      } catch (error) {
+        console.error('Error in certificate scheduler:', error);
+      } finally {
+        this.isRunning = false;
+      }
+    });
+
+    console.log('Certificate scheduler started - will run every hour');
+  }
+
+  /**
+   * Process immediately (for testing or manual trigger)
+   */
+  static async processNow() {
+    if (this.isRunning) {
+      return { success: false, message: 'Already processing' };
+    }
+
+    this.isRunning = true;
+    try {
+      await EventRegistrationService.processCompletedEvents();
+      return { success: true, message: 'Processing completed' };
+    } catch (error) {
+      return { success: false, message: error.message };
+    } finally {
+      this.isRunning = false;
+    }
+  }
+}
+
+// Start the scheduler when this module is imported
+// Uncomment the line below to activate automatic processing
+// CertificateScheduler.startScheduler();

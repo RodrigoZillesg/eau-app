@@ -388,18 +388,18 @@ export const ActivityImportPage: React.FC = () => {
             activity.actionIntended && `Action Intended: ${activity.actionIntended}`
           ].filter(Boolean).join('\n\n')
 
-          // Insert activity
+          // Insert activity - usando estrutura correta do banco
           const { error: insertError } = await supabase
             .from('cpd_activities')
             .insert({
-              member_id: member.id,
-              user_id: member.user_id,
-              category_id: parseInt(activity.categorySerial),
-              category_name: activity.category,
+              user_id: member.user_id, // Apenas user_id, não member_id
+              activity_type: 'Professional Development', // Campo obrigatório
               activity_title: activity.activityName,
+              activity_date: completedDate.toISOString().split('T')[0], // activity_date, não date_completed
+              cpd_points: Math.ceil(hours), // Convertendo horas para pontos CPD (arredondando para cima)
+              cpd_category: activity.category, // cpd_category como VARCHAR
               description: descriptionParts || null,
-              date_completed: completedDate.toISOString().split('T')[0],
-              hours: hours,
+              provider: activity.eventWebsite ? 'External' : 'Self-directed', // Provider baseado na presença de website
               evidence_url: activity.eventWebsite || null,
               status: activity.verified === '1' ? 'approved' : 'pending'
             })
@@ -477,6 +477,12 @@ export const ActivityImportPage: React.FC = () => {
         <p className="mt-2 text-gray-600">
           Import CPD activities from CSV files exported from the legacy system
         </p>
+        <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <p className="text-sm text-yellow-800">
+            <strong>Note:</strong> Hours will be converted to CPD points (1 hour = 1 point, rounded up).
+            Activities are matched to members by email address.
+          </p>
+        </div>
       </div>
 
       <div className="space-y-6">

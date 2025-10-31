@@ -1,5 +1,6 @@
 import { supabase } from './client'
 import type { UserRole } from '../../types/permissions'
+import { fetchUserRoles, fetchUserRolesByEmail } from '../../services/roleService'
 
 export interface AuthUser {
   id: string
@@ -21,61 +22,15 @@ export class AuthService {
     return roleMapping[dbRole] || ['Members']
   }
 
-  // Buscar roles do usuário baseado no email - VERSÃO SIMPLIFICADA
+  // Buscar roles do usuário - USA NOVO roleService
   static async getUserRoles(userId: string): Promise<UserRole[]> {
     try {
-      // Primeiro, buscar o usuário para pegar o email
-      const { data: user } = await supabase.auth.getUser()
-      
-      if (!user.user?.email) {
-        console.warn('No email found, using default role')
-        return ['Members']
-      }
-
-      // FALLBACK TEMPORÁRIO - Hardcode para seu email
-      if (user.user.email === 'rrzillesg@gmail.com') {
-        console.log('Admin user detected')
-        return ['AdminSuper', 'Admin', 'Members']
-      }
-
-      // Tentar buscar o membro - sem quebrar se falhar
-      try {
-        const { data: member, error: memberError } = await supabase
-          .from('members')
-          .select('id, email')
-          .or(`email.eq.${user.user.email},created_by.eq.${userId}`)
-          .single()
-
-        if (memberError || !member) {
-          console.warn('Member not found in database, using default role')
-          return ['Members']
-        }
-
-        // Tentar buscar roles - sem quebrar se falhar
-        const { data: roles, error: rolesError } = await supabase
-          .from('member_roles')
-          .select('role')
-          .eq('member_id', member.id)
-
-        if (rolesError || !roles || roles.length === 0) {
-          console.warn('No roles found, using default role')
-          return ['Members']
-        }
-
-        // Mapear roles
-        const systemRoles: UserRole[] = []
-        roles.forEach(r => {
-          const mappedRoles = this.mapDatabaseRoleToSystemRole(r.role)
-          systemRoles.push(...mappedRoles)
-        })
-
-        return [...new Set(systemRoles)]
-      } catch (dbError) {
-        console.warn('Database error fetching member/roles:', dbError)
-        return ['Members']
-      }
+      // Use the roleService to get proper roles from database
+      const roles = await fetchUserRoles(userId)
+      console.log('Roles fetched for user:', userId, roles)
+      return roles
     } catch (error) {
-      console.warn('General error in getUserRoles:', error)
+      console.warn('Error fetching roles:', error)
       return ['Members'] // Always return default role
     }
   }

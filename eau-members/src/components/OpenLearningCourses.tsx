@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { openLearningService, OpenLearningCourse } from '../services/openlearningService';
 import { format } from 'date-fns';
-import { showNotification } from '../utils/notifications';
+import { showNotification } from '../lib/notifications';
 import { ExternalLink, Award, Calendar, CheckCircle, Clock } from 'lucide-react';
 
 interface OpenLearningCoursesProps {

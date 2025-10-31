@@ -1,8 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card } from '../../../components/ui/Card'
 import { Button } from '../../../components/ui/Button'
-import { Building2, Users, CreditCard, Upload, AlertTriangle, Search } from 'lucide-react'
+import { Building2, Users, CreditCard, Upload, AlertTriangle, Search, Pause, Play, X, RotateCcw } from 'lucide-react'
 import { showNotification } from '../../../lib/notifications'
 import { supabaseAdmin } from '../../../lib/supabase/adminClient'
 import { memberDuplicateService } from '../../../services/memberDuplicateService'
@@ -102,17 +102,84 @@ export const CompleteImportPage: React.FC = () => {
   const navigate = useNavigate()
   const [file, setFile] = useState<File | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [isPaused, setIsPaused] = useState(false)
+  const [isCancelled, setIsCancelled] = useState(false)
+  const [importSessionId, setImportSessionId] = useState<string | null>(null)
+  const [canResume, setCanResume] = useState(false)
   const [importStats, setImportStats] = useState<ImportStats | null>(null)
   const [errors, setErrors] = useState<string[]>([])
   const [progress, setProgress] = useState({ phase: '', message: '', current: 0, total: 0 })
   const [duplicatesFound, setDuplicatesFound] = useState(0)
+  const [lastProcessedIndex, setLastProcessedIndex] = useState(-1)
+  const [savedFileContent, setSavedFileContent] = useState<string | null>(null)
+  
+  // Refs para controle de pause/cancel
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const pauseRequestedRef = useRef(false)
+  const processedItemsRef = useRef<Set<string>>(new Set())
+  
+  // Load saved state on mount
+  useEffect(() => {
+    const savedState = localStorage.getItem('importSessionState')
+    if (savedState) {
+      try {
+        const state = JSON.parse(savedState)
+        if (state.importSessionId) {
+          setImportSessionId(state.importSessionId)
+          setCanResume(true)
+          setProgress(state.progress || { phase: '', message: '', current: 0, total: 0 })
+          setImportStats(state.importStats || null)
+          setLastProcessedIndex(state.lastProcessedIndex || -1)
+          setErrors(state.errors || [])
+          setSavedFileContent(state.fileContent || null)
+          if (state.processedItems) {
+            processedItemsRef.current = new Set(state.processedItems)
+          }
+          showNotification('info', 'Previous import session found', 'You can resume from where you left off')
+        }
+      } catch (error) {
+        console.error('Failed to load saved import state:', error)
+      }
+    }
+  }, [])
+  
+  // Save state when paused
+  const saveImportState = useCallback(() => {
+    if (importSessionId && isPaused) {
+      const state = {
+        importSessionId,
+        progress,
+        importStats,
+        lastProcessedIndex,
+        errors,
+        processedItems: Array.from(processedItemsRef.current),
+        fileContent: savedFileContent,
+        savedAt: new Date().toISOString()
+      }
+      localStorage.setItem('importSessionState', JSON.stringify(state))
+    }
+  }, [importSessionId, progress, importStats, lastProcessedIndex, errors, isPaused, savedFileContent])
+  
+  // Save state when paused
+  useEffect(() => {
+    if (isPaused) {
+      saveImportState()
+    }
+  }, [isPaused, saveImportState])
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0]
     if (selectedFile) {
       setFile(selectedFile)
       setImportStats(null)
       setErrors([])
+      // Read file content for persistence
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setSavedFileContent(e.target?.result as string)
+      }
+      reader.readAsText(selectedFile)
+      setCanResume(false)
     }
   }
 
@@ -219,14 +286,73 @@ export const CompleteImportPage: React.FC = () => {
     })
   }
 
+  // Função para pausar importação
+  const handlePause = () => {
+    pauseRequestedRef.current = true
+    setIsPaused(true)
+    showNotification('info', 'Import paused. You can resume later.')
+  }
+
+  // Função para resumir importação
+  const handleResume = () => {
+    pauseRequestedRef.current = false
+    setIsPaused(false)
+    // Resume from where we left off
+    if (file && lastProcessedIndex > -1) {
+      handleImport()
+    }
+  }
+
+  // Função para cancelar importação
+  const handleCancel = () => {
+    if (confirm('Are you sure you want to cancel the import? You can resume it later.')) {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+      setIsCancelled(true)
+      setIsProcessing(false)
+      setIsPaused(false)
+      showNotification('warning', 'Import cancelled')
+    }
+  }
+
+  // Função para resetar e começar do zero
+  const handleReset = () => {
+    if (confirm('Are you sure you want to reset? This will clear all progress.')) {
+      processedItemsRef.current.clear()
+      setImportSessionId(null)
+      setCanResume(false)
+      setIsPaused(false)
+      setIsCancelled(false)
+      setProgress({ phase: '', message: '', current: 0, total: 0 })
+      setImportStats(null)
+      setErrors([])
+      setLastProcessedIndex(-1)
+      setSavedFileContent(null)
+      localStorage.removeItem('importSessionState')
+      showNotification('info', 'Import reset. You can start fresh.')
+    }
+  }
+
   const handleImport = async () => {
-    if (!file) return
+    if (!file && !savedFileContent) {
+      showNotification('error', 'No file selected or saved session to resume')
+      return
+    }
 
     try {
       setIsProcessing(true)
+      setIsCancelled(false)
+      pauseRequestedRef.current = false
       setErrors([])
       
-      const stats: ImportStats = {
+      // Generate unique session ID if not resuming
+      if (!importSessionId) {
+        const sessionId = `import_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        setImportSessionId(sessionId)
+      }
+      
+      const stats: ImportStats = importStats || {
         companies: { total: 0, created: 0, existing: 0, failed: 0 },
         memberships: { total: 0, created: 0, existing: 0, failed: 0 },
         members: { total: 0, created: 0, existing: 0, failed: 0 }
@@ -246,9 +372,107 @@ export const CompleteImportPage: React.FC = () => {
         return dateStr.split(' ')[0] // Get just the date part
       }
 
-      // Parse CSV
+      // Parse CSV - use saved content if resuming without file
       setProgress({ phase: 'parsing', message: 'Reading CSV file...', current: 0, total: 100 })
-      const records = await parseCSVFile(file)
+      let records: CompleteImportData[] = []
+      
+      if (file) {
+        records = await parseCSVFile(file)
+      } else if (canResume && savedFileContent) {
+        // Parse saved content if resuming without file
+        records = await new Promise<CompleteImportData[]>((resolve, reject) => {
+          Papa.parse(savedFileContent, {
+            header: true,
+            complete: (results) => {
+              try {
+                const data = results.data
+                  .filter((row: any) => row && Object.keys(row).length > 1)
+                  .map((row: any) => ({
+                    // Same mapping as parseCSVFile
+                    membershipId: row['ID'] || '',
+                    startDate: row['Start Date'] || '',
+                    expiryDate: row['Expiry Date'] || '',
+                    lastRenewedDate: row['Last Renewed Date'] || '',
+                    status: row['Status'] || '',
+                    previousExpiryDate: row['Previous Expiry Date'] || '',
+                    pendingStatus: row['Pending Status'] || '',
+                    userId: row['UserId'] || '',
+                    memberTest: row['Member Test'] || '',
+                    memberEditableAddress: row['Member Editable Address'] || '',
+                    memberTitle: row['Member Title'] || '',
+                    memberFirstName: row['Member First Name'] || '',
+                    memberLastName: row['Member Last Name'] || '',
+                    memberEmail: row['Member Email'] || '',
+                    memberCompanyName: row['Member Company Name'] || '',
+                    memberCompanyNameActual: row['Member Company Name Actual'] || '',
+                    memberPosition: row['Member Position'] || '',
+                    memberStreetAddress: row['Member Street Address'] || '',
+                    memberStreetAddressLine2: row['Member Street Address Line 2'] || '',
+                    memberSuburb: row['Member Suburb'] || '',
+                    memberPostcode: row['Member Postcode'] || '',
+                    memberState: row['Member State'] || '',
+                    memberCountry: row['Member Country'] || '',
+                    memberMobile: row['Member Mobile'] || '',
+                    memberSubscriptions: row['Member Subscriptions'] || '',
+                    memberBio: row['Member Bio'] || '',
+                    memberBoardRole: row['Member Board Member Role'] || '',
+                    memberAreaExpertise: row['Member Area Expertise'] || '',
+                    memberUnsubscribeNotes: row['Member Unsubscribe Notes'] || '',
+                    memberTeacherSince: row['Member Teacher Since'] || '',
+                    memberCoursesTaught: row['Member Courses Taught'] || '',
+                    memberInterestTags: row['Member Interest Tags'] || '',
+                    memberEmailSubscriptions: row['Member Email Subscriptions'] || '',
+                    memberUsername: row['Member Username'] || '',
+                    memberGroups: row['Member Groups'] || '',
+                    memberCreated: row['Member Created'] || '',
+                    memberLastEdited: row['Member Last Edited'] || '',
+                    totalMembers: row['Total Members'] || '',
+                    category: row['Category'] || '',
+                    type: row['Type'] || '',
+                    pricingOption: row['Pricing Option'] || '',
+                    pricingOptionCost: row['Pricing Option Cost'] || '',
+                    targetType: row['Target Type'] || '',
+                    primaryContactUserId: row['Primary Contact User Id'] || '',
+                    primaryContactFirstName: row['Primary Contact First Name'] || '',
+                    primaryContactLastName: row['Primary Contact Last Name'] || '',
+                    primaryContactEmail: row['Primary Contact Email'] || '',
+                    companyId: row['Company Id'] || '',
+                    companyName: row['Company Name'] || '',
+                    companyEmail: row['Company Email'] || '',
+                    companyCompanyName: row['Company Company Name'] || '',
+                    companyParentCompany: row['Company Parent Company'] || '',
+                    companyABN: row['Company ABN'] || '',
+                    companyCompanyEmail: row['Company Company Email'] || '',
+                    companyCompanyType: row['Company Company Type'] || '',
+                    companyCRICOSCode: row['Company CRICOS Code'] || '',
+                    companyAddressLine1: row['Company Address Line1'] || '',
+                    companyAddressLine2: row['Company Address Line2'] || '',
+                    companyAddressLine3: row['Company Address Line3'] || '',
+                    companySuburb: row['Company Suburb'] || '',
+                    companyPostcode: row['Company Postcode'] || '',
+                    companyState: row['Company State'] || '',
+                    companyCountry: row['Company Country'] || '',
+                    companyPhone: row['Company Phone'] || '',
+                    companyPrimaryContact: row['Company Primary Contact'] || '',
+                    companyCoursesOffered: row['Company Courses Offered'] || '',
+                    companyLogo: row['Company Logo'] || '',
+                    companyWebsite: row['Company Website'] || '',
+                    companyMemberSince: row['Company Member Since'] || '',
+                    companyCancellationDetails: row['Company Cancellation Details'] || ''
+                  }))
+                resolve(data as CompleteImportData[])
+              } catch (error) {
+                reject(new Error('Failed to parse CSV file'))
+              }
+            },
+            error: (error) => {
+              reject(new Error(`CSV parsing error: ${error.message}`))
+            }
+          })
+        })
+      } else {
+        throw new Error('No file or saved content available')
+      }
       
       // Track unique companies and memberships
       const companiesMap = new Map<string, any>()
@@ -257,7 +481,27 @@ export const CompleteImportPage: React.FC = () => {
       // Process records to extract unique companies
       setProgress({ phase: 'companies', message: 'Processing companies...', current: 0, total: records.length })
       
-      for (const record of records) {
+      // Resume from last position if applicable
+      const startIndex = canResume && lastProcessedIndex > -1 ? lastProcessedIndex : 0
+      
+      for (let i = startIndex; i < records.length; i++) {
+        const record = records[i]
+        
+        // Check if pause was requested
+        if (pauseRequestedRef.current) {
+          setProgress({ 
+            phase: 'companies', 
+            message: 'Import paused', 
+            current: i + 1, 
+            total: records.length 
+          })
+          setLastProcessedIndex(i)
+          setImportStats(stats)
+          setCanResume(true)
+          setIsProcessing(false)
+          return // Exit to allow resume later
+        }
+        
         if (record.companyId && !companiesMap.has(record.companyId)) {
           companiesMap.set(record.companyId, {
             legacy_company_id: parseInt(record.companyId),
@@ -317,7 +561,24 @@ export const CompleteImportPage: React.FC = () => {
       // Process memberships
       setProgress({ phase: 'memberships', message: 'Processing memberships...', current: 0, total: records.length })
       
-      for (const record of records) {
+      // Resume from last position if applicable
+      const membershipStartIndex = canResume && progress?.phase === 'memberships' && lastProcessedIndex > -1 ? lastProcessedIndex : 0
+      
+      for (let i = membershipStartIndex; i < records.length; i++) {
+        const record = records[i]
+        
+        // Check if pause was requested
+        if (pauseRequestedRef.current) {
+          setProgress({ 
+            phase: 'memberships', 
+            message: 'Import paused', 
+            current: stats.memberships.created + stats.memberships.failed, 
+            total: records.length 
+          })
+          setLastProcessedIndex(i)
+          return
+        }
+        
         if (record.membershipId && !membershipsMap.has(record.membershipId)) {
           // Get company UUID if exists
           let companyUuid = null
@@ -384,8 +645,24 @@ export const CompleteImportPage: React.FC = () => {
       setProgress({ phase: 'members', message: 'Processing members...', current: 0, total: records.length })
       stats.members.total = records.length
       
-      for (let i = 0; i < records.length; i++) {
+      // Resume from last position if applicable
+      const memberStartIndex = canResume && progress?.phase === 'members' && lastProcessedIndex > -1 ? lastProcessedIndex : 0
+      
+      for (let i = memberStartIndex; i < records.length; i++) {
         const record = records[i]
+        
+        // Check if pause was requested
+        if (pauseRequestedRef.current) {
+          setProgress({ 
+            phase: 'members', 
+            message: 'Import paused', 
+            current: i + 1, 
+            total: records.length 
+          })
+          setLastProcessedIndex(i)
+          return
+        }
+        
         setProgress({ 
           phase: 'members', 
           message: `Processing member ${i + 1} of ${records.length}...`, 
@@ -428,6 +705,35 @@ export const CompleteImportPage: React.FC = () => {
             companyUuid = data?.id
           }
           
+          /**
+           * Determine user_type based on Member Groups hierarchy
+           * Priority (highest to lowest):
+           * 1. admin (from Member Groups) → 'admin'
+           * 2. Primary Contact → 'institution_admin'
+           * 3. Board Members (from Member Groups) → 'board_member'
+           * 4. Affiliates or Consultants & Agents → 'affiliate'
+           * 5. Default → 'member'
+           */
+          let userType = 'member' // Default
+
+          // Parse Member Groups
+          const memberGroups = record.memberGroups ? record.memberGroups.split(',').map(g => g.trim()) : []
+
+          // Check hierarchy from highest to lowest
+          if (memberGroups.some(g => g.toLowerCase() === 'admin')) {
+            userType = 'admin'
+            console.log(`✅ System Admin detected: ${record.memberEmail}`)
+          } else if (record.primaryContactUserId && parseInt(record.userId) === parseInt(record.primaryContactUserId)) {
+            userType = 'institution_admin'
+            console.log(`✅ Institution Admin detected: ${record.memberEmail}`)
+          } else if (memberGroups.includes('Board Members')) {
+            userType = 'board_member'
+            console.log(`✅ Board Member detected: ${record.memberEmail}`)
+          } else if (memberGroups.includes('Affiliates') || memberGroups.includes('Consultants & Agents')) {
+            userType = 'affiliate'
+            console.log(`✅ Affiliate detected: ${record.memberEmail}`)
+          }
+
           // Create member
           const memberData = {
             legacy_user_id: parseInt(record.userId),
@@ -463,32 +769,22 @@ export const CompleteImportPage: React.FC = () => {
             company_name: record.memberCompanyName,
             company_name_actual: record.memberCompanyNameActual,
             display_name: `${record.memberFirstName} ${record.memberLastName}`.trim(),
-            membership_status: (record.status || 'active').toLowerCase()
+            membership_status: (record.status || 'active').toLowerCase(),
+            user_type: userType  // ✅ CORREÇÃO: Atribuir user_type correto baseado em Primary Contact
           }
-          
+
           const { data: newMember, error } = await supabaseAdmin
             .from('members')
             .insert(memberData)
-            .select('id')
+            .select('id, user_type, email')
             .single()
-          
+
           if (error) {
             stats.members.failed++
             setErrors(prev => [...prev, `Member ${record.memberEmail}: ${error.message}`])
           } else {
             stats.members.created++
-            
-            // Add default role for the new member
-            if (newMember?.id) {
-              await supabaseAdmin
-                .from('member_roles')
-                .insert({
-                  member_id: newMember.id,
-                  role: 'member'
-                })
-                .select()
-                .single()
-            }
+            // Logs de verificação já foram feitos acima durante a detecção do role
           }
         } catch (error) {
           stats.members.failed++
@@ -518,6 +814,11 @@ export const CompleteImportPage: React.FC = () => {
       }
       
       setProgress({ phase: 'complete', message: 'Import completed!', current: 100, total: 100 })
+      
+      // Clear saved state on completion
+      localStorage.removeItem('importSessionState')
+      setSavedFileContent(null)
+      setCanResume(false)
       
       // Show notifications
       if (stats.companies.created > 0) {
@@ -566,22 +867,82 @@ export const CompleteImportPage: React.FC = () => {
               disabled={isProcessing}
             />
             
-            {file && (
+            {(file || canResume) && (
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-700">
-                  <strong>Selected File:</strong> {file.name}
-                </p>
+                {file && (
+                  <p className="text-sm text-gray-700">
+                    <strong>Selected File:</strong> {file.name}
+                  </p>
+                )}
+                {canResume && !file && (
+                  <div className="text-sm">
+                    <p className="text-blue-700 font-semibold mb-1">
+                      Previous import session found!
+                    </p>
+                    <p className="text-gray-600">
+                      Progress: {progress.current} of {progress.total} records processed
+                    </p>
+                    <p className="text-gray-600">
+                      Click "Resume Previous Import" to continue or "Reset" to start fresh.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
             
-            <Button
-              onClick={handleImport}
-              disabled={!file || isProcessing}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              <Upload className="mr-2 h-4 w-4" />
-              {isProcessing ? 'Importing...' : 'Start Import'}
-            </Button>
+            {/* Control Buttons */}
+            <div className="flex gap-2">
+              {!isProcessing && !isPaused && (
+                <Button
+                  onClick={handleImport}
+                  disabled={!file && !canResume}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  {canResume ? 'Resume Previous Import' : 'Start Import'}
+                </Button>
+              )}
+              
+              {isProcessing && !isPaused && (
+                <>
+                  <Button
+                    onClick={handlePause}
+                    className="bg-yellow-600 hover:bg-yellow-700"
+                  >
+                    <Pause className="mr-2 h-4 w-4" />
+                    Pause
+                  </Button>
+                  <Button
+                    onClick={handleCancel}
+                    variant="outline"
+                    className="border-red-600 text-red-600 hover:bg-red-50"
+                  >
+                    <X className="mr-2 h-4 w-4" />
+                    Cancel
+                  </Button>
+                </>
+              )}
+              
+              {isPaused && (
+                <>
+                  <Button
+                    onClick={handleResume}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Play className="mr-2 h-4 w-4" />
+                    Resume
+                  </Button>
+                  <Button
+                    onClick={handleReset}
+                    variant="outline"
+                    className="border-gray-600 text-gray-600 hover:bg-gray-50"
+                  >
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Reset
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         </Card>
 

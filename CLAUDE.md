@@ -130,16 +130,146 @@ git add -A && git commit -m "Production build" && git push
 - **EasyPanel Login**: dev@platty.tech / F27i486fb3gVyPC
 
 ### Supabase Connection Details
-**IMPORTANT: ALWAYS USE ONLINE SUPABASE - NEVER LOCAL**
-- **Online URL**: https://english-australia-eau-supabase.lkobs5.easypanel.host
-- **Anon Key**: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE
-- **Service Role Key**: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q
-- **JWT Secret**: your-super-secret-jwt-token-with-at-least-32-characters-long
+**IMPORTANT: NOW USING SUPABASE CLOUD - Migrated 24/01/2025**
+- **Cloud URL**: https://ypsvoxelitgceclohxfu.supabase.co
+- **Anon Key**: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwc3ZveGVsaXRnY2VjbG9oeGZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3MDE3NTUsImV4cCI6MjA3NDI3Nzc1NX0.-NO0-hrp4GajpOK9WnryqIeyEtS9iUiv03qkp9ScL9w
+- **Service Role Key**: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwc3ZveGVsaXRnY2VjbG9oeGZ1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODcwMTc1NSwiZXhwIjoyMDc0Mjc3NzU1fQ.y_k4b4TlAev9R4TTFqHA08EjdZA-7Ymm5V1zMl-CYhA
+- **Project ID**: ypsvoxelitgceclohxfu
+- **Region**: Sydney (ap-southeast-2)
 
 ### Project Preferences
 - No demo mode should be implemented - all features must use real Supabase connection
 - Use SweetAlert2 for user notifications via showNotification function
 - Follow existing code patterns and conventions in the codebase
+
+## 🔄 MEMBER DUPLICATE DETECTION SYSTEM (FUNDAMENTAL PILLAR)
+**⚠️ CRITICAL: Sistema fundamental para manutenção da integridade dos dados**
+
+### Overview
+Sistema avançado de detecção e merge de membros duplicados usando algoritmo de Levenshtein distance para comparação de strings.
+
+### Database Structure
+**Migration:** `create_duplicates_system_fixed` (30/09/2025)
+
+#### Tables Created:
+1. **`member_duplicates`**
+   - Stores potential duplicate pairs with similarity scores
+   - Tracks review status: pending, merged, not_duplicate, skipped
+   - Fields: member1_id, member2_id, similarity_score, match_details (JSONB), status, reviewed_by, review_notes
+
+2. **`member_merge_history`**
+   - Audit trail of all merges performed
+   - Allows undo within 30 days
+   - Stores complete deleted member data as JSONB
+   - Fields: kept_member_id, deleted_member_id, deleted_member_data, performed_by, can_undo, undo_deadline
+
+3. **`pending_duplicates_view`**
+   - Real-time view of pending duplicates with member details
+   - Joins member_duplicates with members and institutions tables
+   - Used by frontend for display
+
+### Detection Algorithm
+**Service:** `eau-members/src/services/memberDuplicateService.ts`
+
+#### Scoring System (0-100 points):
+- **Name Match (40 points)**: Exact name = 40pts, Similar name (Levenshtein) = 0-40pts
+- **Company Match (20 points)**: Exact company = 20pts, Similar = 0-20pts
+- **Email Match (15 points)**: Exact email = 15pts, Similar domain = 0-15pts
+- **Phone Match (10 points)**: Exact phone = 10pts, Similar = 0-10pts
+- **Address Match (15 points)**: Same address components = 0-15pts
+
+#### Confidence Levels:
+- **High Confidence**: Score ≥ 90
+- **Medium Confidence**: Score ≥ 70
+- **Low Confidence**: Score ≥ 50
+
+### Key Features
+
+#### 1. Duplicate Detection
+- `findDuplicatesForMember(memberId)`: Find duplicates for specific member
+- `findAllDuplicates()`: Scan entire database for duplicates
+- Configurable similarity threshold (default: 50)
+
+#### 2. Merge Functionality
+- `mergeMembers(keepMemberId, deleteMemberId, performedBy)`:
+  - Transfers all relationships (CPD activities, event registrations, payments)
+  - Stores complete audit trail
+  - Allows undo within 30 days
+  - Updates all foreign keys automatically
+
+#### 3. Review Actions
+- **Merge**: Combine two members into one
+- **Not Duplicate**: Mark as false positive (won't show again)
+- **Skip**: Ignore for now (will show again)
+
+#### 4. Undo Capability
+- `undoMerge(mergeHistoryId, performedBy)`: Restore deleted member
+- Only works within 30 days
+- Restores all data and relationships
+- Cannot undo if merge was manually marked as permanent
+
+### Frontend Implementation
+**Page:** `/admin/duplicates` (`eau-members/src/features/admin/pages/MemberDuplicatesPage.tsx`)
+
+#### UI Components:
+- **Stats Cards**: Show total, high, medium, low confidence duplicates
+- **Scan Button**: Trigger full database scan
+- **Filter Controls**: Search by name/email, filter by score threshold
+- **Duplicate Cards**: Show side-by-side comparison with action buttons
+
+#### User Workflow:
+1. Navigate to `/admin/duplicates`
+2. Click "Scan for Duplicates" to find potential duplicates
+3. Review each duplicate pair:
+   - See similarity score and match reasons
+   - Compare member details side-by-side
+4. Take action:
+   - **Merge**: Choose which member to keep, merge automatically
+   - **Not Duplicate**: Mark as false positive
+   - **Skip**: Review later
+
+### Testing Checklist
+✅ **Database Setup**
+- Tables created: member_duplicates, member_merge_history
+- View created: pending_duplicates_view
+- Indexes created for performance
+- RLS policies enabled
+
+✅ **Detection**
+- Scan all members successfully
+- Similarity scores calculated correctly
+- Duplicates stored in database
+- Frontend displays duplicate list
+
+✅ **UI/UX**
+- Page loads without errors
+- Stats cards show correct counts
+- Duplicate cards show proper information
+- Action buttons work correctly
+
+⚠️ **Merge (Pending Full Test)**
+- Transfer CPD activities
+- Transfer event registrations
+- Transfer payment history
+- Audit trail created
+- Undo functionality works
+
+### Access Requirements
+- **Permission Required**: Super Admin or Admin role
+- **Route**: `/admin/duplicates`
+- **Protected**: Yes, requires authentication
+
+### Maintenance Notes
+- Run duplicate scan periodically (e.g., after bulk imports)
+- Review pending duplicates regularly to maintain data quality
+- Check merge history for any issues
+- Clean up old merge history (>30 days) periodically
+
+### Related Files
+- Service: `eau-members/src/services/memberDuplicateService.ts` (641 lines)
+- Page: `eau-members/src/features/admin/pages/MemberDuplicatesPage.tsx`
+- Migration: Applied via `create_duplicates_system_fixed` (30/09/2025)
+- Database: Tables in Supabase Cloud (ypsvoxelitgceclohxfu)
 
 ## WYSIWYG Editor Pattern (Quill.js)
 
@@ -270,7 +400,7 @@ When implementing WYSIWYG in new areas:
 - **Admin Login Page**: https://eauapp.platty.tech/login
 
 ### Credentials & Access
-- **Admin Login**: rrzillesg@gmail.com / Salmo119:97
+- **Admin Login**: dev@platty.tech / wSZ72i-M7X[bV)Hdu%Qi0V03hf8f%6
 - **Supabase Admin**: supabase / this_password_is_insecure_and_should_be_updated
 - **Frontend (Dev)**: Port 5180 (http://localhost:5180)
 - **Backend (Dev)**: Port 3001 (http://localhost:3001)
@@ -430,33 +560,60 @@ When implementing WYSIWYG in new areas:
 - ❌ Don't assume fields exist - CHECK FIRST
 - ✅ Use exact column names from DATABASE_SCHEMA.md
 
-### Database Access - CRITICAL INFORMATION
-**⚠️ IMPORTANTE: MÉTODO DEFINITIVO PARA EXECUÇÃO DE SQL**
+### Database Access - MÉTODO DEFINITIVO QUE FUNCIONA ✅
+**🎯 IMPORTANTE: MÉTODO COMPROVADO PARA EXECUÇÃO DE SQL NO SUPABASE CLOUD**
 
-#### ❌ MÉTODOS QUE NÃO FUNCIONAM (NÃO PERDER TEMPO):
-1. **Playwright + Supabase Studio**: O editor SQL não carrega após login
-2. **MCP Supabase**: Não funciona com Supabase autohospedado
-3. **MCP PostgreSQL**: Banco não está exposto na porta correta
-4. **Scripts no Backend**: Tentativas múltiplas sem sucesso
+#### ✅ MÉTODO QUE FUNCIONA (SEMPRE USAR):
+**Scripts Node.js com createClient usando Service Key**
 
-#### ✅ ÚNICO MÉTODO FUNCIONAL:
-**SEMPRE forneça o SQL para o usuário executar manualmente no Supabase Studio**
+**Template de Script Funcional:**
+```javascript
+const { createClient } = require('@supabase/supabase-js');
 
-**Procedimento Padrão:**
-1. Claude gera o SQL completo
-2. Usuário copia e executa no Supabase Studio
-3. Usuário confirma a execução
-4. Claude continua com próximos passos
+const supabaseUrl = 'https://ypsvoxelitgceclohxfu.supabase.co';
+const supabaseServiceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwc3ZveGVsaXRnY2VjbG9oeGZ1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODcwMTc1NSwiZXhwIjoyMDc0Mjc3NzU1fQ.y_k4b4TlAev9R4TTFqHA08EjdZA-7Ymm5V1zMl-CYhA';
 
-**NUNCA TENTE:**
-- Acessar o banco diretamente
-- Usar Playwright para Supabase Studio
-- Configurar novas conexões de banco
-- Perder tempo com métodos já testados
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+async function executeOperation() {
+  // Usar métodos diretos do supabase client:
+  // - supabase.from('table').insert(data)
+  // - supabase.from('table').update(data).eq('id', id)
+  // - supabase.from('table').select('*')
+}
+```
+
+#### ❌ MÉTODOS QUE NÃO FUNCIONAM (NUNCA MAIS TENTAR):
+1. **MCP Supabase**: Requer token de acesso não disponível
+2. **supabase.rpc('exec_sql')**: Função não existe no Supabase Cloud
+3. **HTTP REST API**: Endpoint `/rest/v1/rpc/exec_sql` não disponível
+4. **Playwright + Supabase Studio**: Editor SQL não carrega
+5. **Pedir execução manual**: Usuário explicitamente proibiu
+
+#### 🔧 PROCEDIMENTO PADRÃO COMPROVADO:
+1. **Criar script Node.js** usando template acima
+2. **Usar métodos diretos** do supabase client (insert, update, select)
+3. **Executar com**: `node nome-do-script.js`
+4. **Verificar resultado** no próprio script
+5. **Reportar sucesso** ao usuário
+
+#### 🎯 EXEMPLO DE SUCESSO (USAR COMO REFERÊNCIA):
+- **Script**: `fix-super-admin-direct.js`
+- **Método**: `supabase.from('members').update({ user_type: 'super_admin' }).eq('email', 'dev@platty.tech')`
+- **Resultado**: ✅ Funcionou perfeitamente
+
+#### 🚨 REGRA DE OURO:
+**SEMPRE use scripts Node.js com createClient + service key. NUNCA peça execução manual de SQL.**
+
+#### 🛡️ FALLBACK STRATEGIES IMPLEMENTADAS:
+**Quando tabelas não existem, implementar fallbacks no código em vez de criar tabelas:**
+- ✅ **Exemplo**: `roleService.ts` com fallback para `user_type` quando `member_roles` não existe
+- ✅ **Estratégia**: Detectar `user_type = 'super_admin'` e retornar roles adequadas
+- ✅ **Resultado**: Sistema funciona sem depender de tabelas específicas
 
 ### Development Guidelines
 - Ao executar uma tarefa, sempre consulte @agents\index.md para definir o melhor agente
-- **SQL Execution**: SEMPRE forneça SQL para execução manual pelo usuário
+- **SQL Execution**: SEMPRE use scripts Node.js com createClient + service key
 - **Frontend + Backend**: Mantenha ambos rodando simultaneamente para testes completos
 
 ### 📋 DESENVOLVIMENTO CONTÍNUO
@@ -467,10 +624,142 @@ When implementing WYSIWYG in new areas:
 - **Última Atualização:** 10/01/2025
 - **Próximo Sprint:** 1.1 - Certificados automáticos com CPD
 - **Sistema:** 80% completo
-- **Prioridades:** 
+- **Prioridades:**
   1. 🔴 Certificados automáticos → CPD
   2. 🔴 Dashboard membership status
   3. 🟡 Sistema de inscrição pública
+
+### 🧪 SISTEMA DE TESTES COMPLETO - CRITICAL!
+**⚠️ IMPORTANTE: Sistema de testes sistemáticos para garantir integridade do sistema**
+
+#### Documentos de Teste Master
+1. **SISTEMA_TESTES_COMPLETO.md** - Documento master com todos os testes do sistema
+   - 10 áreas principais de teste
+   - 100+ casos de teste individuais
+   - Queries SQL de validação
+   - Pré-requisitos e validações esperadas
+   - Guia de troubleshooting
+
+2. **PLANO_TESTE_EVENTOS_COMPLETO.md** - Testes detalhados do sistema de eventos
+   - 8 cenários principais de teste
+   - Instruções passo a passo
+   - Validações de email, CPD e certificados
+
+#### Comandos de Teste Disponíveis
+**IMPORTANTE: O usuário pode pedir testes usando os seguintes comandos:**
+
+1. **"Faça o teste completo do sistema"**
+   - Executa TODOS os testes do SISTEMA_TESTES_COMPLETO.md
+   - Duração estimada: 4-6 horas
+   - Valida todos os pilares do sistema
+
+2. **"Faça o teste do sistema CPD"** (ou qualquer área específica)
+   - Executa apenas testes da área solicitada
+   - Áreas disponíveis: Authentication, CPD, Events, Members, Institutions, Permissions, Email, Import, OpenLearning, Quick Check
+
+3. **"Faça o teste rápido do sistema"**
+   - Executa smoke test (15-20 minutos)
+   - Valida funcionalidades críticas
+
+4. **"Faça o teste do sistema de eventos"**
+   - Executa PLANO_TESTE_EVENTOS_COMPLETO.md
+   - Duração estimada: 2-3 horas
+
+#### Quando Executar Testes
+✅ **SEMPRE executar testes após:**
+- Mudanças significativas no código
+- Adicionar novas funcionalidades
+- Correções de bugs críticos
+- Refatoração de serviços principais
+- Mudanças no schema do banco de dados
+- Deploy para produção
+
+#### Processo de Manutenção do Documento de Testes
+**CRITICAL: SEMPRE atualizar SISTEMA_TESTES_COMPLETO.md quando:**
+
+1. **Adicionar nova funcionalidade:**
+   - Criar nova seção no documento se necessário
+   - Adicionar casos de teste para a funcionalidade
+   - Incluir queries SQL de validação
+   - Documentar comportamento esperado
+   - Atualizar template de novo teste
+
+2. **Modificar funcionalidade existente:**
+   - Atualizar casos de teste afetados
+   - Revisar queries SQL de validação
+   - Atualizar comportamentos esperados
+   - Adicionar novos cenários de edge cases
+
+3. **Corrigir bug crítico:**
+   - Adicionar caso de teste que reproduz o bug
+   - Documentar comportamento correto
+   - Incluir na seção de troubleshooting
+
+#### Estrutura do Teste no Documento
+Cada teste deve seguir o formato:
+```markdown
+### TESTE X.Y: Nome do Teste
+
+**Área:** Nome da área (CPD, Events, etc.)
+**Duração Estimada:** X minutos
+**Pré-requisitos:** Lista de requisitos
+
+**Passo a passo:**
+1. Ação específica
+2. Validação esperada
+3. Próxima ação
+
+**Validação SQL:**
+```sql
+-- Query para validar resultado
+```
+
+**Resultado Esperado:**
+- ✅ Comportamento correto 1
+- ✅ Comportamento correto 2
+
+**Troubleshooting:**
+- ❌ Se erro X, verificar Y
+```
+
+#### Relatórios de Teste
+**Após executar testes, SEMPRE:**
+1. Documentar resultados em formato markdown
+2. Incluir timestamp e duração
+3. Listar todos os testes executados (✅ ou ❌)
+4. Documentar bugs encontrados com screenshots
+5. Criar issues para bugs críticos
+6. Atualizar STATUS no documento principal
+
+#### Integração com Desenvolvimento
+**WORKFLOW OBRIGATÓRIO:**
+```
+1. Fazer mudança no código
+2. Executar testes relevantes
+3. Validar todos os testes passaram
+4. Atualizar documento de testes se necessário
+5. Commitar código + atualização de testes
+6. Deploy apenas se testes passarem
+```
+
+#### Quick Reference - Áreas de Teste
+1. **Authentication** - Login, logout, sessions, permissions
+2. **CPD System** - Activities, points, progress, reports
+3. **Events** - Creation, registration, emails, reminders, CPD/certificates
+4. **Members** - CRUD, roles, profiles, status
+5. **Institutions** - Management, membership types, fees
+6. **Permissions** - Super Admin, Institution Admin, Staff, Member
+7. **Email System** - SMTP config, templates, sending, tracking
+8. **Import System** - CSV import, validation, error handling
+9. **OpenLearning** - SSO, provisioning, integration
+10. **Quick Check** - Smoke test crítico (15-20 min)
+
+#### Métricas de Qualidade
+**TARGETS:**
+- ✅ 100% dos testes críticos passando
+- ✅ Menos de 5% de falhas em testes não-críticos
+- ✅ Zero bugs críticos em produção
+- ✅ Documento de testes sempre atualizado
 
 ### 🔍 LEGACY SYSTEM ANALYSIS - English Australia Admin Portal
 

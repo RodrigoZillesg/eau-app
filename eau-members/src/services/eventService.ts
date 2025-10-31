@@ -39,10 +39,7 @@ export class EventService {
   static async getEvents(filters?: EventFilters): Promise<Event[]> {
     let query = supabase
       .from('events')
-      .select(`
-        *,
-        category:event_categories(*)
-      `)
+      .select('*')
       .order('start_date', { ascending: true });
     
     // Apply filters
@@ -101,10 +98,7 @@ export class EventService {
   static async getUpcomingEvents(limit = 10): Promise<Event[]> {
     const { data, error } = await supabase
       .from('events')
-      .select(`
-        *,
-        category:event_categories(*)
-      `)
+      .select('*')
       .eq('status', 'published')
       .gte('start_date', new Date().toISOString())
       .order('start_date', { ascending: true })
@@ -119,30 +113,43 @@ export class EventService {
   }
   
   static async getEventById(id: string): Promise<Event | null> {
-    const { data, error } = await supabase
+    // Try with category join first (if table exists)
+    let query = supabase
       .from('events')
-      .select(`
-        *,
-        category:event_categories(*)
-      `)
+      .select('*')
       .eq('id', id)
       .single();
-    
+
+    const { data, error } = await query;
+
     if (error) {
+      // If join failed, try without it
+      if (error.message?.includes('foreign key') || error.message?.includes('category')) {
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('events')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (fallbackError) {
+          console.error('Error fetching event:', fallbackError);
+          throw fallbackError;
+        }
+
+        return fallbackData;
+      }
+
       console.error('Error fetching event:', error);
       throw error;
     }
-    
+
     return data;
   }
   
   static async getEventBySlug(slug: string): Promise<Event | null> {
     const { data, error } = await supabase
       .from('events')
-      .select(`
-        *,
-        category:event_categories(*)
-      `)
+      .select('*')
       .eq('slug', slug)
       .single();
     
@@ -154,17 +161,48 @@ export class EventService {
     return data;
   }
   
+  // Helper method to generate URL-friendly slug from title
+  static generateSlug(title: string): string {
+    return title
+      .toLowerCase()
+      .replace(/[^\w\s-]/g, '') // Remove special characters
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/--+/g, '-') // Replace multiple hyphens with single
+      .trim()
+      .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
+  }
+
   static async createEvent(eventData: EventFormData): Promise<Event> {
     // Get current user from auth session
     const { data: { session } } = await supabase.auth.getSession();
-    
+
     if (!session?.user) {
       throw new Error('User not authenticated');
     }
-    
+
+    // Generate slug from title
+    const baseSlug = this.generateSlug(eventData.title);
+    let slug = baseSlug;
+    let counter = 1;
+
+    // Ensure slug is unique
+    while (true) {
+      const { data: existing } = await supabase
+        .from('events')
+        .select('id')
+        .eq('slug', slug)
+        .single();
+
+      if (!existing) break;
+
+      slug = `${baseSlug}-${counter}`;
+      counter++;
+    }
+
     // Convert dollar amounts to cents and ensure proper data types
     const dataForDb: any = {
       title: eventData.title,
+      slug: slug,
       description: eventData.description || null,
       short_description: eventData.short_description || null,
       category_id: eventData.category_id || null,
@@ -362,10 +400,7 @@ export class EventService {
   static async getRegistrations(filters?: RegistrationFilters): Promise<EventRegistration[]> {
     let query = supabase
       .from('event_registrations')
-      .select(`
-        *,
-        event:events(*)
-      `)
+      .select('*')
       .order('created_at', { ascending: false });
     
     // Apply filters
@@ -421,10 +456,7 @@ export class EventService {
   static async getUserRegistrations(userId: string): Promise<EventRegistration[]> {
     const { data, error } = await supabase
       .from('event_registrations')
-      .select(`
-        *,
-        event:events(*)
-      `)
+      .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
     
@@ -439,10 +471,7 @@ export class EventService {
   static async getRegistrationById(id: string): Promise<EventRegistration | null> {
     const { data, error } = await supabase
       .from('event_registrations')
-      .select(`
-        *,
-        event:events(*)
-      `)
+      .select('*')
       .eq('id', id)
       .single();
     
@@ -647,10 +676,7 @@ export class EventService {
     // Get recent registrations
     const { data: recentRegs } = await supabase
       .from('event_registrations')
-      .select(`
-        *,
-        event:events(title, start_date)
-      `)
+      .select('*')
       .order('created_at', { ascending: false })
       .limit(10);
     

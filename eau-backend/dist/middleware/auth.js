@@ -6,22 +6,45 @@ const database_1 = require("../config/database");
 const constants_1 = require("../config/constants");
 const authenticate = async (req, res, next) => {
     try {
+        console.log('=== authenticate middleware debug ===');
         const authHeader = req.headers.authorization;
+        console.log('authHeader:', authHeader);
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            console.log('No Bearer token found');
             return res.status(401).json({
                 success: false,
                 error: constants_1.ERROR_MESSAGES.UNAUTHORIZED
             });
         }
         const token = authHeader.substring(7);
+        console.log('token:', token ? 'exists' : 'missing');
         try {
-            const decoded = (0, jwt_1.verifyAccessToken)(token);
-            // Verify user still exists and is active
+            // Try to decode as Supabase JWT first
+            let decoded;
+            let userId;
+            // Check if it's a Supabase token (has 'sub' field)
+            const base64Payload = token.split('.')[1];
+            const payload = JSON.parse(Buffer.from(base64Payload, 'base64').toString());
+            if (payload.sub) {
+                // It's a Supabase token
+                console.log('Supabase token detected');
+                decoded = payload;
+                userId = payload.sub;
+            }
+            else {
+                // Try as backend JWT
+                console.log('Trying as backend JWT');
+                decoded = (0, jwt_1.verifyAccessToken)(token);
+                userId = decoded.userId;
+            }
+            console.log('decoded token:', decoded);
+            // Verify user still exists and is active using email
             const { data: member, error } = await database_1.supabaseAdmin
                 .from('members')
                 .select('id, email, institution_id, user_type, membership_status')
-                .eq('id', decoded.userId)
+                .eq('email', decoded.email || '')
                 .single();
+            console.log('member query result:', { member, error });
             if (error || !member) {
                 return res.status(401).json({
                     success: false,

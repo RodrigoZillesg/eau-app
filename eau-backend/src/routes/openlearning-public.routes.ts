@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { openLearningService } from '../services/openlearning.service';
+import { openLearningCorrectService } from '../services/openlearningCorrect.service';
 import { supabaseAdmin as supabase } from '../config/database';
 
 const router = Router();

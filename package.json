@@ -1,7 +1,13 @@
 {
   "dependencies": {
-    "@supabase/supabase-js": "^2.56.0",
+    "@supabase/supabase-js": "^2.57.4",
     "axios": "^1.11.0",
-    "node-fetch": "^3.3.2"
+    "csv-parse": "^6.1.0",
+    "node-fetch": "^2.7.0",
+    "papaparse": "^5.5.3"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.15.5",
+    "pg": "^8.16.3"
   }
 }

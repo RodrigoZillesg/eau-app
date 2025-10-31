@@ -100,40 +100,45 @@ export class AuthController {
         } as ApiResponse);
       }
 
-      // Get member details
-      const { data: member } = await supabaseAdmin
+      // Get member details by user_id
+      let { data: member } = await supabaseAdmin
         .from('members')
         .select('*')
-        .eq('id', authData.user.id)
+        .eq('user_id', authData.user.id)
         .single();
 
       if (!member) {
         // Create member if doesn't exist
-        const { data: newMember } = await supabaseAdmin
+        const { data: newMember, error: createError } = await supabaseAdmin
           .from('members')
           .insert({
-            id: authData.user.id,
+            user_id: authData.user.id,
             email: authData.user.email,
-            full_name: authData.user.user_metadata?.full_name || authData.user.email?.split('@')[0],
+            first_name: authData.user.user_metadata?.first_name || authData.user.email?.split('@')[0],
+            last_name: authData.user.user_metadata?.last_name || '',
             membership_status: 'active',
+            user_type: 'staff', // Default user type
             created_at: new Date().toISOString()
           })
           .select()
           .single();
 
-        if (!newMember) {
+        if (createError || !newMember) {
+          console.error('Failed to create member:', createError);
           throw new Error('Failed to create member record');
         }
+
+        member = newMember;
       }
 
       // Get user roles
       const { data: roles } = await supabaseAdmin
         .from('member_roles')
         .select('roles(name)')
-        .eq('member_id', authData.user.id);
+        .eq('member_id', member?.id);
 
       const tokenPayload: TokenPayload = {
-        userId: authData.user.id,
+        userId: member?.id || authData.user.id,
         email: authData.user.email!,
         institutionId: member?.institution_id,
         userType: member?.user_type || 'staff',
@@ -146,9 +151,9 @@ export class AuthController {
         success: true,
         data: {
           user: {
-            id: authData.user.id,
+            id: member?.id || authData.user.id,
             email: authData.user.email,
-            fullName: member?.full_name || authData.user.user_metadata?.full_name,
+            fullName: `${member?.first_name || ''} ${member?.last_name || ''}`.trim() || authData.user.user_metadata?.full_name,
             institutionId: member?.institution_id,
             userType: member?.user_type,
             roles: tokenPayload.roles

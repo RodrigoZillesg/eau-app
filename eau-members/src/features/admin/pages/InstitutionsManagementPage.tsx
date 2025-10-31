@@ -3,7 +3,9 @@ import { Card } from '../../../components/ui/Card'
 import { Button } from '../../../components/ui/Button'
 import { Label } from '../../../components/ui/Label'
 import { Input } from '../../../components/ui/Input'
+import { StatsCardSkeleton, InstitutionTableSkeleton } from '../../../components/ui/SkeletonLoader'
 import { supabase } from '../../../lib/supabase/client'
+import { adminClient } from '../../../lib/supabase/adminClient'
 import { showNotification } from '../../../lib/notifications'
 import { 
   Building2, Users, Mail, Phone, Globe, MapPin,
@@ -63,6 +65,7 @@ interface InstitutionFormData {
 export function InstitutionsManagementPage() {
   const [institutions, setInstitutions] = useState<Institution[]>([])
   const [loading, setLoading] = useState(true)
+  const [statsLoading, setStatsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedInstitution, setSelectedInstitution] = useState<Institution | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -103,22 +106,38 @@ export function InstitutionsManagementPage() {
   const loadInstitutions = async () => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
+
+      // First get all institutions
+      const { data: institutionsData, error: instError } = await supabase
         .from('institutions')
-        .select(`
-          *,
-          member_institutions(count),
-          memberships(count)
-        `)
+        .select('*')
         .order('name')
 
-      if (error) throw error
+      if (instError) throw instError
+
+      // Then get member counts for each institution
+      // Use adminClient to bypass RLS restrictions on members table
+      const { data: membersData, error: membersError } = await adminClient
+        .from('members')
+        .select('institution_id')
+
+      if (membersError) {
+        console.error('Error loading member counts:', membersError)
+      }
+
+      // Count members per institution
+      const memberCounts = membersData?.reduce((acc, member) => {
+        if (member.institution_id) {
+          acc[member.institution_id] = (acc[member.institution_id] || 0) + 1
+        }
+        return acc
+      }, {} as Record<string, number>) || {}
 
       // Process the data to include counts
-      const processedData = data?.map(inst => ({
+      const processedData = institutionsData?.map(inst => ({
         ...inst,
-        member_count: inst.member_institutions?.[0]?.count || 0,
-        active_memberships: inst.memberships?.[0]?.count || 0
+        member_count: memberCounts[inst.id] || 0,
+        active_memberships: memberCounts[inst.id] || 0 // Use member count as active memberships
       })) || []
 
       setInstitutions(processedData)
@@ -132,45 +151,55 @@ export function InstitutionsManagementPage() {
 
   const loadStats = async () => {
     try {
-      // Get total institutions
-      const { count: total } = await supabase
-        .from('institutions')
-        .select('*', { count: 'exact', head: true })
+      setStatsLoading(true)
 
-      // Get status counts
-      const { data: statusData } = await supabase
-        .from('institutions')
-        .select('status')
+      // Fazer todas as queries em paralelo para melhor performance
+      const [
+        institutionsResponse,
+        membersResponse
+      ] = await Promise.all([
+        supabase
+          .from('institutions')
+          .select('membership_status'),
+        adminClient
+          .from('members')
+          .select('*', { count: 'exact', head: true })
+      ])
 
-      const statusCounts = statusData?.reduce((acc, inst) => {
-        acc[inst.status] = (acc[inst.status] || 0) + 1
+      const institutions = institutionsResponse.data || []
+
+      // Processar status localmente
+      const statusCounts = institutions.reduce((acc, inst) => {
+        const status = inst.membership_status || 'active'
+        acc[status] = (acc[status] || 0) + 1
         return acc
-      }, { active: 0, inactive: 0, suspended: 0 }) || { active: 0, inactive: 0, suspended: 0 }
+      }, { active: 0, inactive: 0, suspended: 0 })
 
-      // Get total members associated with institutions
-      const { count: totalMembers } = await supabase
-        .from('member_institutions')
+      // Count active members (those with membership_status = 'active')
+      // Use adminClient to bypass RLS restrictions
+      const { count: activeMembershipCount } = await adminClient
+        .from('members')
         .select('*', { count: 'exact', head: true })
-
-      // Get total active memberships
-      const { count: totalMemberships } = await supabase
-        .from('memberships')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'active')
+        .eq('membership_status', 'active')
 
       setStats({
-        total: total || 0,
+        total: institutions.length,
         ...statusCounts,
-        totalMembers: totalMembers || 0,
-        totalMemberships: totalMemberships || 0
+        totalMembers: membersResponse.count || 0,
+        totalMemberships: activeMembershipCount || 0
       })
     } catch (error) {
       console.error('Error loading stats:', error)
+      showNotification('error', 'Failed to load statistics')
+    } finally {
+      setStatsLoading(false)
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log('🔵 HandleSubmit called!')
+    console.log('Form data:', formData)
     
     try {
       const dataToSubmit = {
@@ -191,23 +220,32 @@ export function InstitutionsManagementPage() {
         website: formData.website || null,
         courses_offered: formData.courses_offered || null
       }
+      console.log('Data to submit:', dataToSubmit)
 
       if (selectedInstitution) {
         // Update existing
+        console.log('Updating institution:', selectedInstitution.id)
         const { error } = await supabase
           .from('institutions')
           .update(dataToSubmit)
           .eq('id', selectedInstitution.id)
 
         if (error) throw error
+        console.log('✅ Institution updated successfully')
         showNotification('success', 'Institution updated successfully')
       } else {
         // Create new
-        const { error } = await supabase
+        console.log('Creating new institution...')
+        const { data, error } = await supabase
           .from('institutions')
           .insert([dataToSubmit])
+          .select()
 
-        if (error) throw error
+        if (error) {
+          console.error('❌ Error creating institution:', error)
+          throw error
+        }
+        console.log('✅ Institution created successfully:', data)
         showNotification('success', 'Institution created successfully')
       }
 
@@ -354,65 +392,78 @@ export function InstitutionsManagementPage() {
 
       {/* Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-8">
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total</p>
-              <p className="text-2xl font-bold">{stats.total}</p>
-            </div>
-            <Building2 className="w-8 h-8 text-blue-500" />
-          </div>
-        </Card>
+        {statsLoading ? (
+          <>
+            <StatsCardSkeleton />
+            <StatsCardSkeleton />
+            <StatsCardSkeleton />
+            <StatsCardSkeleton />
+            <StatsCardSkeleton />
+            <StatsCardSkeleton />
+          </>
+        ) : (
+          <>
+            <Card className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Total</p>
+                  <p className="text-2xl font-bold">{stats.total}</p>
+                </div>
+                <Building2 className="w-8 h-8 text-blue-500" />
+              </div>
+            </Card>
 
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Active</p>
-              <p className="text-2xl font-bold text-green-600">{stats.active}</p>
-            </div>
-            <CheckCircle className="w-8 h-8 text-green-500" />
-          </div>
-        </Card>
+            <Card className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Active</p>
+                  <p className="text-2xl font-bold text-green-600">{stats.active}</p>
+                </div>
+                <CheckCircle className="w-8 h-8 text-green-500" />
+              </div>
+            </Card>
 
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Inactive</p>
-              <p className="text-2xl font-bold text-gray-600">{stats.inactive}</p>
-            </div>
-            <XCircle className="w-8 h-8 text-gray-500" />
-          </div>
-        </Card>
+            <Card className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Inactive</p>
+                  <p className="text-2xl font-bold text-gray-600">{stats.inactive}</p>
+                </div>
+                <XCircle className="w-8 h-8 text-gray-500" />
+              </div>
+            </Card>
 
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Suspended</p>
-              <p className="text-2xl font-bold text-red-600">{stats.suspended}</p>
-            </div>
-            <XCircle className="w-8 h-8 text-red-500" />
-          </div>
-        </Card>
+            <Card className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Suspended</p>
+                  <p className="text-2xl font-bold text-red-600">{stats.suspended}</p>
+                </div>
+                <XCircle className="w-8 h-8 text-red-500" />
+              </div>
+            </Card>
 
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Members</p>
-              <p className="text-2xl font-bold text-indigo-600">{stats.totalMembers}</p>
-            </div>
-            <Users className="w-8 h-8 text-indigo-500" />
-          </div>
-        </Card>
+            <Card className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Members</p>
+                  <p className="text-2xl font-bold text-indigo-600">{stats.totalMembers}</p>
+                </div>
+                <Users className="w-8 h-8 text-indigo-500" />
+              </div>
+            </Card>
 
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Memberships</p>
-              <p className="text-2xl font-bold text-purple-600">{stats.totalMemberships}</p>
-            </div>
-            <Building className="w-8 h-8 text-purple-500" />
-          </div>
-        </Card>
+            <Card className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Memberships</p>
+                  <p className="text-2xl font-bold text-purple-600">{stats.totalMemberships}</p>
+                </div>
+                <Building className="w-8 h-8 text-purple-500" />
+              </div>
+            </Card>
+          </>
+        )}
       </div>
 
       {/* Search and Actions */}
@@ -678,7 +729,7 @@ export function InstitutionsManagementPage() {
         <h2 className="text-lg font-semibold mb-4">Institutions List</h2>
         
         {loading ? (
-          <div className="text-center py-8">Loading institutions...</div>
+          <InstitutionTableSkeleton rows={8} />
         ) : filteredInstitutions.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             {searchTerm ? 'No institutions found matching your search.' : 'No institutions found. Add your first institution above.'}

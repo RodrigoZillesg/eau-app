@@ -10,7 +10,7 @@ import { notifications } from '../../../lib/notifications'
 import { impersonationService } from '../../../services/impersonationService'
 import { useAuthStore } from '../../../stores/authStore'
 import { useNavigate } from 'react-router-dom'
-import { showNotification } from '../../../utils/notifications'
+import { showNotification } from '../../../lib/notifications'
 
 interface MembersListProps {
   onMemberSelect?: (member: MemberWithRoles) => void

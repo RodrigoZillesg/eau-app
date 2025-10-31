@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Users, AlertTriangle, Check, X, SkipForward, Search, Filter, Loader2, UserCheck } from 'lucide-react'
+import { Users, AlertTriangle, Check, X, SkipForward, Search, Filter, Loader2, UserCheck, Phone, Building2, Briefcase, Mail } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
@@ -16,10 +16,14 @@ interface PendingDuplicate {
   member1_first_name: string
   member1_last_name: string
   member1_email: string
+  member1_phone: string
+  member1_institution: string
   member1_company: string
   member2_first_name: string
   member2_last_name: string
   member2_email: string
+  member2_phone: string
+  member2_institution: string
   member2_company: string
   similarity_score: number
   match_details: any
@@ -128,25 +132,31 @@ export function MemberDuplicatesPage() {
 
   const getMatchBadges = (matchDetails: any) => {
     const badges = []
-    
+
     if (matchDetails.exact_name) {
       badges.push({ label: 'Exact Name', color: 'bg-green-100 text-green-800' })
     } else if (matchDetails.similar_name) {
       badges.push({ label: 'Similar Name', color: 'bg-blue-100 text-blue-800' })
     }
-    
+
+    if (matchDetails.same_institution) {
+      badges.push({ label: 'Same Institution', color: 'bg-emerald-100 text-emerald-800' })
+    } else if (matchDetails.similar_institution) {
+      badges.push({ label: 'Similar Institution', color: 'bg-teal-100 text-teal-800' })
+    }
+
     if (matchDetails.same_company) {
       badges.push({ label: 'Same Company', color: 'bg-purple-100 text-purple-800' })
     }
-    
+
     if (matchDetails.similar_email) {
       badges.push({ label: 'Similar Email', color: 'bg-indigo-100 text-indigo-800' })
     }
-    
+
     if (matchDetails.same_phone) {
       badges.push({ label: 'Same Phone', color: 'bg-pink-100 text-pink-800' })
     }
-    
+
     if (matchDetails.same_address) {
       badges.push({ label: 'Same Address', color: 'bg-cyan-100 text-cyan-800' })
     }
@@ -284,25 +294,65 @@ export function MemberDuplicatesPage() {
                   <div className="flex-1">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* Member 1 */}
-                      <div className="bg-gray-50 p-4 rounded-lg">
-                        <h4 className="font-semibold text-gray-900 mb-2">
+                      <div className="bg-gray-50 p-4 rounded-lg border-l-4 border-blue-500">
+                        <h4 className="font-semibold text-gray-900 mb-3 text-lg">
                           {duplicate.member1_first_name} {duplicate.member1_last_name}
                         </h4>
-                        <p className="text-sm text-gray-600">{duplicate.member1_email}</p>
-                        {duplicate.member1_company && (
-                          <p className="text-sm text-gray-500 mt-1">{duplicate.member1_company}</p>
-                        )}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                            <span className="truncate">{duplicate.member1_email}</span>
+                          </div>
+                          {duplicate.member1_phone && (
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <Phone className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                              <span>{duplicate.member1_phone}</span>
+                            </div>
+                          )}
+                          {duplicate.member1_institution && (
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <Building2 className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                              <span className="truncate">{duplicate.member1_institution}</span>
+                            </div>
+                          )}
+                          {duplicate.member1_company && (
+                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                              <Briefcase className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                              <span className="truncate">{duplicate.member1_company}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       {/* Member 2 */}
-                      <div className="bg-gray-50 p-4 rounded-lg">
-                        <h4 className="font-semibold text-gray-900 mb-2">
+                      <div className="bg-gray-50 p-4 rounded-lg border-l-4 border-purple-500">
+                        <h4 className="font-semibold text-gray-900 mb-3 text-lg">
                           {duplicate.member2_first_name} {duplicate.member2_last_name}
                         </h4>
-                        <p className="text-sm text-gray-600">{duplicate.member2_email}</p>
-                        {duplicate.member2_company && (
-                          <p className="text-sm text-gray-500 mt-1">{duplicate.member2_company}</p>
-                        )}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                            <span className="truncate">{duplicate.member2_email}</span>
+                          </div>
+                          {duplicate.member2_phone && (
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <Phone className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                              <span>{duplicate.member2_phone}</span>
+                            </div>
+                          )}
+                          {duplicate.member2_institution && (
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <Building2 className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                              <span className="truncate">{duplicate.member2_institution}</span>
+                            </div>
+                          )}
+                          {duplicate.member2_company && (
+                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                              <Briefcase className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                              <span className="truncate">{duplicate.member2_company}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
 

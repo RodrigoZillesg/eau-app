@@ -4,9 +4,10 @@ import { Input } from '../../../components/ui/Input'
 import { Card } from '../../../components/ui/Card'
 import { Label } from '../../../components/ui/Label'
 import { MembersService, type MemberWithRoles } from '../../../lib/supabase/members'
-import { 
-  Search, Plus, Download, Filter, X, Users, 
-  ChevronLeft, ChevronRight, Edit, Eye, UserCheck
+import {
+  Search, Plus, Download, Filter, X, Users,
+  ChevronLeft, ChevronRight, Edit, Eye, UserCheck,
+  Mail, Trash2, UserX
 } from 'lucide-react'
 import type { MembershipStatus, MembershipType, InterestGroup } from '../../../types/supabase'
 import { exportMembersToCSV } from '../../../utils/csvExport'
@@ -14,6 +15,9 @@ import { showNotification } from '../../../lib/notifications'
 import { impersonationService } from '../../../services/impersonationService'
 import { useAuthStore } from '../../../stores/authStore'
 import { useNavigate } from 'react-router-dom'
+import { BulkOperations, BulkCheckbox } from '../../../components/bulk/BulkOperations'
+import { useBulkOperations } from '../../../hooks/useBulkOperations'
+import { getUserInstitution } from '../../../services/institutionService'
 
 interface MembersListEnhancedProps {
   onMemberSelect?: (member: MemberWithRoles) => void
@@ -29,6 +33,7 @@ interface FilterState {
   city: string
   state: string
   hasRoles: boolean
+  roleFilter: 'all' | 'super_admin' | 'admin' | 'institution_admin' | 'board_member' | 'affiliate' | 'staff' | 'no_roles'
 }
 
 const INTEREST_GROUPS: InterestGroup[] = [
@@ -46,6 +51,7 @@ export const MembersListEnhanced: React.FC<MembersListEnhancedProps> = ({
   const [members, setMembers] = useState<MemberWithRoles[]>([])
   const [loading, setLoading] = useState(true)
   const [showFilters, setShowFilters] = useState(false)
+  const [userInstitution, setUserInstitution] = useState<{ institutionId: string | null, institutionName: string | null, isInstitutionAdmin: boolean } | null>(null)
   const [filters, setFilters] = useState<FilterState>({
     search: '',
     status: '',
@@ -53,58 +59,104 @@ export const MembersListEnhanced: React.FC<MembersListEnhancedProps> = ({
     interestGroup: '',
     city: '',
     state: '',
-    hasRoles: false
+    hasRoles: false,
+    roleFilter: 'all'
   })
-  
+
   // Navigation and auth
   const navigate = useNavigate()
   const { roles } = useAuthStore()
   const canImpersonate = roles.includes('AdminSuper')
+
+  // Bulk operations
+  const {
+    selectedIds,
+    setSelectedIds,
+    toggleSelection,
+    isSelected,
+    bulkDelete,
+    bulkUpdate,
+    bulkExport
+  } = useBulkOperations({
+    entity: 'members',
+    onSuccess: () => loadMembers()
+  })
+
+  // Custom bulk actions for members
+  const bulkActions = [
+    {
+      id: 'export',
+      label: 'Export Selected',
+      icon: <Download className="w-4 h-4" />,
+      action: async (ids: string[]) => {
+        await bulkExport(ids, 'csv');
+      },
+      requireConfirmation: false
+    },
+    {
+      id: 'email',
+      label: 'Send Email',
+      icon: <Mail className="w-4 h-4" />,
+      action: async (ids: string[]) => {
+        // TODO: Open email modal
+        showNotification('Email feature will open a compose modal', 'info');
+      },
+      requireConfirmation: false
+    },
+    {
+      id: 'deactivate',
+      label: 'Deactivate',
+      icon: <UserX className="w-4 h-4" />,
+      action: async (ids: string[]) => {
+        await bulkUpdate(ids, { membership_status: 'inactive' });
+      },
+      variant: 'default' as const,
+      requireConfirmation: true,
+      confirmMessage: 'This will deactivate the selected members.'
+    },
+    {
+      id: 'delete',
+      label: 'Delete',
+      icon: <Trash2 className="w-4 h-4" />,
+      action: bulkDelete,
+      variant: 'danger' as const,
+      requireConfirmation: true,
+      confirmMessage: 'This will permanently delete the selected members. This action cannot be undone.'
+    }
+  ]
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const [pageSize] = useState(20)
-  
+
   const loadMembers = async () => {
     try {
       setLoading(true)
-      
-      // Build filter object for API
+
+      // Get user's institution for filtering if needed
+      const institution = await getUserInstitution()
+      setUserInstitution(institution)
+
+      // Build filter object for API - now includes ALL filters
       const apiFilters = {
         search: filters.search || undefined,
         status: filters.status || undefined,
         type: filters.type || undefined,
+        interestGroup: filters.interestGroup || undefined,
+        city: filters.city || undefined,
+        state: filters.state || undefined,
+        hasRoles: filters.hasRoles || undefined,
+        roleFilter: filters.roleFilter || 'all',
+        institutionId: institution.institutionId, // Apply institution filter
         page: currentPage,
         pageSize
       }
-      
+
       const { data, count } = await MembersService.searchMembersPaginated(apiFilters)
-      
-      // Apply additional client-side filters
-      let filteredData = data
-      
-      if (filters.interestGroup) {
-        filteredData = filteredData.filter(m => m.interest_group === filters.interestGroup)
-      }
-      
-      if (filters.city) {
-        filteredData = filteredData.filter(m => 
-          m.city?.toLowerCase().includes(filters.city.toLowerCase())
-        )
-      }
-      
-      if (filters.state) {
-        filteredData = filteredData.filter(m => 
-          m.state?.toLowerCase().includes(filters.state.toLowerCase())
-        )
-      }
-      
-      if (filters.hasRoles) {
-        filteredData = filteredData.filter(m => m.member_roles && m.member_roles.length > 0)
-      }
-      
-      setMembers(filteredData)
+
+      // No more client-side filtering needed - everything is handled server-side
+      setMembers(data)
       setTotalCount(count)
     } catch (err) {
       console.error('Error loading members:', err)
@@ -165,7 +217,8 @@ export const MembersListEnhanced: React.FC<MembersListEnhancedProps> = ({
       interestGroup: '',
       city: '',
       state: '',
-      hasRoles: false
+      hasRoles: false,
+      roleFilter: 'all'
     })
     setCurrentPage(1)
   }
@@ -181,7 +234,11 @@ export const MembersListEnhanced: React.FC<MembersListEnhancedProps> = ({
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Members Management</h2>
           <p className="text-gray-600 mt-1">
-            Manage member accounts, roles, and groups
+            {userInstitution?.isInstitutionAdmin
+              ? `Managing members for ${userInstitution.institutionName}`
+              : userInstitution?.institutionId === null
+              ? 'Managing all members across all institutions'
+              : 'Manage member accounts, roles, and groups'}
           </p>
         </div>
         <div className="flex gap-3">
@@ -193,6 +250,16 @@ export const MembersListEnhanced: React.FC<MembersListEnhancedProps> = ({
             <Download className="w-4 h-4" />
             Export CSV
           </Button>
+          {canImpersonate && (
+            <Button
+              onClick={() => navigate('/admin/member-impersonation')}
+              variant="outline"
+              className="flex items-center gap-2 text-purple-700 border-purple-200 hover:bg-purple-50"
+            >
+              <UserCheck className="w-4 h-4" />
+              Member Impersonation
+            </Button>
+          )}
           {onAddMember && (
             <Button onClick={onAddMember}>
               <Plus className="w-4 h-4 mr-2" />
@@ -293,6 +360,28 @@ export const MembersListEnhanced: React.FC<MembersListEnhancedProps> = ({
             </div>
 
             <div>
+              <Label htmlFor="role-filter">System Role</Label>
+              <select
+                id="role-filter"
+                value={filters.roleFilter}
+                onChange={(e) => setFilters(prev => ({
+                  ...prev,
+                  roleFilter: e.target.value as FilterState['roleFilter']
+                }))}
+                className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Roles</option>
+                <option value="super_admin">Super Admin (Developer)</option>
+                <option value="admin">System Admin</option>
+                <option value="institution_admin">Institution Admin</option>
+                <option value="board_member">Board Members</option>
+                <option value="affiliate">Affiliates</option>
+                <option value="staff">Staff (Legacy)</option>
+                <option value="no_roles">No Roles (Regular Members)</option>
+              </select>
+            </div>
+
+            <div>
               <Label htmlFor="city-filter">City</Label>
               <Input
                 id="city-filter"
@@ -341,6 +430,17 @@ export const MembersListEnhanced: React.FC<MembersListEnhancedProps> = ({
         )}
       </Card>
 
+      {/* Bulk Operations Bar */}
+      {members.length > 0 && (
+        <BulkOperations
+          items={members}
+          selectedIds={selectedIds}
+          onSelectionChange={setSelectedIds}
+          actions={bulkActions}
+          isLoading={loading}
+        />
+      )}
+
       {/* Members Table */}
       <Card>
         {loading ? (
@@ -353,7 +453,7 @@ export const MembersListEnhanced: React.FC<MembersListEnhancedProps> = ({
             <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No members found</h3>
             <p className="text-gray-600">
-              {activeFiltersCount > 0 
+              {activeFiltersCount > 0
                 ? 'Try adjusting your filters'
                 : 'Start by adding your first member'}
             </p>
@@ -364,6 +464,9 @@ export const MembersListEnhanced: React.FC<MembersListEnhancedProps> = ({
               <table className="w-full">
                 <thead className="bg-gray-50 border-b">
                   <tr>
+                    <th className="px-4 py-3 text-left">
+                      {/* Checkbox header - handled by BulkOperations */}
+                    </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Member
                     </th>
@@ -390,6 +493,12 @@ export const MembersListEnhanced: React.FC<MembersListEnhancedProps> = ({
                 <tbody className="bg-white divide-y divide-gray-200">
                   {members.map((member) => (
                     <tr key={member.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-4">
+                        <BulkCheckbox
+                          checked={isSelected(member.id)}
+                          onChange={() => toggleSelection(member.id)}
+                        />
+                      </td>
                       <td className="px-6 py-4">
                         <div>
                           <div className="text-sm font-medium text-gray-900">

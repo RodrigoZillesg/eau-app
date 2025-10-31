@@ -116,6 +116,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   
   reset: () => {
     localStorage.removeItem('simulatedRole')
+    // CRITICAL: Clear role cache on logout to ensure clean state
+    sessionStorage.removeItem('eau_cached_roles')
+    console.log('🧹 Role cache cleared on logout')
     set({ user: null, roles: [], isLoading: false, rolesLoaded: false, simulatedRole: null })
   },
 }))

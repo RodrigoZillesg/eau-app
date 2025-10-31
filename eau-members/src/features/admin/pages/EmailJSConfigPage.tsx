@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Info, Mail, Key, Settings, Send, Save, ExternalLink, CheckCircle } from 'lucide-react';
 import { EmailService } from '../../../services/emailService';
-import { showNotification } from '../../../utils/notifications';
+import { showNotification } from '../../../lib/notifications';
 
 export default function EmailJSConfigPage() {
   const [loading, setLoading] = useState(false);

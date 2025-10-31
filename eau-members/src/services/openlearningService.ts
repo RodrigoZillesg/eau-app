@@ -62,15 +62,31 @@ class OpenLearningService {
   /**
    * Provision current user in OpenLearning
    */
-  async provisionCurrentUser(): Promise<{ success: boolean; openLearningUserId?: string; error?: string }> {
+  async provisionCurrentUser(memberId?: string): Promise<{ success: boolean; openLearningUserId?: string; error?: string }> {
     try {
-      const currentUser = JSON.parse(localStorage.getItem('eau_member') || '{}');
-      if (!currentUser.id) {
+      // Get current user session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
         throw new Error('No user logged in');
       }
 
+      // If no memberId provided, get it from database
+      let targetMemberId = memberId;
+      if (!targetMemberId) {
+        const { data: member } = await supabase
+          .from('members')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .single();
+
+        if (!member) {
+          throw new Error('Member not found');
+        }
+        targetMemberId = member.id;
+      }
+
       const response = await this.apiClient.post('/provision', {
-        memberId: currentUser.id
+        memberId: targetMemberId
       });
 
       return response.data;
@@ -136,7 +152,34 @@ class OpenLearningService {
    */
   async getStatus(memberId?: string): Promise<{ success: boolean; status?: OpenLearningStatus; error?: string }> {
     try {
-      const url = memberId ? `/status/${memberId}` : '/status';
+      // Get current user session if no memberId provided
+      let targetMemberId = memberId;
+      if (!targetMemberId) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) {
+          return {
+            success: false,
+            error: 'No user logged in'
+          };
+        }
+
+        // Get member ID from database
+        const { data: member } = await supabase
+          .from('members')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .single();
+
+        if (!member) {
+          return {
+            success: false,
+            error: 'Member not found'
+          };
+        }
+        targetMemberId = member.id;
+      }
+
+      const url = `/status/${targetMemberId}`;
       const response = await this.apiClient.get(url);
       return response.data;
     } catch (error: any) {
@@ -202,6 +245,36 @@ class OpenLearningService {
       return response.data;
     } catch (error: any) {
       console.error('Error bulk provisioning:', error);
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message
+      };
+    }
+  }
+
+  /**
+   * Import OpenLearning certificates as CPD activities
+   */
+  async importCertificates(): Promise<{ success: boolean; imported?: number; total?: number; message?: string; error?: string }> {
+    try {
+      // Use SSO endpoint for certificate import
+      const ssoClient = axios.create({
+        baseURL: `${API_BASE_URL}/api/v1/openlearning-sso`,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      // Add auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        ssoClient.defaults.headers.Authorization = `Bearer ${session.access_token}`;
+      }
+
+      const response = await ssoClient.post('/import-certificates');
+      return response.data;
+    } catch (error: any) {
+      console.error('Error importing certificates:', error);
       return {
         success: false,
         error: error.response?.data?.error || error.message

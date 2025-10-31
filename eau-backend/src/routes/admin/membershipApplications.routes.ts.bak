@@ -1,0 +1,292 @@
+import { Router, Response, NextFunction } from 'express';
+import { body, validationResult } from 'express-validator';
+import { MembershipApplicationService } from '../../services/membershipApplication.service';
+import { EmailService } from '../../services/email.service';
+import { AuthRequest, ApiResponse } from '../../types';
+import { logError, logInfo } from '../../utils/logger';
+
+const router = Router();
+
+// Middleware to check if user is admin
+const requireAdmin = (req: AuthRequest, res: Response, next: NextFunction) => {
+  if (!req.user || (req.user.userType !== 'Admin' && req.user.userType !== 'AdminSuper')) {
+    return res.status(403).json({
+      success: false,
+      error: 'Admin access required'
+    } as ApiResponse);
+  }
+  next();
+};
+
+const handleValidationErrors = (req: any, res: Response, next: NextFunction) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      error: 'Validation errors',
+      details: errors.array()
+    } as ApiResponse);
+  }
+  next();
+};
+
+/**
+ * GET /api/v1/admin/membership-applications
+ * Get all membership applications
+ */
+router.get('/', requireAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const applications = await MembershipApplicationService.getAllApplications();
+
+    res.json({
+      success: true,
+      data: applications
+    } as ApiResponse);
+
+  } catch (error) {
+    logError(error as Error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch applications'
+    } as ApiResponse);
+  }
+});
+
+/**
+ * GET /api/v1/admin/membership-applications/:id
+ * Get specific application by ID
+ */
+router.get('/:id', requireAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const application = await MembershipApplicationService.getApplicationById(id);
+
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        error: 'Application not found'
+      } as ApiResponse);
+    }
+
+    res.json({
+      success: true,
+      data: application
+    } as ApiResponse);
+
+  } catch (error) {
+    logError(error as Error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch application'
+    } as ApiResponse);
+  }
+});
+
+/**
+ * POST /api/v1/admin/membership-applications/:id/approve
+ * Approve a membership application
+ */
+router.post('/:id/approve', [
+  requireAdmin,
+  body('review_notes').optional().trim()
+], handleValidationErrors, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { review_notes } = req.body;
+    const reviewedBy = req.user!.id;
+
+    // First get the application to send email later
+    const application = await MembershipApplicationService.getApplicationById(id);
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        error: 'Application not found'
+      } as ApiResponse);
+    }
+
+    if (application.status !== 'pending' && application.status !== 'under_review') {
+      return res.status(400).json({
+        success: false,
+        error: 'Application cannot be approved in current status'
+      } as ApiResponse);
+    }
+
+    // Approve application and create institution + member
+    const { institutionId, memberId } = await MembershipApplicationService.approveApplication(
+      id, 
+      reviewedBy, 
+      review_notes
+    );
+
+    // Send approval email
+    try {
+      const emailHtml = `
+        <h1>🎉 Membership Approved!</h1>
+        <p>Hello ${application.application_data.contactPersonName},</p>
+        <p>Congratulations! We are pleased to inform you that <strong>${application.institution_name}</strong>'s application for English Australia membership has been <strong>approved</strong>.</p>
+        <h3>Membership Details</h3>
+        <ul>
+          <li><strong>Institution:</strong> ${application.institution_name}</li>
+          <li><strong>Membership Type:</strong> ${application.membership_type}</li>
+          <li><strong>Institution ID:</strong> ${institutionId}</li>
+          <li><strong>Member ID:</strong> ${memberId}</li>
+        </ul>
+        ${review_notes ? `<p><strong>Review Comments:</strong> ${review_notes}</p>` : ''}
+        <p><a href="${process.env.FRONTEND_URL}/login">Access Member Portal</a></p>
+        <p>If you have any questions, please contact our member services team.</p>
+        <hr>
+        <p><strong>English Australia</strong><br>The national peak body for ELICOS</p>
+      `;
+      
+      await EmailService.sendEmail({
+        to: application.contact_person_email,
+        subject: 'Membership Application Approved - Welcome to English Australia',
+        html: emailHtml
+      });
+    } catch (emailError) {
+      logError(new Error(`Failed to send approval email: ${emailError}`));
+      // Don't fail the approval if email fails, just log it
+    }
+
+    res.json({
+      success: true,
+      data: {
+        message: 'Application approved successfully',
+        institutionId,
+        memberId
+      }
+    } as ApiResponse);
+
+  } catch (error) {
+    logError(error as Error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to approve application'
+    } as ApiResponse);
+  }
+});
+
+/**
+ * POST /api/v1/admin/membership-applications/:id/reject
+ * Reject a membership application
+ */
+router.post('/:id/reject', [
+  requireAdmin,
+  body('review_notes').optional().trim()
+], handleValidationErrors, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { review_notes } = req.body;
+    const reviewedBy = req.user!.id;
+
+    // First get the application to send email later
+    const application = await MembershipApplicationService.getApplicationById(id);
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        error: 'Application not found'
+      } as ApiResponse);
+    }
+
+    if (application.status !== 'pending' && application.status !== 'under_review') {
+      return res.status(400).json({
+        success: false,
+        error: 'Application cannot be rejected in current status'
+      } as ApiResponse);
+    }
+
+    // Update application status to rejected
+    await MembershipApplicationService.updateApplicationStatus(
+      id, 
+      'rejected', 
+      reviewedBy, 
+      review_notes
+    );
+
+    // Send rejection email
+    try {
+      const emailHtml = `
+        <h1>❌ Membership Application Status Update</h1>
+        <p>Hello ${application.application_data.contactPersonName},</p>
+        <p>Thank you for your interest in English Australia membership. After careful review, we regret to inform you that <strong>${application.institution_name}</strong>'s membership application has not been approved at this time.</p>
+        <h3>Application Details</h3>
+        <ul>
+          <li><strong>Institution:</strong> ${application.institution_name}</li>
+          <li><strong>Membership Type:</strong> ${application.membership_type}</li>
+        </ul>
+        <h3>Review Feedback</h3>
+        <p>${review_notes || 'No specific reason provided.'}</p>
+        <h3>What You Can Do Next</h3>
+        <ul>
+          <li><strong>Review Requirements:</strong> Ensure your institution meets all membership criteria</li>
+          <li><strong>Address Concerns:</strong> Consider the feedback provided and make necessary improvements</li>
+          <li><strong>Reapply:</strong> You may submit a new application once you've addressed the noted concerns</li>
+          <li><strong>Seek Guidance:</strong> Contact our membership team for clarification and support</li>
+        </ul>
+        <p>This decision does not preclude future applications. We encourage you to address the areas of concern and consider reapplying when your institution is better positioned to meet our membership standards.</p>
+        <p><strong>Need Help?</strong> Contact us at admin@englishaustralia.com.au</p>
+        <p><a href="${process.env.FRONTEND_URL}/contact">Contact Support</a></p>
+        <hr>
+        <p><strong>English Australia</strong><br>The national peak body for ELICOS</p>
+      `;
+      
+      await EmailService.sendEmail({
+        to: application.contact_person_email,
+        subject: 'Membership Application Status Update',
+        html: emailHtml
+      });
+    } catch (emailError) {
+      logError(new Error(`Failed to send rejection email: ${emailError}`));
+      // Don't fail the rejection if email fails, just log it
+    }
+
+    res.json({
+      success: true,
+      message: 'Application rejected successfully'
+    } as ApiResponse);
+
+  } catch (error) {
+    logError(error as Error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to reject application'
+    } as ApiResponse);
+  }
+});
+
+/**
+ * PUT /api/v1/admin/membership-applications/:id/status
+ * Update application status (under review, etc.)
+ */
+router.put('/:id/status', [
+  requireAdmin,
+  body('status').isIn(['under_review', 'pending']).withMessage('Invalid status'),
+  body('review_notes').optional().trim()
+], handleValidationErrors, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { status, review_notes } = req.body;
+    const reviewedBy = req.user!.id;
+
+    await MembershipApplicationService.updateApplicationStatus(
+      id, 
+      status, 
+      reviewedBy, 
+      review_notes
+    );
+
+    res.json({
+      success: true,
+      message: `Application status updated to ${status}`
+    } as ApiResponse);
+
+  } catch (error) {
+    logError(error as Error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update application status'
+    } as ApiResponse);
+  }
+});
+
+export default router;

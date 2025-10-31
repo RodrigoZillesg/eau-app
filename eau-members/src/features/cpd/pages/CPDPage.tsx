@@ -66,14 +66,15 @@ export function CPDPage() {
 
   const filteredActivities = activities.filter(activity => {
     const matchesSearch = activity.activity_title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          activity.category_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          activity.activity_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          activity.cpd_category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           activity.provider?.toLowerCase().includes(searchTerm.toLowerCase())
-    
+
     const matchesFilter = filterStatus === 'all' || activity.status === filterStatus
-    
-    const activityYear = new Date(activity.date_completed).getFullYear()
+
+    const activityYear = new Date(activity.activity_date).getFullYear()
     const matchesYear = activityYear === selectedYear
-    
+
     return matchesSearch && matchesFilter && matchesYear
   })
 
@@ -264,9 +265,6 @@ export function CPDPage() {
                     Category
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Duration
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Points
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -281,7 +279,7 @@ export function CPDPage() {
                 {filteredActivities.map((activity) => (
                   <tr key={activity.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {format(new Date(activity.date_completed), 'dd MMM yyyy')}
+                      {format(new Date(activity.activity_date), 'dd MMM yyyy')}
                     </td>
                     <td className="px-6 py-4">
                       <div>
@@ -294,14 +292,11 @@ export function CPDPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
-                      {activity.category_name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {activity.hours}h {activity.minutes}m
+                      {activity.cpd_category || activity.activity_type}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-sm font-semibold text-blue-600">
-                        {activity.points.toFixed(1)}
+                        {activity.cpd_points.toFixed(1)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

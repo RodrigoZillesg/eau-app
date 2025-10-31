@@ -135,10 +135,14 @@ export function EventDetailsPage() {
     if (!event || !userRegistration) return;
     
     try {
-      // 1. Perform auto check-in
+      // 1. Mark attendance when joining online event (NEW!)
+      // This will set attended=true and checked_in=true
+      await EventRegistrationService.markEventAttendance(event.id, effectiveUserId);
+      
+      // 2. Perform auto check-in for compatibility
       await EventRegistrationService.checkInUser(userRegistration.id, 'auto');
       
-      // 2. Log attendance
+      // 3. Log attendance
       await EventRegistrationService.logAttendance(
         userRegistration.id,
         event.id,
@@ -146,31 +150,38 @@ export function EventDetailsPage() {
         'video_start'
       );
       
-      // 3. Open virtual link in new tab
+      // 4. Open virtual link in new tab
       if (event.virtual_link) {
         window.open(event.virtual_link, '_blank');
       }
       
-      // 4. Show success notification
+      // 5. Show success notification
       showNotification('success', 'Check-in successful! Opening event...');
       
-      // 5. Schedule CPD points awarding after event ends
+      // 6. AUTOMATIC CERTIFICATE AND CPD GENERATION
       const eventEnd = new Date(event.end_date);
       const now = new Date();
-      if (eventEnd > now) {
-        // Store in localStorage to process later
-        const cpdPending = {
-          eventId: event.id,
-          registrationId: userRegistration.id,
-          eventTitle: event.title,
-          eventEndTime: eventEnd.toISOString(),
-          cpdPoints: event.cpd_points,
-          cpdCategory: event.cpd_category || 'Event Attendance'
-        };
-        localStorage.setItem(`cpd_pending_${event.id}`, JSON.stringify(cpdPending));
+      const hoursUntilEnd = (eventEnd.getTime() - now.getTime()) / (1000 * 60 * 60);
+      
+      if (hoursUntilEnd <= 0) {
+        // Event already ended - generate certificate and CPD immediately
+        console.log('Event already ended - generating certificate and CPD...');
+        setTimeout(async () => {
+          try {
+            await EventRegistrationService.generateCertificateAndCPD(userRegistration.id);
+            showNotification('success', '🎉 Certificate generated and CPD points automatically added!');
+            await loadEvent(); // Reload to show certificate
+          } catch (error) {
+            console.error('Error generating certificate/CPD:', error);
+          }
+        }, 5000); // Wait 5 seconds to ensure attendance is recorded
+      } else if (hoursUntilEnd <= 24) {
+        // Event ending soon - will be processed by background job
+        console.log(`Event ending in ${hoursUntilEnd.toFixed(1)} hours - certificate and CPD will be generated automatically after event`);
+        showNotification('info', 'Your certificate and CPD points will be automatically generated after the event ends');
       }
       
-      // 6. Reload to update UI
+      // 7. Reload to update UI
       await loadEvent();
     } catch (error) {
       console.error('Error joining event:', error);

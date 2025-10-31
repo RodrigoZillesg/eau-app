@@ -6,6 +6,9 @@ import { useAuthStore } from '../../../stores/authStore'
 import { PermissionGuard } from '../../../components/shared/PermissionGuard'
 import { supabase } from '../../../lib/supabase/client'
 import { impersonationService } from '../../../services/impersonationService'
+import { MembershipStatusCard } from './MembershipStatusCard'
+import { OpenLearningAccessButton } from '../../../components/openlearning/OpenLearningAccessButton'
+import { OpenLearningCourseCatalog } from '../../../components/OpenLearningCourseCatalog'
 
 export const MemberDashboard: React.FC = () => {
   const { user, roles, getEffectiveRoles, getEffectiveUserId } = useAuthStore()
@@ -58,7 +61,7 @@ export const MemberDashboard: React.FC = () => {
           query = supabase
             .from('cpd_activities')
             .select('*')
-            .eq('member_id', memberId)
+            .eq('user_id', effectiveUserId)
             .eq('status', 'approved')
         } else {
           // Normal mode: first get member_id from user_id
@@ -78,7 +81,7 @@ export const MemberDashboard: React.FC = () => {
           query = supabase
             .from('cpd_activities')
             .select('*')
-            .eq('member_id', memberData.id)
+            .eq('user_id', effectiveUserId)
             .eq('status', 'approved')
         }
         
@@ -93,7 +96,7 @@ export const MemberDashboard: React.FC = () => {
         let thisYearPoints = 0
         
         activities?.forEach((activity: any) => {
-          const points = activity.points || 0
+          const points = activity.cpd_points || 0
           totalPoints += points
           
           const activityYear = new Date(activity.date_completed).getFullYear()
@@ -171,7 +174,10 @@ export const MemberDashboard: React.FC = () => {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          
+
+          {/* Membership Status Card - Priority placement */}
+          <MembershipStatusCard />
+
           {/* CPD Summary Card */}
           <Card>
             <CardHeader>
@@ -271,35 +277,40 @@ export const MemberDashboard: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
+                <OpenLearningAccessButton
+                  variant="outline"
+                  fullWidth={true}
+                />
+
                 <PermissionGuard permission="CREATE_CPD">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="w-full justify-start"
                     onClick={() => navigate('/cpd')}
                   >
                     📝 Log CPD Activity
                   </Button>
                 </PermissionGuard>
-                
-                <Button 
-                  variant="outline" 
+
+                <Button
+                  variant="outline"
                   className="w-full justify-start"
                   onClick={() => navigate('/profile')}
                 >
                   👤 My Profile
                 </Button>
-                
-                <Button 
-                  variant="outline" 
+
+                <Button
+                  variant="outline"
                   className="w-full justify-start"
                   onClick={() => navigate('/cpd')}
                 >
                   📋 Export Certificate
                 </Button>
-                
+
                 <PermissionGuard roles={['Admin', 'AdminSuper']}>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="w-full justify-start"
                     onClick={() => navigate('/admin')}
                   >
@@ -334,7 +345,7 @@ export const MemberDashboard: React.FC = () => {
                           <h4 className="font-medium text-gray-900">{activity.activity_title}</h4>
                           <p className="text-sm text-gray-600">{activity.category_name}</p>
                           <p className="text-xs text-gray-500">
-                            {new Date(activity.date_completed).toLocaleDateString()} • {activity.points} points
+                            {new Date(activity.date_completed).toLocaleDateString()} • {activity.cpd_points} points
                           </p>
                         </div>
                         <span className={`px-2 py-1 text-xs rounded-full ${
@@ -348,9 +359,9 @@ export const MemberDashboard: React.FC = () => {
                     </div>
                   ))}
                   <PermissionGuard permission="CREATE_CPD">
-                    <Button 
-                      variant="outline" 
-                      className="w-full" 
+                    <Button
+                      variant="outline"
+                      className="w-full"
                       onClick={() => navigate('/cpd')}
                     >
                       View All Activities
@@ -369,6 +380,11 @@ export const MemberDashboard: React.FC = () => {
               )}
             </CardContent>
           </Card>
+        </div>
+
+        {/* OpenLearning Course Catalog Section */}
+        <div className="mt-8">
+          <OpenLearningCourseCatalog />
         </div>
       </div>
     </div>

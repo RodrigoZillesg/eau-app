@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Membership Application Approved</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            background-color: #f8fafc;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: white;
+            padding: 40px 30px;
+            text-align: center;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .header img {
+            max-width: 200px;
+            height: auto;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .greeting {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 20px;
+        }
+        .message {
+            font-size: 16px;
+            line-height: 1.6;
+            color: #374151;
+            margin-bottom: 30px;
+        }
+        .success-badge {
+            background-color: #10b981;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-weight: 600;
+            text-align: center;
+            margin: 20px 0;
+            font-size: 16px;
+        }
+        .details-box {
+            background-color: #f9fafb;
+            border-left: 4px solid #10b981;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 6px 6px 0;
+        }
+        .details-box h3 {
+            margin: 0 0 15px 0;
+            color: #1f2937;
+            font-size: 18px;
+        }
+        .detail-row {
+            margin: 8px 0;
+            font-size: 14px;
+        }
+        .detail-label {
+            font-weight: 600;
+            color: #6b7280;
+            display: inline-block;
+            width: 140px;
+        }
+        .detail-value {
+            color: #1f2937;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #065f46 0%, #10b981 100%);
+            color: white;
+            text-decoration: none;
+            padding: 15px 30px;
+            border-radius: 6px;
+            font-weight: 600;
+            text-align: center;
+            margin: 20px 0;
+            transition: transform 0.2s ease;
+        }
+        .cta-button:hover {
+            transform: translateY(-1px);
+        }
+        .next-steps {
+            background-color: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .next-steps h3 {
+            color: #92400e;
+            margin: 0 0 15px 0;
+            font-size: 16px;
+        }
+        .next-steps ul {
+            color: #92400e;
+            margin: 0;
+            padding-left: 20px;
+        }
+        .next-steps li {
+            margin: 8px 0;
+        }
+        .footer {
+            background-color: #f3f4f6;
+            padding: 30px;
+            text-align: center;
+            color: #6b7280;
+            font-size: 14px;
+        }
+        .footer p {
+            margin: 5px 0;
+        }
+        .logo {
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 15px;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .review-notes {
+            background-color: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 0 6px 6px 0;
+        }
+        .review-notes h4 {
+            margin: 0 0 10px 0;
+            color: #1e40af;
+            font-size: 16px;
+        }
+        .review-notes p {
+            margin: 0;
+            color: #1f2937;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <img src="https://eauapp.platty.tech/logo-500.png" alt="English Australia" />
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <div class="greeting">
+                Hello {{contactPersonName}},
+            </div>
+
+            <div class="success-badge">
+                ✅ Application Approved
+            </div>
+
+            <div class="message">
+                Congratulations! We are pleased to inform you that <strong>{{institutionName}}</strong>'s application for English Australia membership has been <strong>approved</strong>.
+            </div>
+
+            <!-- Application Details -->
+            <div class="details-box">
+                <h3>Membership Details</h3>
+                <div class="detail-row">
+                    <span class="detail-label">Institution:</span>
+                    <span class="detail-value">{{institutionName}}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Membership Type:</span>
+                    <span class="detail-value">{{membershipType}}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Institution ID:</span>
+                    <span class="detail-value">{{institutionId}}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Member ID:</span>
+                    <span class="detail-value">{{memberId}}</span>
+                </div>
+            </div>
+
+            <!-- Review Notes (if provided) -->
+            {{#if reviewNotes}}
+            <div class="review-notes">
+                <h4>Review Comments</h4>
+                <p>{{reviewNotes}}</p>
+            </div>
+            {{/if}}
+
+            <!-- Next Steps -->
+            <div class="next-steps">
+                <h3>Next Steps</h3>
+                <ul>
+                    <li><strong>Account Setup:</strong> You will receive separate login credentials to access the member portal</li>
+                    <li><strong>Payment Processing:</strong> Invoice for membership fees will be sent separately</li>
+                    <li><strong>Welcome Package:</strong> Complete membership materials will be provided via email</li>
+                    <li><strong>Access Benefits:</strong> You can now access all member benefits and services</li>
+                </ul>
+            </div>
+
+            <!-- Call to Action -->
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{{loginUrl}}" class="cta-button">Access Member Portal</a>
+            </div>
+
+            <div class="message">
+                If you have any questions or need assistance getting started, please don't hesitate to contact our member services team.
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p><strong>English Australia</strong></p>
+            <p>The national peak body for ELICOS</p>
+            <p>Email: admin@englishaustralia.com.au | Web: www.englishaustralia.com.au</p>
+            <p>This email was sent automatically. Please do not reply directly to this email.</p>
+        </div>
+    </div>
+</body>
+</html>

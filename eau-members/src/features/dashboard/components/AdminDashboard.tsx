@@ -7,6 +7,9 @@ import { PermissionGuard } from '../../../components/shared/PermissionGuard'
 import cpd, { type CPDActivity } from '../../cpd/cpdService'
 import { MembersService } from '../../../lib/supabase/members'
 import { EventService } from '../../../services/eventService'
+import { OpenLearningAccessButton } from '../../../components/openlearning/OpenLearningAccessButton'
+import { OpenLearningStatus } from '../../../components/OpenLearningStatus'
+import { getUserInstitution } from '../../../services/institutionService'
 
 const { CPDService } = cpd
 
@@ -27,6 +30,10 @@ export const AdminDashboard: React.FC = () => {
   const [cpdSettings, setCpdSettings] = useState<CPDSettings | null>(null)
   const [pointsStats, setPointsStats] = useState({ totalPoints: 0, monthlyPoints: 0 })
   const [loading, setLoading] = useState(true)
+  const [userInstitution, setUserInstitution] = useState<{ institutionId: string | null; institutionName: string }>({
+    institutionId: null,
+    institutionName: 'All Institutions'
+  })
 
   useEffect(() => {
     loadDashboardData()
@@ -35,26 +42,65 @@ export const AdminDashboard: React.FC = () => {
   const loadDashboardData = async () => {
     try {
       setLoading(true)
+
+      // Get user's institution context
+      const institution = await getUserInstitution()
+      setUserInstitution(institution)
+
+      // For Institution Admin, get members of their institution first
+      let institutionMemberIds: string[] = []
+      if (!roles.includes('AdminSuper') && institution.institutionId) {
+        const institutionMembers = await MembersService.searchMembers({
+          institutionId: institution.institutionId
+        } as any)
+        institutionMemberIds = institutionMembers.map(m => m.id)
+      }
+
       const [stats, pending, members, events, settings, points] = await Promise.all([
-        CPDService.getAllActivitiesStats(),
-        CPDService.getAllPendingActivities(),
-        MembersService.getMemberStats(),
+        // For Institution Admin, filter CPD stats by their members
+        roles.includes('AdminSuper')
+          ? CPDService.getAllActivitiesStats()
+          : CPDService.getAllActivitiesStats(institutionMemberIds),
+        // Filter pending activities similarly
+        roles.includes('AdminSuper')
+          ? CPDService.getAllPendingActivities()
+          : CPDService.getAllPendingActivities(institutionMemberIds),
+        // Pass institution context for member stats
+        MembersService.getMemberStats(institution.institutionId),
+        // For events, we'll filter after fetching
         EventService.getEvents(),
         CPDService.getCPDSettings(),
-        CPDService.getPointsStats()
+        // Filter points by institution members
+        roles.includes('AdminSuper')
+          ? CPDService.getPointsStats()
+          : CPDService.getPointsStats(institutionMemberIds)
       ])
+
       setCpdStats(stats)
       setPendingActivities(pending)
       setMemberStats(members)
       setCpdSettings(settings)
       setPointsStats(points)
-      
+
+      // Filter events for Institution Admin
+      let filteredEvents = events
+      if (!roles.includes('AdminSuper') && institution.institutionId) {
+        // For Institution Admin, show only events created by their institution
+        // or events where their members are registered
+        filteredEvents = events.filter(e =>
+          e.institution_id === institution.institutionId ||
+          (e.registrations && e.registrations.some((r: any) =>
+            institutionMemberIds.includes(r.member_id)
+          ))
+        )
+      }
+
       // Calculate event statistics
       const now = new Date()
-      const activeEvents = events.filter(e => e.status === 'published')
+      const activeEvents = filteredEvents.filter(e => e.status === 'published')
       const upcomingEvents = activeEvents.filter(e => new Date(e.start_date) > now)
       const pastEvents = activeEvents.filter(e => new Date(e.end_date) < now)
-      
+
       setEventStats({
         active: activeEvents.length,
         upcoming: upcomingEvents.length,
@@ -84,6 +130,17 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Institution Context Indicator */}
+      {!roles.includes('AdminSuper') && userInstitution.institutionId && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              <strong>Institution View:</strong> Showing data for {userInstitution.institutionName} only
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Stats Overview */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -165,8 +222,9 @@ export const AdminDashboard: React.FC = () => {
           </Card>
         </div>
 
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
+
           {/* Admin Actions */}
           <Card>
             <CardHeader>
@@ -295,9 +353,9 @@ export const AdminDashboard: React.FC = () => {
                   </Button>
                 </PermissionGuard>
                 
-                <PermissionGuard roles={['Admin', 'AdminSuper']}>
-                  <Button 
-                    variant="outline" 
+                <PermissionGuard roles={['AdminSuper']}>
+                  <Button
+                    variant="outline"
                     className="w-full justify-start"
                     onClick={() => navigate('/admin/duplicates')}
                   >

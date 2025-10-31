@@ -4,24 +4,28 @@ import { Button } from '../ui/Button'
 import { useAuthStore } from '../../stores/authStore'
 import { supabase } from '../../lib/supabase/client'
 import { PermissionGuard } from '../shared/PermissionGuard'
-import { 
-  User, 
-  GraduationCap, 
-  Menu, 
-  X, 
-  Home, 
-  BookOpen, 
-  Calendar, 
-  Users, 
-  Settings, 
+import {
+  User,
+  GraduationCap,
+  Menu,
+  X,
+  Home,
+  BookOpen,
+  Calendar,
+  Users,
+  Settings,
   LogOut,
   Shield,
-  Building2
+  Building2,
+  FileText,
+  UserCheck
 } from 'lucide-react'
 import { RoleSwitcher } from '../dev/RoleSwitcher'
 import { APP_VERSION } from '../../config/version'
 import { ImpersonationBanner } from '../shared/ImpersonationBanner'
 import { impersonationService } from '../../services/impersonationService'
+import { ApplicationNotificationBadge, ApplicationNotificationDropdown } from '../notifications/ApplicationNotificationBadge'
+import { OpenLearningAccessButton } from '../openlearning/OpenLearningAccessButton'
 
 interface MainLayoutProps {
   children: React.ReactNode
@@ -32,6 +36,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const { user, roles, reset, getEffectiveRoles, simulatedRole } = useAuthStore()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isNotificationDropdownOpen, setIsNotificationDropdownOpen] = useState(false)
   
   // Get effective roles (considering simulation)
   const effectiveRoles = getEffectiveRoles()
@@ -100,6 +105,23 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 <User className="h-4 w-4" />
                 <span>{displayUser?.email}</span>
               </div>
+              
+              {/* Notification Bell - Only for admins */}
+              <PermissionGuard permission="ACCESS_ADMIN_DASHBOARD">
+                <div className="relative">
+                  <ApplicationNotificationBadge 
+                    onClick={() => setIsNotificationDropdownOpen(!isNotificationDropdownOpen)}
+                  />
+                  <ApplicationNotificationDropdown
+                    isOpen={isNotificationDropdownOpen}
+                    onClose={() => setIsNotificationDropdownOpen(false)}
+                    onViewApplications={() => {
+                      navigate('/admin/membership-applications');
+                      setIsNotificationDropdownOpen(false);
+                    }}
+                  />
+                </div>
+              </PermissionGuard>
               
               {/* Hamburger Menu Button */}
               <button
@@ -171,18 +193,14 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
                   Learning Platform
                 </h3>
-                
-                <button
-                  onClick={() => {
-                    import('../../services/openlearningService').then(({ openLearningService }) => {
-                      openLearningService.launchSSO(undefined, true).catch(console.error);
-                    });
-                  }}
-                  className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
-                >
-                  <GraduationCap className="h-4 w-4 mr-3 text-indigo-500" />
-                  OpenLearning
-                </button>
+
+                <div className="px-3">
+                  <OpenLearningAccessButton
+                    variant="outline"
+                    fullWidth={true}
+                    size="sm"
+                  />
+                </div>
               </div>
 
               {/* Admin Section */}
@@ -216,21 +234,53 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     Membership
                   </button>
 
-                  <button
-                    onClick={() => handleNavigateAndClose('/admin/institutions')}
-                    className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
-                  >
-                    <Building2 className="h-4 w-4 mr-3 text-purple-500" />
-                    Institutions
-                  </button>
+                  {/* Only for Super Admin - Institution Management */}
+                  {roles.includes('AdminSuper') && (
+                    <button
+                      onClick={() => handleNavigateAndClose('/admin/institutions')}
+                      className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                    >
+                      <Building2 className="h-4 w-4 mr-3 text-purple-500" />
+                      Institutions
+                    </button>
+                  )}
 
-                  <button
-                    onClick={() => handleNavigateAndClose('/admin/openlearning')}
-                    className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
-                  >
-                    <GraduationCap className="h-4 w-4 mr-3 text-indigo-500" />
-                    OpenLearning Integration
-                  </button>
+                  {/* Only for Super Admin - Membership Applications */}
+                  {roles.includes('AdminSuper') && (
+                    <button
+                      onClick={() => handleNavigateAndClose('/admin/membership-applications')}
+                      className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                    >
+                      <FileText className="h-4 w-4 mr-3 text-orange-500" />
+                      Membership Applications
+                    </button>
+                  )}
+
+                  {/* Only for Super Admin - OpenLearning Integration */}
+                  {roles.includes('AdminSuper') && (
+                    <button
+                      onClick={() => handleNavigateAndClose('/admin/openlearning')}
+                      className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                    >
+                      <GraduationCap className="h-4 w-4 mr-3 text-indigo-500" />
+                      OpenLearning Integration
+                    </button>
+                  )}
+
+                  {/* Only for Super Admin */}
+                  {roles.includes('AdminSuper') && (
+                    <>
+                      <div className="mx-3 my-2 border-t border-gray-200"></div>
+                      <button
+                        onClick={() => handleNavigateAndClose('/admin/member-impersonation')}
+                        className="flex items-center w-full px-3 py-2 text-sm text-purple-700 hover:bg-purple-50 rounded-md transition-colors"
+                      >
+                        <UserCheck className="h-4 w-4 mr-3 text-purple-500" />
+                        Member Impersonation
+                        <span className="ml-auto text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">Dev</span>
+                      </button>
+                    </>
+                  )}
                 </div>
               </PermissionGuard>
 

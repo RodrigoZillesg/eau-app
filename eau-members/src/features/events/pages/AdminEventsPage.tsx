@@ -3,23 +3,94 @@ import { Plus, Calendar, Edit, Trash2, Eye, Copy, MoreVertical } from 'lucide-re
 import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
+import { AdvancedFilters, type FilterConfig, type FilterValues } from '../../../components/filters/AdvancedFilters';
 import { EventService } from '../../../services/eventService';
 import type { Event, EventCategory } from '../../../types/events';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { showNotification } from '../../../lib/notifications';
 import { EventFormModal } from '../components/EventFormModal';
+import { getUserInstitution } from '../../../services/institutionService';
+import { useAuthStore } from '../../../stores/authStore';
+import { MembersService } from '../../../lib/supabase/members';
+import { supabase } from '../../../lib/supabase/client';
 
 export function AdminEventsPage() {
   const navigate = useNavigate();
+  const { roles } = useAuthStore();
   const [events, setEvents] = useState<Event[]>([]);
+  const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
   const [categories, setCategories] = useState<EventCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [activeFilters, setActiveFilters] = useState<FilterValues>({});
   const [showFormModal, setShowFormModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [userInstitution, setUserInstitution] = useState<{ institutionId: string | null; institutionName: string }>({
+    institutionId: null,
+    institutionName: 'All Institutions'
+  });
+  const [canCreateEvents, setCanCreateEvents] = useState(false);
+
+  // Filter configuration for events
+  const filterConfig: FilterConfig[] = [
+    {
+      id: 'status',
+      label: 'Status',
+      type: 'select',
+      options: [
+        { value: 'draft', label: 'Draft' },
+        { value: 'published', label: 'Published' },
+        { value: 'cancelled', label: 'Cancelled' },
+        { value: 'completed', label: 'Completed' }
+      ]
+    },
+    {
+      id: 'location_type',
+      label: 'Event Type',
+      type: 'multiselect',
+      options: [
+        { value: 'physical', label: 'In-Person' },
+        { value: 'virtual', label: 'Virtual' },
+        { value: 'hybrid', label: 'Hybrid' }
+      ]
+    },
+    {
+      id: 'event_date',
+      label: 'Event Date Range',
+      type: 'dateRange'
+    },
+    {
+      id: 'category',
+      label: 'Category',
+      type: 'select',
+      options: [] // Will be populated from categories
+    },
+    {
+      id: 'cpd_enabled',
+      label: 'CPD Points',
+      type: 'boolean',
+      placeholder: 'Has CPD Points'
+    },
+    {
+      id: 'registration_open',
+      label: 'Registration Open',
+      type: 'boolean'
+    },
+    {
+      id: 'featured',
+      label: 'Featured Event',
+      type: 'boolean'
+    },
+    {
+      id: 'capacity_min',
+      label: 'Min Capacity',
+      type: 'number',
+      min: 0
+    }
+  ];
 
   useEffect(() => {
     loadData();
@@ -28,11 +99,50 @@ export function AdminEventsPage() {
   const loadData = async () => {
     try {
       setLoading(true);
+
+      // Get user's institution context
+      const institution = await getUserInstitution();
+      setUserInstitution(institution);
+
+      // Check if institutions can create events
+      if (roles.includes('AdminSuper')) {
+        // SuperAdmins can always create events
+        setCanCreateEvents(true);
+      } else {
+        // Check system settings for Institution Admins
+        const { data: settings } = await supabase
+          .from('system_settings')
+          .select('institutions_can_create_events')
+          .single();
+
+        setCanCreateEvents(settings?.institutions_can_create_events || false);
+      }
+
       const [eventsData, categoriesData] = await Promise.all([
-        EventService.getEvents(), // Get all events, not just public
+        EventService.getEvents(), // Get all events first
         EventService.getCategories()
       ]);
-      setEvents(eventsData);
+
+      // Filter events for Institution Admin
+      let filteredData = eventsData;
+      if (!roles.includes('AdminSuper') && institution.institutionId) {
+        // For Institution Admin, show only:
+        // 1. Events created by their institution
+        // 2. Events where their members have registered
+        const institutionMembers = await MembersService.searchMembers({
+          institutionId: institution.institutionId
+        } as any);
+        const memberIds = institutionMembers.map(m => m.id);
+
+        filteredData = eventsData.filter(event =>
+          event.institution_id === institution.institutionId ||
+          (event.registrations && event.registrations.some((reg: any) =>
+            memberIds.includes(reg.member_id)
+          ))
+        );
+      }
+
+      setEvents(filteredData);
       setCategories(categoriesData);
     } catch (error) {
       console.error('Error loading events:', error);
@@ -102,15 +212,19 @@ export function AdminEventsPage() {
     }
   };
 
-  const filteredEvents = events.filter(event => {
-    if (searchTerm && !event.title.toLowerCase().includes(searchTerm.toLowerCase())) {
-      return false;
-    }
-    if (statusFilter !== 'all' && event.status !== statusFilter) {
-      return false;
-    }
-    return true;
-  });
+  // Apply filters to events
+  useEffect(() => {
+    let filtered = events.filter(event => {
+      if (searchTerm && !event.title.toLowerCase().includes(searchTerm.toLowerCase())) {
+        return false;
+      }
+      if (statusFilter !== 'all' && event.status !== statusFilter) {
+        return false;
+      }
+      return true;
+    });
+    setFilteredEvents(filtered);
+  }, [events, searchTerm, statusFilter, activeFilters]);
 
   const getStatusBadge = (status: string) => {
     const styles = {
@@ -143,11 +257,28 @@ export function AdminEventsPage() {
           <h1 className="text-3xl font-bold text-gray-900">Event Management</h1>
           <p className="text-gray-600 mt-2">Create and manage events</p>
         </div>
-        <Button onClick={handleCreateEvent}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Event
-        </Button>
+        {canCreateEvents ? (
+          <Button onClick={handleCreateEvent}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Event
+          </Button>
+        ) : (
+          !roles.includes('AdminSuper') && (
+            <div className="text-sm text-gray-500 italic">
+              Event creation is currently disabled for institutions
+            </div>
+          )
+        )}
       </div>
+
+      {/* Institution Context Indicator */}
+      {!roles.includes('AdminSuper') && userInstitution.institutionId && (
+        <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-800">
+            <strong>Institution View:</strong> Showing events for {userInstitution.institutionName} and events with your members registered
+          </p>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">

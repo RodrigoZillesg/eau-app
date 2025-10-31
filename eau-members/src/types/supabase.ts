@@ -12,7 +12,7 @@ export type { UserRole }
 
 export type MembershipStatus = 'active' | 'inactive' | 'suspended' | 'expired'
 export type MembershipType = 'standard' | 'premium' | 'student' | 'corporate'
-export type MemberRole = 'member' | 'admin' | 'super_admin' | 'moderator' | 'instructor'
+export type MemberRole = 'member' | 'admin' | 'super_admin' | 'moderator' | 'instructor' | 'Institution Admin'
 export type InterestGroup = 'Full Provider' | 'Associate Provider' | 'Corporate Affiliate' | 'Professional Affiliate'
 
 export interface Database {
@@ -46,6 +46,9 @@ export interface Database {
           interest_group: InterestGroup | null
           created_by: string | null
           updated_by: string | null
+          user_type: string | null
+          user_id: string | null
+          institution_id: string | null
         }
         Insert: {
           id?: string
@@ -74,6 +77,9 @@ export interface Database {
           interest_group?: InterestGroup | null
           created_by?: string | null
           updated_by?: string | null
+          user_type?: string | null
+          user_id?: string | null
+          institution_id?: string | null
         }
         Update: {
           id?: string
@@ -102,6 +108,9 @@ export interface Database {
           interest_group?: InterestGroup | null
           created_by?: string | null
           updated_by?: string | null
+          user_type?: string | null
+          user_id?: string | null
+          institution_id?: string | null
         }
       }
       member_roles: {

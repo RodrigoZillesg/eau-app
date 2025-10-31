@@ -2,197 +2,552 @@ import React, { useState, useEffect } from 'react'
 import { Card } from '../../../components/ui/Card'
 import { Button } from '../../../components/ui/Button'
 import { Label } from '../../../components/ui/Label'
+import { StatsCardSkeleton, MembershipTableSkeleton, DistributionCardSkeleton } from '../../../components/ui/SkeletonLoader'
+import { AdvancedFilters, type FilterConfig, type FilterValues } from '../../../components/filters/AdvancedFilters'
 import { supabase } from '../../../lib/supabase/client'
+import { adminClient } from '../../../lib/supabase/adminClient'
 import { showNotification } from '../../../lib/notifications'
-import { 
-  Users, TrendingUp, UserCheck, UserX, 
-  Calendar, Award, Building, GraduationCap,
-  RefreshCw, Download
+import { getUserInstitution } from '../../../services/institutionService'
+import { useAuthStore } from '../../../stores/authStore'
+import {
+  Building2, Users, Award, Calendar,
+  RefreshCw, Download, Edit, Eye,
+  CheckCircle, XCircle, Clock, AlertCircle
 } from 'lucide-react'
-import { exportMembersToCSV } from '../../../utils/csvExport'
-import type { MembershipStatus, MembershipType, InterestGroup } from '../../../types/supabase'
 
-interface MembershipStats {
-  total: number
-  byStatus: Record<MembershipStatus, number>
-  byType: Record<MembershipType, number>
-  byGroup: Record<string, number>
+interface InstitutionMembership {
+  id: string
+  name: string
+  membership_type: string
+  membership_status: string
+  membership_start_date: string
+  membership_renewal_date: string
+  total_members: number
+  primary_contact_email: string
+  abn: string
 }
 
-interface MembershipUpdate {
-  memberId: string
-  memberName: string
-  currentType: MembershipType
-  currentStatus: MembershipStatus
-  currentGroup?: string
-  newType?: MembershipType
-  newStatus?: MembershipStatus
-  newGroup?: InterestGroup
+interface MembershipStats {
+  totalInstitutions: number
+  totalMembers: number
+  byType: {
+    fullProvider: number
+    associateProvider: number
+    corporateAffiliate: number
+    professionalAffiliate: number
+  }
+  byStatus: {
+    active: number
+    inactive: number
+    expired: number
+    pending: number
+  }
 }
 
 export function MembershipManagementPage() {
+  const { roles } = useAuthStore()
+  const [userInstitution, setUserInstitution] = useState<{ institutionId: string | null, institutionName: string }>({
+    institutionId: null,
+    institutionName: 'All Institutions'
+  })
   const [stats, setStats] = useState<MembershipStats>({
-    total: 0,
-    byStatus: { active: 0, inactive: 0, suspended: 0, expired: 0 },
-    byType: { standard: 0, premium: 0, student: 0, corporate: 0 },
-    byGroup: {}
+    totalInstitutions: 0,
+    totalMembers: 0,
+    byType: {
+      fullProvider: 0,
+      associateProvider: 0,
+      corporateAffiliate: 0,
+      professionalAffiliate: 0
+    },
+    byStatus: {
+      active: 0,
+      inactive: 0,
+      expired: 0,
+      pending: 0
+    }
   })
-  const [selectedMembers, setSelectedMembers] = useState<any[]>([])
+  const [institutions, setInstitutions] = useState<InstitutionMembership[]>([])
+  const [filteredInstitutions, setFilteredInstitutions] = useState<InstitutionMembership[]>([])
   const [loading, setLoading] = useState(true)
-  const [bulkUpdate, setBulkUpdate] = useState({
-    status: '',
-    type: '',
-    group: ''
-  })
+  const [statsLoading, setStatsLoading] = useState(true)
+  const [selectedInstitution, setSelectedInstitution] = useState<InstitutionMembership | null>(null)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [searchText, setSearchText] = useState('')
+  const [activeFilters, setActiveFilters] = useState<FilterValues>({})
+
+  // Filter configuration
+  const filterConfig: FilterConfig[] = [
+    {
+      id: 'membership_type',
+      label: 'Membership Type',
+      type: 'select',
+      options: [
+        { value: 'Full_Member', label: 'Full Member' },
+        { value: 'Associate', label: 'Associate' },
+        { value: 'Corporate', label: 'Corporate Affiliate' },
+        { value: 'Professional', label: 'Professional Affiliate' }
+      ]
+    },
+    {
+      id: 'membership_status',
+      label: 'Status',
+      type: 'multiselect',
+      options: [
+        { value: 'active', label: 'Active' },
+        { value: 'inactive', label: 'Inactive' },
+        { value: 'expired', label: 'Expired' },
+        { value: 'pending', label: 'Pending' }
+      ]
+    },
+    {
+      id: 'expiry_date',
+      label: 'Renewal Date Range',
+      type: 'dateRange'
+    },
+    {
+      id: 'state',
+      label: 'State',
+      type: 'select',
+      options: [
+        { value: 'NSW', label: 'New South Wales' },
+        { value: 'VIC', label: 'Victoria' },
+        { value: 'QLD', label: 'Queensland' },
+        { value: 'WA', label: 'Western Australia' },
+        { value: 'SA', label: 'South Australia' },
+        { value: 'TAS', label: 'Tasmania' },
+        { value: 'ACT', label: 'Australian Capital Territory' },
+        { value: 'NT', label: 'Northern Territory' }
+      ]
+    },
+    {
+      id: 'min_members',
+      label: 'Min Members',
+      type: 'number',
+      min: 0
+    },
+    {
+      id: 'max_members',
+      label: 'Max Members',
+      type: 'number',
+      min: 0
+    },
+    {
+      id: 'has_abn',
+      label: 'Has ABN',
+      type: 'boolean'
+    }
+  ]
 
   useEffect(() => {
-    loadMembershipStats()
-    loadMembers()
+    // Get user's institution context first
+    const loadUserInstitution = async () => {
+      const institution = await getUserInstitution()
+      setUserInstitution(institution)
+
+      // For Institution Admin, only show their institution
+      if (!roles.includes('AdminSuper') && institution.institutionId) {
+        // They can only see their own institution
+        loadSingleInstitution(institution.institutionId)
+      } else {
+        // Super Admin sees all
+        loadMembershipStats()
+        loadInstitutions()
+      }
+    }
+
+    loadUserInstitution()
   }, [])
+
+  useEffect(() => {
+    applyFilters()
+  }, [institutions, searchText, activeFilters])
 
   const loadMembershipStats = async () => {
     try {
-      // Get total count
-      const { count: total } = await supabase
-        .from('members')
-        .select('*', { count: 'exact', head: true })
-
-      // Get counts by status
-      const statuses: MembershipStatus[] = ['active', 'inactive', 'suspended', 'expired']
-      const statusCounts: Record<MembershipStatus, number> = { 
-        active: 0, inactive: 0, suspended: 0, expired: 0 
-      }
+      setStatsLoading(true)
       
-      for (const status of statuses) {
-        const { count } = await supabase
+      // Fazer queries em paralelo para melhor performance
+      const [
+        institutionsResponse,
+        membersResponse
+      ] = await Promise.all([
+        supabase
+          .from('institutions')
+          .select('membership_type, membership_status')
+          .order('name'),
+        adminClient
           .from('members')
           .select('*', { count: 'exact', head: true })
-          .eq('membership_status', status)
-        statusCounts[status] = count || 0
+      ])
+
+      if (institutionsResponse.error) throw institutionsResponse.error
+      if (membersResponse.error) throw membersResponse.error
+
+      const institutions = institutionsResponse.data || []
+      const totalMembers = membersResponse.count || 0
+
+      // Processar dados localmente em vez de múltiplas queries
+      const typeCounts = {
+        fullProvider: 0,
+        associateProvider: 0,
+        corporateAffiliate: 0,
+        professionalAffiliate: 0
       }
 
-      // Get counts by type
-      const types: MembershipType[] = ['standard', 'premium', 'student', 'corporate']
-      const typeCounts: Record<MembershipType, number> = {
-        standard: 0, premium: 0, student: 0, corporate: 0
-      }
-      
-      for (const type of types) {
-        const { count } = await supabase
-          .from('members')
-          .select('*', { count: 'exact', head: true })
-          .eq('membership_type', type)
-        typeCounts[type] = count || 0
+      const statusCounts = {
+        active: 0,
+        inactive: 0,
+        expired: 0,
+        pending: 0
       }
 
-      // Get counts by interest group
-      const { data: groups } = await supabase
-        .from('members')
-        .select('interest_group')
-        .not('interest_group', 'is', null)
+      institutions.forEach(inst => {
+        // Count by type
+        switch (inst.membership_type) {
+          case 'Full Provider':
+            typeCounts.fullProvider++
+            break
+          case 'Associate Provider':
+            typeCounts.associateProvider++
+            break
+          case 'Corporate Affiliate':
+            typeCounts.corporateAffiliate++
+            break
+          case 'Professional Affiliate':
+            typeCounts.professionalAffiliate++
+            break
+        }
 
-      const groupCounts: Record<string, number> = {}
-      groups?.forEach(g => {
-        const group = g.interest_group || 'Unknown'
-        groupCounts[group] = (groupCounts[group] || 0) + 1
+        // Count by status
+        const status = inst.membership_status || 'active'
+        if (status in statusCounts) {
+          statusCounts[status as keyof typeof statusCounts]++
+        }
       })
 
       setStats({
-        total: total || 0,
-        byStatus: statusCounts,
+        totalInstitutions: institutions.length,
+        totalMembers,
         byType: typeCounts,
-        byGroup: groupCounts
+        byStatus: statusCounts
       })
     } catch (error) {
       console.error('Error loading stats:', error)
+      showNotification('error', 'Failed to load membership statistics')
+    } finally {
+      setStatsLoading(false)
     }
   }
 
-  const loadMembers = async () => {
+  const loadSingleInstitution = async (institutionId: string) => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
-        .from('members')
+      setStatsLoading(true)
+
+      // Load only the specific institution
+      // Get institution data
+      const { data: instData, error: instError } = await supabase
+        .from('institutions')
         .select('*')
-        .order('created_at', { ascending: false })
-        .limit(10)
+        .eq('id', institutionId)
+        .single()
+
+      if (instError) throw instError
+
+      // Get member count using adminClient
+      const { count: memberCount } = await adminClient
+        .from('members')
+        .select('*', { count: 'exact', head: true })
+        .eq('institution_id', institutionId)
+
+      const data = {
+        ...instData,
+        member_count: memberCount || 0
+      }
 
       if (error) throw error
-      setSelectedMembers(data || [])
+
+      if (data) {
+        const formattedData = [{
+          id: data.id,
+          name: data.name,
+          membership_type: data.membership_type || 'Full Provider',
+          membership_status: data.membership_status || 'active',
+          membership_start_date: data.membership_start_date || data.created_at,
+          membership_renewal_date: data.membership_renewal_date,
+          total_members: data.member_count || 0,
+          primary_contact_email: data.company_email,
+          abn: data.abn
+        }]
+
+        setInstitutions(formattedData)
+        setFilteredInstitutions(formattedData)
+
+        // Set stats for single institution
+        setStats({
+          totalInstitutions: 1,
+          totalMembers: formattedData[0].total_members,
+          byType: {
+            fullProvider: data.membership_type === 'Full Provider' ? 1 : 0,
+            associateProvider: data.membership_type === 'Associate Provider' ? 1 : 0,
+            corporateAffiliate: data.membership_type === 'Corporate Affiliate' ? 1 : 0,
+            professionalAffiliate: data.membership_type === 'Professional Affiliate' ? 1 : 0
+          },
+          byStatus: {
+            active: data.membership_status === 'active' ? 1 : 0,
+            inactive: data.membership_status === 'inactive' ? 1 : 0,
+            expired: data.membership_status === 'expired' ? 1 : 0,
+            pending: data.membership_status === 'pending' ? 1 : 0
+          }
+        })
+      }
     } catch (error) {
-      console.error('Error loading members:', error)
-      showNotification('error', 'Failed to load members')
+      console.error('Error loading institution:', error)
+      showNotification('error', 'Failed to load institution data')
+    } finally {
+      setLoading(false)
+      setStatsLoading(false)
+    }
+  }
+
+  const loadInstitutions = async () => {
+    try {
+      setLoading(true)
+      // Get institutions
+      const { data: institutions, error } = await supabase
+        .from('institutions')
+        .select('*')
+        .order('name')
+
+      if (error) throw error
+
+      // Get member counts using adminClient
+      const { data: members } = await adminClient
+        .from('members')
+        .select('institution_id')
+
+      // Count members per institution
+      const memberCounts = members?.reduce((acc, member) => {
+        if (member.institution_id) {
+          acc[member.institution_id] = (acc[member.institution_id] || 0) + 1
+        }
+        return acc
+      }, {} as Record<string, number>) || {}
+
+      // Add counts to institutions
+      const data = institutions?.map(inst => ({
+        ...inst,
+        member_count: memberCounts[inst.id] || 0
+      })) || []
+
+      const formattedData = (data || []).map(inst => ({
+        id: inst.id,
+        name: inst.name,
+        membership_type: inst.membership_type || 'Full Provider',
+        membership_status: inst.membership_status || 'active',
+        membership_start_date: inst.membership_start_date || inst.created_at,
+        membership_renewal_date: inst.membership_renewal_date,
+        total_members: inst.member_count || 0,
+        primary_contact_email: inst.company_email,
+        abn: inst.abn
+      }))
+
+      setInstitutions(formattedData)
+      setFilteredInstitutions(formattedData)
+    } catch (error) {
+      console.error('Error loading institutions:', error)
+      showNotification('error', 'Failed to load institutions')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleBulkUpdate = async () => {
-    if (selectedMembers.length === 0) {
-      showNotification('warning', 'No members selected')
-      return
+  const applyFilters = () => {
+    let filtered = [...institutions]
+
+    // Apply search text
+    if (searchText) {
+      const search = searchText.toLowerCase()
+      filtered = filtered.filter(inst =>
+        inst.name.toLowerCase().includes(search) ||
+        inst.primary_contact_email?.toLowerCase().includes(search) ||
+        inst.abn?.toLowerCase().includes(search)
+      )
     }
 
+    // Apply membership type filter
+    if (activeFilters.membership_type) {
+      filtered = filtered.filter(inst => inst.membership_type === activeFilters.membership_type)
+    }
+
+    // Apply status filter (multiselect)
+    if (activeFilters.membership_status && activeFilters.membership_status.length > 0) {
+      filtered = filtered.filter(inst =>
+        activeFilters.membership_status.includes(inst.membership_status)
+      )
+    }
+
+    // Apply renewal date range filter
+    if (activeFilters.expiry_date) {
+      const { from, to } = activeFilters.expiry_date
+      if (from) {
+        filtered = filtered.filter(inst =>
+          inst.membership_renewal_date && inst.membership_renewal_date >= from
+        )
+      }
+      if (to) {
+        filtered = filtered.filter(inst =>
+          inst.membership_renewal_date && inst.membership_renewal_date <= to
+        )
+      }
+    }
+
+    // Apply member count filters
+    if (activeFilters.min_members) {
+      filtered = filtered.filter(inst => inst.total_members >= activeFilters.min_members)
+    }
+    if (activeFilters.max_members) {
+      filtered = filtered.filter(inst => inst.total_members <= activeFilters.max_members)
+    }
+
+    // Apply ABN filter
+    if (activeFilters.has_abn !== undefined && activeFilters.has_abn !== null) {
+      filtered = filtered.filter(inst =>
+        activeFilters.has_abn ? !!inst.abn : !inst.abn
+      )
+    }
+
+    setFilteredInstitutions(filtered)
+  }
+
+  const handleFilterChange = (filters: FilterValues) => {
+    setActiveFilters(filters)
+  }
+
+  const handleSearch = (text: string) => {
+    setSearchText(text)
+  }
+
+  const handleExportFiltered = async () => {
     try {
-      const updates: any = {}
-      if (bulkUpdate.status) updates.membership_status = bulkUpdate.status
-      if (bulkUpdate.type) updates.membership_type = bulkUpdate.type
-      if (bulkUpdate.group) updates.interest_group = bulkUpdate.group
+      const csvContent = [
+        ['Institution Name', 'Type', 'Status', 'Start Date', 'Renewal Date', 'Members', 'Contact Email', 'ABN'].join(','),
+        ...filteredInstitutions.map(inst => [
+          inst.name,
+          inst.membership_type,
+          inst.membership_status,
+          inst.membership_start_date,
+          inst.membership_renewal_date || '',
+          inst.total_members,
+          inst.primary_contact_email || '',
+          inst.abn || ''
+        ].join(','))
+      ].join('\n')
 
-      if (Object.keys(updates).length === 0) {
-        showNotification('warning', 'No changes selected')
-        return
-      }
+      const blob = new Blob([csvContent], { type: 'text/csv' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `memberships-${new Date().toISOString().split('T')[0]}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
 
-      for (const member of selectedMembers) {
-        await supabase
-          .from('members')
-          .update(updates)
-          .eq('id', member.id)
-      }
-
-      showNotification('success', `Updated ${selectedMembers.length} members`)
-      loadMembers()
-      loadMembershipStats()
-      setBulkUpdate({ status: '', type: '', group: '' })
+      showNotification('success', `Exported ${filteredInstitutions.length} memberships`)
     } catch (error) {
-      console.error('Error updating members:', error)
-      showNotification('error', 'Failed to update members')
+      console.error('Error exporting:', error)
+      showNotification('error', 'Failed to export memberships')
     }
   }
 
-  const handleExportAll = async () => {
+  const handleUpdateMembership = async (institutionId: string, updates: any) => {
+    try {
+      const { error } = await supabase
+        .from('institutions')
+        .update(updates)
+        .eq('id', institutionId)
+
+      if (error) throw error
+
+      showNotification('success', 'Membership updated successfully')
+      loadInstitutions()
+      loadMembershipStats()
+      setShowEditModal(false)
+    } catch (error) {
+      console.error('Error updating membership:', error)
+      showNotification('error', 'Failed to update membership')
+    }
+  }
+
+  const handleExportMemberships = async () => {
     try {
       const { data } = await supabase
-        .from('members')
+        .from('institutions')
         .select('*')
+        .order('name')
       
       if (data && data.length > 0) {
-        exportMembersToCSV(data, 'all-members-export.csv')
-        showNotification('success', `Exported ${data.length} members`)
+        // Convert to CSV
+        const headers = ['Name', 'Type', 'Status', 'ABN', 'Email', 'Start Date', 'Renewal Date']
+        const rows = data.map(inst => [
+          inst.name,
+          inst.membership_type || 'Full Provider',
+          inst.membership_status || 'active',
+          inst.abn,
+          inst.company_email,
+          inst.membership_start_date || inst.created_at,
+          inst.membership_renewal_date || ''
+        ])
+        
+        const csv = [
+          headers.join(','),
+          ...rows.map(row => row.map(cell => `"${cell || ''}"`).join(','))
+        ].join('\n')
+        
+        // Download
+        const blob = new Blob([csv], { type: 'text/csv' })
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `memberships-export-${new Date().toISOString().split('T')[0]}.csv`
+        a.click()
+        
+        showNotification('success', `Exported ${data.length} memberships`)
       }
     } catch (error) {
       console.error('Error exporting:', error)
-      showNotification('error', 'Failed to export members')
+      showNotification('error', 'Failed to export memberships')
     }
   }
 
-  const getStatusColor = (status: MembershipStatus) => {
-    const colors = {
-      active: 'bg-green-100 text-green-800',
-      inactive: 'bg-gray-100 text-gray-800',
-      suspended: 'bg-red-100 text-red-800',
-      expired: 'bg-yellow-100 text-yellow-800'
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active': return 'bg-green-100 text-green-800'
+      case 'inactive': return 'bg-gray-100 text-gray-800'
+      case 'expired': return 'bg-red-100 text-red-800'
+      case 'pending': return 'bg-yellow-100 text-yellow-800'
+      default: return 'bg-gray-100 text-gray-800'
     }
-    return colors[status]
   }
 
-  const getTypeIcon = (type: MembershipType) => {
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'active': return <CheckCircle className="w-4 h-4 text-green-600" />
+      case 'inactive': return <XCircle className="w-4 h-4 text-gray-600" />
+      case 'expired': return <AlertCircle className="w-4 h-4 text-red-600" />
+      case 'pending': return <Clock className="w-4 h-4 text-yellow-600" />
+      default: return null
+    }
+  }
+
+  const getMembershipTypeLabel = (type: string) => {
     switch (type) {
-      case 'premium': return <Award className="w-4 h-4" />
-      case 'corporate': return <Building className="w-4 h-4" />
-      case 'student': return <GraduationCap className="w-4 h-4" />
-      default: return <Users className="w-4 h-4" />
+      case 'Full Provider': return 'Full Provider'
+      case 'Associate Provider': return 'Associate Provider (Access)'
+      case 'Corporate Affiliate': return 'Corporate Affiliate'
+      case 'Professional Affiliate': return 'Professional Affiliate'
+      default: return type
     }
   }
 
@@ -202,297 +557,358 @@ export function MembershipManagementPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Membership Management</h1>
         <p className="text-gray-600">
-          Manage membership types, statuses, and interest groups
+          Manage institutional memberships for English Australia
         </p>
+        {/* Show context for Institution Admins */}
+        {!roles.includes('AdminSuper') && userInstitution.institutionId && (
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              <strong>Institution View:</strong> Showing data for {userInstitution.institutionName} only
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Members</p>
-              <p className="text-2xl font-bold">{stats.total}</p>
-            </div>
-            <Users className="w-8 h-8 text-blue-500" />
-          </div>
-        </Card>
+        {statsLoading ? (
+          <>
+            <StatsCardSkeleton />
+            <StatsCardSkeleton />
+            <StatsCardSkeleton />
+            <StatsCardSkeleton />
+          </>
+        ) : (
+          <>
+            <Card className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Total Institutions</p>
+                  <p className="text-2xl font-bold">{stats.totalInstitutions}</p>
+                </div>
+                <Building2 className="w-8 h-8 text-blue-500" />
+              </div>
+            </Card>
 
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Active Members</p>
-              <p className="text-2xl font-bold text-green-600">
-                {stats.byStatus.active}
-              </p>
-            </div>
-            <UserCheck className="w-8 h-8 text-green-500" />
-          </div>
-        </Card>
+            <Card className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Active Memberships</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {stats.byStatus.active}
+                  </p>
+                </div>
+                <CheckCircle className="w-8 h-8 text-green-500" />
+              </div>
+            </Card>
 
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Premium Members</p>
-              <p className="text-2xl font-bold text-purple-600">
-                {stats.byType.premium}
-              </p>
-            </div>
-            <Award className="w-8 h-8 text-purple-500" />
-          </div>
-        </Card>
+            <Card className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Full Providers</p>
+                  <p className="text-2xl font-bold text-purple-600">
+                    {stats.byType.fullProvider}
+                  </p>
+                </div>
+                <Award className="w-8 h-8 text-purple-500" />
+              </div>
+            </Card>
 
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Interest Groups</p>
-              <p className="text-2xl font-bold text-indigo-600">
-                {Object.keys(stats.byGroup).length}
-              </p>
-            </div>
-            <TrendingUp className="w-8 h-8 text-indigo-500" />
-          </div>
-        </Card>
+            <Card className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Total Members</p>
+                  <p className="text-2xl font-bold text-indigo-600">
+                    {stats.totalMembers}
+                  </p>
+                </div>
+                <Users className="w-8 h-8 text-indigo-500" />
+              </div>
+            </Card>
+          </>
+        )}
       </div>
 
-      {/* Membership Distribution */}
+      {/* Membership Type Distribution */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        {/* By Status */}
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Membership Status Distribution</h3>
-          <div className="space-y-3">
-            {Object.entries(stats.byStatus).map(([status, count]) => (
-              <div key={status} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(status as MembershipStatus)}`}>
-                    {status}
-                  </span>
+        {statsLoading ? (
+          <>
+            <DistributionCardSkeleton />
+            <DistributionCardSkeleton />
+          </>
+        ) : (
+          <>
+            {/* By Type */}
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold mb-4">Membership Types</h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Full Provider</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">{stats.byType.fullProvider}</span>
+                    <span className="text-sm text-gray-500">
+                      ({stats.totalInstitutions > 0 ? 
+                        ((stats.byType.fullProvider / stats.totalInstitutions) * 100).toFixed(0) : 0}%)
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold">{count}</span>
-                  <span className="text-sm text-gray-500">
-                    ({stats.total > 0 ? ((count / stats.total) * 100).toFixed(1) : 0}%)
-                  </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Associate Provider</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">{stats.byType.associateProvider}</span>
+                    <span className="text-sm text-gray-500">
+                      ({stats.totalInstitutions > 0 ? 
+                        ((stats.byType.associateProvider / stats.totalInstitutions) * 100).toFixed(0) : 0}%)
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Corporate Affiliate</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">{stats.byType.corporateAffiliate}</span>
+                    <span className="text-sm text-gray-500">
+                      ({stats.totalInstitutions > 0 ? 
+                        ((stats.byType.corporateAffiliate / stats.totalInstitutions) * 100).toFixed(0) : 0}%)
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Professional Affiliate</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">{stats.byType.professionalAffiliate}</span>
+                    <span className="text-sm text-gray-500">
+                      ({stats.totalInstitutions > 0 ? 
+                        ((stats.byType.professionalAffiliate / stats.totalInstitutions) * 100).toFixed(0) : 0}%)
+                    </span>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </Card>
+            </Card>
 
-        {/* By Type */}
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Membership Type Distribution</h3>
-          <div className="space-y-3">
-            {Object.entries(stats.byType).map(([type, count]) => (
-              <div key={type} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {getTypeIcon(type as MembershipType)}
-                  <span className="capitalize">{type}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold">{count}</span>
-                  <span className="text-sm text-gray-500">
-                    ({stats.total > 0 ? ((count / stats.total) * 100).toFixed(1) : 0}%)
-                  </span>
-                </div>
+            {/* By Status */}
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold mb-4">Membership Status</h3>
+              <div className="space-y-3">
+                {Object.entries(stats.byStatus).map(([status, count]) => (
+                  <div key={status} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {getStatusIcon(status)}
+                      <span className="text-sm capitalize">{status}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">{count}</span>
+                      <span className="text-sm text-gray-500">
+                        ({stats.totalInstitutions > 0 ? 
+                          ((count / stats.totalInstitutions) * 100).toFixed(0) : 0}%)
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </Card>
+            </Card>
+          </>
+        )}
       </div>
 
-      {/* Interest Groups */}
+      {/* Advanced Filters */}
+      <div className="mb-8">
+        <AdvancedFilters
+          filters={filterConfig}
+          onFilterChange={handleFilterChange}
+          onSearch={handleSearch}
+          onExport={handleExportFiltered}
+          searchPlaceholder="Search by institution name, email, or ABN..."
+          showSearch={true}
+          showExport={true}
+        />
+      </div>
+
+      {/* Institutions List */}
       <Card className="p-6 mb-8">
-        <h3 className="text-lg font-semibold mb-4">Interest Groups Distribution</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {Object.entries(stats.byGroup).map(([group, count]) => (
-            <div key={group} className="bg-gray-50 rounded-lg p-4">
-              <h4 className="font-medium text-gray-900">{group}</h4>
-              <p className="text-2xl font-bold text-blue-600 mt-1">{count}</p>
-              <p className="text-sm text-gray-500">members</p>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      {/* Bulk Update Section */}
-      <Card className="p-6 mb-8">
-        <h3 className="text-lg font-semibold mb-4">Bulk Membership Update</h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        <div className="flex justify-between items-center mb-4">
           <div>
-            <Label htmlFor="bulk-status">Update Status</Label>
-            <select
-              id="bulk-status"
-              value={bulkUpdate.status}
-              onChange={(e) => setBulkUpdate({ ...bulkUpdate, status: e.target.value })}
-              className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
-            >
-              <option value="">No change</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="suspended">Suspended</option>
-              <option value="expired">Expired</option>
-            </select>
+            <h3 className="text-lg font-semibold">Institution Memberships</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              Showing {filteredInstitutions.length} of {institutions.length} institutions
+            </p>
           </div>
-
-          <div>
-            <Label htmlFor="bulk-type">Update Type</Label>
-            <select
-              id="bulk-type"
-              value={bulkUpdate.type}
-              onChange={(e) => setBulkUpdate({ ...bulkUpdate, type: e.target.value })}
-              className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
-            >
-              <option value="">No change</option>
-              <option value="standard">Standard</option>
-              <option value="premium">Premium</option>
-              <option value="student">Student</option>
-              <option value="corporate">Corporate</option>
-            </select>
-          </div>
-
-          <div>
-            <Label htmlFor="bulk-group">Update Interest Group</Label>
-            <select
-              id="bulk-group"
-              value={bulkUpdate.group}
-              onChange={(e) => setBulkUpdate({ ...bulkUpdate, group: e.target.value })}
-              className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
-            >
-              <option value="">No change</option>
-              <option value="Full Provider">Full Provider</option>
-              <option value="Associate Provider">Associate Provider</option>
-              <option value="Corporate Affiliate">Corporate Affiliate</option>
-              <option value="Professional Affiliate">Professional Affiliate</option>
-            </select>
-          </div>
-
-          <div className="flex items-end gap-2">
-            <Button 
-              onClick={handleBulkUpdate}
-              className="flex items-center gap-2"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Update Selected
-            </Button>
-            <Button 
-              onClick={handleExportAll}
+          <div className="flex gap-2">
+            <Button
+              onClick={loadInstitutions}
               variant="outline"
               className="flex items-center gap-2"
             >
-              <Download className="w-4 h-4" />
-              Export All
+              <RefreshCw className="w-4 h-4" />
+              Refresh
             </Button>
           </div>
         </div>
 
-        {/* Sample Members List */}
-        <div className="mt-6">
-          <h4 className="font-medium text-gray-700 mb-3">Recent Members (Select for bulk update)</h4>
+        {loading ? (
+          <MembershipTableSkeleton rows={5} />
+        ) : filteredInstitutions.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            {institutions.length === 0
+              ? "No institutions found. Import data from the CSV to populate."
+              : "No institutions match the current filters. Try adjusting your search criteria."}
+          </div>
+        ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                    <input 
-                      type="checkbox"
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedMembers(selectedMembers)
-                        } else {
-                          setSelectedMembers([])
-                        }
-                      }}
-                    />
-                  </th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                    Member
-                  </th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                    Status
+                    Institution
                   </th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                     Type
                   </th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                    Interest Group
+                    Status
                   </th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                    Member Since
+                    Members
+                  </th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                    Renewal Date
+                  </th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                    Actions
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {selectedMembers.map((member) => (
-                  <tr key={member.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-2">
-                      <input 
-                        type="checkbox"
-                        checked={true}
-                        onChange={() => {}}
-                      />
-                    </td>
-                    <td className="px-4 py-2">
+                {filteredInstitutions.map((inst) => (
+                  <tr key={inst.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3">
                       <div>
-                        <div className="font-medium text-gray-900">
-                          {member.first_name} {member.last_name}
-                        </div>
-                        <div className="text-sm text-gray-500">{member.email}</div>
+                        <div className="font-medium text-gray-900">{inst.name}</div>
+                        <div className="text-sm text-gray-500">{inst.primary_contact_email}</div>
                       </div>
                     </td>
-                    <td className="px-4 py-2">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(member.membership_status)}`}>
-                        {member.membership_status}
+                    <td className="px-4 py-3">
+                      <span className="text-sm">{getMembershipTypeLabel(inst.membership_type)}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(inst.membership_status)}`}>
+                        {inst.membership_status}
                       </span>
                     </td>
-                    <td className="px-4 py-2">
-                      <div className="flex items-center gap-1">
-                        {getTypeIcon(member.membership_type)}
-                        <span className="text-sm capitalize">{member.membership_type}</span>
-                      </div>
+                    <td className="px-4 py-3 text-sm">
+                      {inst.total_members}
                     </td>
-                    <td className="px-4 py-2 text-sm">
-                      {member.interest_group || '-'}
-                    </td>
-                    <td className="px-4 py-2 text-sm text-gray-500">
-                      {member.membership_start_date 
-                        ? new Date(member.membership_start_date).toLocaleDateString()
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      {inst.membership_renewal_date
+                        ? new Date(inst.membership_renewal_date).toLocaleDateString()
                         : '-'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedInstitution(inst)
+                            setShowEditModal(true)
+                          }}
+                          className="text-blue-600 hover:text-blue-800"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => window.location.href = `/admin/institutions/${inst.id}`}
+                          className="text-gray-600 hover:text-gray-800"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
+        )}
       </Card>
 
-      {/* Actions */}
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Button 
-            onClick={() => window.location.href = '/admin/members'}
-            variant="outline"
-          >
-            View All Members
-          </Button>
-          <Button 
-            onClick={() => window.location.href = '/admin/user-import'}
-            variant="outline"
-          >
-            Import Members
-          </Button>
-          <Button 
-            onClick={loadMembershipStats}
-            variant="outline"
-            className="flex items-center justify-center gap-2"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Refresh Stats
-          </Button>
+      {/* Edit Modal */}
+      {showEditModal && selectedInstitution && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold mb-4">Edit Membership</h3>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="edit-type">Membership Type</Label>
+                <select
+                  id="edit-type"
+                  defaultValue={selectedInstitution.membership_type}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
+                  onChange={(e) => setSelectedInstitution({
+                    ...selectedInstitution,
+                    membership_type: e.target.value
+                  })}
+                >
+                  <option value="Full Provider">Full Provider</option>
+                  <option value="Associate Provider">Associate Provider (Access)</option>
+                  <option value="Corporate Affiliate">Corporate Affiliate</option>
+                  <option value="Professional Affiliate">Professional Affiliate</option>
+                </select>
+              </div>
+
+              <div>
+                <Label htmlFor="edit-status">Status</Label>
+                <select
+                  id="edit-status"
+                  defaultValue={selectedInstitution.membership_status}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
+                  onChange={(e) => setSelectedInstitution({
+                    ...selectedInstitution,
+                    membership_status: e.target.value
+                  })}
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="expired">Expired</option>
+                  <option value="pending">Pending</option>
+                </select>
+              </div>
+
+              <div>
+                <Label htmlFor="edit-expiry">Renewal Date</Label>
+                <input
+                  id="edit-expiry"
+                  type="date"
+                  defaultValue={selectedInstitution.membership_renewal_date?.split('T')[0]}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
+                  onChange={(e) => setSelectedInstitution({
+                    ...selectedInstitution,
+                    membership_renewal_date: e.target.value
+                  })}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 mt-6">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowEditModal(false)
+                    setSelectedInstitution(null)
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => handleUpdateMembership(selectedInstitution.id, {
+                    membership_type: selectedInstitution.membership_type,
+                    membership_status: selectedInstitution.membership_status,
+                    membership_renewal_date: selectedInstitution.membership_renewal_date
+                  })}
+                >
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
-      </Card>
+      )}
     </div>
   )
 }

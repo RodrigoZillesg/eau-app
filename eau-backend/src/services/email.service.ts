@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import { supabaseAdmin } from '../config/database';
 import { logError } from '../utils/logger';
+import { EmailLoggerService } from './emailLogger.service';
 
 interface SMTPSettings {
   smtp_host: string;
@@ -40,7 +41,7 @@ export class EmailService {
         .from('smtp_settings')
         .select('*')
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching SMTP settings:', error);
@@ -48,7 +49,7 @@ export class EmailService {
       }
 
       console.log('SMTP settings query result:', data);
-      
+
       // Return the settings directly
       console.log('Returning SMTP settings:', data ? 'Found' : 'Not found');
       return data;
@@ -69,7 +70,7 @@ export class EmailService {
         .select('*')
         .eq('enabled', true)
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching enabled SMTP settings:', error);
@@ -182,29 +183,38 @@ export class EmailService {
 
       // Send the email
       const info = await transporter.sendMail(mailOptions);
-      
+
       console.info(`Email sent successfully to ${options.to}`, info.messageId);
-      
-      // Log to email_logs table
-      await this.logEmail({
-        to_email: options.to,
+
+      // Log to email_logs table using EmailLoggerService
+      const messageId = await EmailLoggerService.logEmail({
+        recipient_email: options.to,
+        from_email: settings.from_email,
         subject: options.subject,
+        email_type: 'general',
         status: 'sent',
-        message_id: info.messageId,
+        metadata: {
+          original_to: options.to,
+          test_mode: settings.test_mode,
+          actual_recipient: finalRecipient,
+          message_id: info.messageId
+        }
       });
 
       return {
         success: true,
         message: `Email sent successfully to ${options.to}`,
-        messageId: info.messageId
+        messageId: messageId || info.messageId
       };
     } catch (error: any) {
       console.error('Failed to send email:', error);
-      
-      // Log failed email
-      await this.logEmail({
-        to_email: options.to,
+
+      // Log failed email using EmailLoggerService
+      await EmailLoggerService.logEmail({
+        recipient_email: options.to,
+        from_email: options.from || 'noreply@englishaustralia.com.au',
         subject: options.subject,
+        email_type: 'general',
         status: 'failed',
         error_message: error.message
       });
@@ -221,11 +231,11 @@ export class EmailService {
    */
   static async sendTestEmail(to: string): Promise<{ success: boolean; message: string }> {
     const htmlContent = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0;">
-          <h1 style="color: white; margin: 0; text-align: center;">English Australia</h1>
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: white;">
+        <div style="background: white; padding: 30px; text-align: center; border-bottom: 2px solid #e2e8f0;">
+          <img src="https://eauapp.platty.tech/logo-500.png" alt="English Australia" style="max-width: 200px; height: auto;" />
         </div>
-        <div style="background: white; padding: 30px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 10px 10px;">
+        <div style="background: white; padding: 30px; border: 1px solid #e2e8f0; border-top: none;">
           <h2 style="color: #2c3e50; margin-bottom: 20px;">Test Email Successful! ✅</h2>
           <p style="color: #4a5568; line-height: 1.6;">
             This is a test email from the English Australia Members Portal.
@@ -322,11 +332,11 @@ export class EmailService {
     eventLocation: string;
   }): Promise<{ success: boolean; message: string }> {
     const htmlContent = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0;">
-          <h1 style="color: white; margin: 0; text-align: center;">English Australia</h1>
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: white;">
+        <div style="background: white; padding: 30px; text-align: center; border-bottom: 2px solid #e2e8f0;">
+          <img src="https://eauapp.platty.tech/logo-500.png" alt="English Australia" style="max-width: 200px; height: auto;" />
         </div>
-        <div style="background: white; padding: 30px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 10px 10px;">
+        <div style="background: white; padding: 30px; border: 1px solid #e2e8f0; border-top: none;">
           <h2 style="color: #2c3e50; margin-bottom: 20px;">Registration Confirmed! 🎉</h2>
           <p style="color: #4a5568; line-height: 1.6;">
             Dear ${data.memberName},
@@ -375,11 +385,11 @@ export class EmailService {
     const statusText = data.status === 'approved' ? 'Approved' : 'Rejected';
 
     const htmlContent = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0;">
-          <h1 style="color: white; margin: 0; text-align: center;">English Australia</h1>
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: white;">
+        <div style="background: white; padding: 30px; text-align: center; border-bottom: 2px solid #e2e8f0;">
+          <img src="https://eauapp.platty.tech/logo-500.png" alt="English Australia" style="max-width: 200px; height: auto;" />
         </div>
-        <div style="background: white; padding: 30px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 10px 10px;">
+        <div style="background: white; padding: 30px; border: 1px solid #e2e8f0; border-top: none;">
           <h2 style="color: #2c3e50; margin-bottom: 20px;">CPD Activity ${statusText} ${statusEmoji}</h2>
           <p style="color: #4a5568; line-height: 1.6;">
             Dear ${data.memberName},

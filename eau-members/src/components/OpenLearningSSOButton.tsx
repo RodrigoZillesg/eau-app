@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { openLearningService } from '../services/openlearningService';
-import { showNotification } from '../utils/notifications';
+import { showNotification } from '../lib/notifications';
+import axios from 'axios';
+import { supabase } from '../lib/supabase';
 
 interface OpenLearningSSOButtonProps {
   classId?: string;
@@ -28,11 +29,74 @@ export const OpenLearningSSOButton: React.FC<OpenLearningSSOButtonProps> = ({
   const handleSSOLaunch = async () => {
     setIsLoading(true);
     try {
-      await openLearningService.launchSSO(classId, newWindow);
-      showNotification('success', 'Redirecting to OpenLearning...');
+      // Get current user session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Please login first');
+      }
+
+      // Get member ID from session
+      const { data: member } = await supabase
+        .from('members')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .single();
+
+      if (!member) {
+        throw new Error('Member profile not found');
+      }
+
+      // Generate SSO launch URL from backend
+      const response = await axios.post('http://localhost:3001/api/v1/openlearning/sso/launch', {
+        memberId: member.id,
+        classId: classId
+      }, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.data.success || !response.data.launchData) {
+        throw new Error(response.data.error || 'Failed to generate SSO link');
+      }
+
+      const launchData = response.data.launchData;
+
+      // Create a form and submit it (LTI requires POST)
+      const form = document.createElement('form');
+      form.method = launchData.method || 'POST';
+      form.action = launchData.url;
+
+      if (newWindow) {
+        form.target = '_blank';
+      }
+
+      // Add all LTI/OAuth parameters as hidden fields
+      if (launchData.params) {
+        Object.entries(launchData.params).forEach(([key, value]) => {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = key;
+          input.value = String(value);
+          form.appendChild(input);
+        });
+      }
+
+      // Append form to body and submit
+      document.body.appendChild(form);
+      form.submit();
+
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(form);
+      }, 100);
+
+      showNotification('success', 'Opening OpenLearning...');
       onSuccess?.();
     } catch (error: any) {
-      const errorMessage = error.message || 'Failed to launch OpenLearning';
+      console.error('SSO Launch error:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to launch OpenLearning';
       showNotification('error', errorMessage);
       onError?.(errorMessage);
     } finally {

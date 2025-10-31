@@ -12,7 +12,16 @@ const cpd_routes_1 = __importDefault(require("./cpd.routes"));
 const email_routes_1 = __importDefault(require("./email.routes"));
 const openlearning_routes_1 = __importDefault(require("./openlearning.routes"));
 const openlearning_public_routes_1 = __importDefault(require("./openlearning-public.routes"));
+const openlearningSSO_routes_1 = __importDefault(require("./openlearningSSO.routes"));
+// import certificatesRoutes from './certificates.routes';
+const welcome_routes_1 = __importDefault(require("./welcome.routes"));
+const public_routes_1 = __importDefault(require("./public.routes"));
+const membershipApplications_routes_1 = __importDefault(require("./admin/membershipApplications.routes"));
+const emailLogs_routes_1 = __importDefault(require("./admin/emailLogs.routes"));
+const tracking_routes_1 = __importDefault(require("./tracking.routes"));
+// import applicationsRoutes from './applications.routes';
 const constants_1 = require("../config/constants");
+const email_controller_1 = require("../controllers/email.controller");
 const router = (0, express_1.Router)();
 // Health check
 router.get('/health', (_req, res) => {
@@ -23,6 +32,8 @@ router.get('/health', (_req, res) => {
         version: '1.0.0'
     });
 });
+// Special route for event reminders (no auth, called by frontend)
+router.post('/api/create-reminders', email_controller_1.EmailController.createReminders);
 // API routes
 router.use(`${constants_1.API_PREFIX}/auth`, auth_routes_1.default);
 router.use(`${constants_1.API_PREFIX}/members`, members_routes_1.default);
@@ -32,5 +43,12 @@ router.use(`${constants_1.API_PREFIX}/cpd`, cpd_routes_1.default);
 router.use(`${constants_1.API_PREFIX}/email`, email_routes_1.default);
 router.use(`${constants_1.API_PREFIX}/openlearning`, openlearning_routes_1.default);
 router.use(`${constants_1.API_PREFIX}/openlearning`, openlearning_public_routes_1.default); // Public routes (no auth required)
+router.use(`${constants_1.API_PREFIX}/openlearning-sso`, openlearningSSO_routes_1.default); // SSO routes
+router.use(`${constants_1.API_PREFIX}/welcome`, welcome_routes_1.default);
+router.use(`${constants_1.API_PREFIX}/public`, public_routes_1.default); // Public membership application routes
+router.use(`${constants_1.API_PREFIX}/admin/membership-applications`, membershipApplications_routes_1.default); // Admin application management routes
+router.use(`${constants_1.API_PREFIX}/admin/email-logs`, emailLogs_routes_1.default); // Email logs admin routes
+router.use(`${constants_1.API_PREFIX}/track`, tracking_routes_1.default); // Email tracking routes (public, no auth required)
+// router.use(`${API_PREFIX}/applications`, applicationsRoutes); // Admin application management routes - disabled temporarily
 exports.default = router;
 //# sourceMappingURL=index.js.map

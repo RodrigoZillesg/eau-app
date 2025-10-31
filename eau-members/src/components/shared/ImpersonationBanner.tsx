@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { User, LogOut, AlertTriangle } from 'lucide-react';
 import { impersonationService } from '../../services/impersonationService';
 import { useNavigate } from 'react-router-dom';
-import { showNotification } from '../../utils/notifications';
+import { showNotification } from '../../lib/notifications';
 
 export const ImpersonationBanner: React.FC = () => {
   const navigate = useNavigate();

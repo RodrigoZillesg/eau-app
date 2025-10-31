@@ -188,20 +188,20 @@ export class ReminderService {
     }
 
     const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0;">
-          <h1 style="color: white; margin: 0; text-align: center;">English Australia</h1>
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: white;">
+        <div style="background: white; padding: 30px; text-align: center; border-bottom: 2px solid #e2e8f0;">
+          <img src="https://eauapp.platty.tech/logo-500.png" alt="English Australia" style="max-width: 200px; height: auto;" />
         </div>
-        <div style="background: white; padding: 30px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 10px 10px;">
+        <div style="background: white; padding: 30px; border: 1px solid #e2e8f0; border-top: none;">
           ${content}
-          
+
           <div style="background: #f7fafc; padding: 20px; border-radius: 5px; margin: 20px 0;">
             <h3 style="color: #2c3e50; margin-top: 0;">Event Details:</h3>
             <ul style="color: #4a5568; line-height: 1.8; list-style: none; padding: 0;">
               <li>📅 <strong>Date:</strong> ${eventDate}</li>
               <li>⏰ <strong>Time:</strong> ${eventTime}</li>
               <li>📍 <strong>Location:</strong> ${eventLocation}</li>
-              ${event.virtual_link ? `<li>🔗 <strong>Meeting Link:</strong> <a href="${event.virtual_link}" style="color: #667eea;">Join Online</a></li>` : ''}
+              ${event.virtual_link ? `<li>🔗 <strong>Meeting Link:</strong> <a href="${event.virtual_link}" style="color: #4F46E5;">Join Online</a></li>` : ''}
             </ul>
           </div>
 
@@ -215,16 +215,16 @@ export class ReminderService {
           ` : ''}
 
           <div style="text-align: center; margin-top: 30px;">
-            <a href="${process.env.FRONTEND_URL || 'http://localhost:5180'}/events/${event.slug}" 
-               style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                      color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; 
+            <a href="${process.env.FRONTEND_URL || 'http://localhost:5180'}/events/${event.slug}"
+               style="display: inline-block; background: #4F46E5;
+                      color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px;
                       font-weight: bold;">
               View Event Details
             </a>
           </div>
 
           <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
-          
+
           <p style="color: #718096; font-size: 12px; text-align: center;">
             You're receiving this because you're registered for this event.<br>
             To manage your registrations, visit your member portal.

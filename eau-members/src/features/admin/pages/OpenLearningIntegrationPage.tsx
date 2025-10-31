@@ -10,7 +10,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
-import { showNotification } from '../../../utils/notifications';
+import { showNotification } from '../../../lib/notifications';
 import { openLearningService } from '../../../services/openlearningService';
 import { memberService } from '../../../services/memberService';
 
