@@ -21,6 +21,53 @@ router.get(
   cpdController.list
 );
 
+// Admin-only: Get all categories (including inactive)
+// IMPORTANT: This must come BEFORE /categories to avoid route conflict
+router.get(
+  '/categories/all',
+  cpdController.getAllCategories
+);
+
+// Get CPD categories (active only, for all authenticated users)
+router.get(
+  '/categories',
+  cpdController.getActiveCategories
+);
+
+// Admin-only: Create category
+router.post(
+  '/categories',
+  [
+    body('name').notEmpty().trim(),
+    body('points_per_hour').isInt({ min: 1, max: 30 }),
+    body('description').optional().trim()
+  ],
+  handleValidationErrors,
+  cpdController.createCategory
+);
+
+// Admin-only: Update category
+router.put(
+  '/categories/:id',
+  [
+    param('id').isInt(),
+    body('name').optional().notEmpty().trim(),
+    body('points_per_hour').optional().isInt({ min: 1, max: 30 }),
+    body('description').optional().trim(),
+    body('is_active').optional().isBoolean()
+  ],
+  handleValidationErrors,
+  cpdController.updateCategory
+);
+
+// Admin-only: Delete category
+router.delete(
+  '/categories/:id',
+  [param('id').isInt()],
+  handleValidationErrors,
+  cpdController.deleteCategory
+);
+
 // Get CPD progress
 router.get(
   '/progress',
@@ -39,7 +86,8 @@ router.post(
     body('activityDate').isISO8601().toDate(),
     body('activityType').notEmpty().trim(),
     body('description').notEmpty().trim(),
-    body('points').isFloat({ min: 0, max: 50 }),
+    body('categoryId').notEmpty().isInt(),
+    body('hours').isFloat({ min: 0, max: 100 }),
     body('evidenceUrl').optional().isURL(),
     body('notes').optional().trim()
   ],

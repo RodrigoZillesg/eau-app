@@ -127,7 +127,7 @@ dist
 .pnp.*
 
 # Build output
-dist/
+# dist/ # Commented out for EasyPanel deployment
 build/
 
 # IDE

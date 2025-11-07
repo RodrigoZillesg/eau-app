@@ -4,7 +4,7 @@ import morgan from 'morgan';
 import routes from './routes';
 import { supabaseAdmin } from './config/database';
 import { ReportSchedulerService } from './services/reportScheduler.service';
-import { openLearningSyncScheduler } from './services/openlearningSyncScheduler.service';
+// import { openLearningSyncScheduler } from './services/openlearningSyncScheduler.service'; // Temporarily disabled
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -37,9 +37,10 @@ const startServer = async () => {
     ReportSchedulerService.init();
 
     // Initialize OpenLearning Sync Scheduler
-    console.log('📊 OpenLearning Sync Scheduler Service initializing...');
+    // Temporarily disabled due to TypeScript errors
+    // console.log('📊 OpenLearning Sync Scheduler Service initializing...');
     // The scheduler is already initialized when imported
-    console.log('✅ OpenLearning Sync Scheduler Service initialized');
+    // console.log('✅ OpenLearning Sync Scheduler Service initialized');
 
     app.listen(PORT, () => {
       console.log('🚀 =================================');

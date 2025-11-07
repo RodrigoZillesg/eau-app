@@ -20,7 +20,9 @@ export declare const PAYMENT_STATUS: {
 };
 export declare const USER_TYPES: {
     readonly SUPER_ADMIN: "super_admin";
+    readonly ADMIN: "admin";
     readonly INSTITUTION_ADMIN: "institution_admin";
+    readonly MEMBER: "member";
     readonly STAFF: "staff";
     readonly TEACHER: "teacher";
     readonly LIMITED: "limited";

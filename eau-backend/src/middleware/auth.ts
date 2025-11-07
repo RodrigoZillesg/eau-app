@@ -68,11 +68,11 @@ export const authenticate = async (
       if (member.institution_id) {
         const { data: institution } = await supabaseAdmin
           .from('institutions')
-          .select('status')
+          .select('membership_status')
           .eq('id', member.institution_id)
           .single();
 
-        if (institution?.status !== 'active' && member.user_type !== USER_TYPES.SUPER_ADMIN) {
+        if (institution?.membership_status !== 'active' && member.user_type !== USER_TYPES.SUPER_ADMIN) {
           return res.status(403).json({
             success: false,
             error: 'Your institution is not active'

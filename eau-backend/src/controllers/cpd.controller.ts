@@ -108,14 +108,37 @@ export class CPDController {
 
   async create(req: AuthRequest, res: Response) {
     try {
-      const { 
-        activityDate, 
-        activityType, 
-        description, 
-        points, 
+      const {
+        activityDate,
+        activityType,
+        description,
+        categoryId,
+        hours,
         evidenceUrl,
-        notes 
+        notes
       } = req.body;
+
+      let calculatedPoints = 0;
+
+      // Calculate points based on category and hours if provided
+      if (categoryId && hours) {
+        const { data: category, error: categoryError } = await supabaseAdmin
+          .from('cpd_categories')
+          .select('points_per_hour')
+          .eq('id', categoryId)
+          .eq('is_active', true)
+          .single();
+
+        if (categoryError || !category) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid CPD category selected'
+          } as ApiResponse);
+        }
+
+        // Calculate points: hours * points_per_hour
+        calculatedPoints = Number(hours) * Number(category.points_per_hour);
+      }
 
       // Create CPD activity with automatic approval
       const activityData = {
@@ -123,7 +146,8 @@ export class CPDController {
         activity_date: activityDate,
         activity_type: activityType,
         description,
-        points: Number(points),
+        points: calculatedPoints,
+        cpd_category: categoryId,
         status: 'approved', // Auto-approve as per requirements
         evidence_url: evidenceUrl,
         notes,
@@ -279,6 +303,29 @@ export class CPDController {
     }
   }
 
+  async getCategories(req: AuthRequest, res: Response) {
+    try {
+      const { data: categories, error } = await supabaseAdmin
+        .from('cpd_categories')
+        .select('*')
+        .eq('is_active', true)
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+
+      res.json({
+        success: true,
+        data: categories
+      } as ApiResponse);
+    } catch (error) {
+      console.error('Get CPD categories error:', error);
+      res.status(500).json({
+        success: false,
+        error: ERROR_MESSAGES.SERVER_ERROR
+      } as ApiResponse);
+    }
+  }
+
   async getProgress(req: AuthRequest, res: Response) {
     try {
       const { memberId, year = new Date().getFullYear() } = req.query;
@@ -347,6 +394,211 @@ export class CPDController {
       } as ApiResponse);
     } catch (error) {
       console.error('Get CPD progress error:', error);
+      res.status(500).json({
+        success: false,
+        error: ERROR_MESSAGES.SERVER_ERROR
+      } as ApiResponse);
+    }
+  }
+
+  // Public (authenticated users): Get active categories only
+  async getActiveCategories(req: AuthRequest, res: Response) {
+    try {
+      const { data: categories, error } = await supabaseAdmin
+        .from('cpd_categories')
+        .select('*')
+        .eq('is_active', true)
+        .order('points_per_hour', { ascending: false })
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+
+      res.json({
+        success: true,
+        data: categories
+      } as ApiResponse);
+    } catch (error) {
+      console.error('Get active CPD categories error:', error);
+      res.status(500).json({
+        success: false,
+        error: ERROR_MESSAGES.SERVER_ERROR
+      } as ApiResponse);
+    }
+  }
+
+  // Admin-only: Get all categories (including inactive)
+  async getAllCategories(req: AuthRequest, res: Response) {
+    try {
+      // Only admins and super admins can access all categories
+      if (req.user?.userType !== USER_TYPES.SUPER_ADMIN && req.user?.userType !== USER_TYPES.ADMIN) {
+        return res.status(403).json({
+          success: false,
+          error: 'Access denied. Admin privileges required.'
+        } as ApiResponse);
+      }
+
+      const { data: categories, error } = await supabaseAdmin
+        .from('cpd_categories')
+        .select('*')
+        .order('points_per_hour', { ascending: false })
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+
+      res.json({
+        success: true,
+        data: categories
+      } as ApiResponse);
+    } catch (error) {
+      console.error('Get all CPD categories error:', error);
+      res.status(500).json({
+        success: false,
+        error: ERROR_MESSAGES.SERVER_ERROR
+      } as ApiResponse);
+    }
+  }
+
+  // Admin-only: Create new category
+  async createCategory(req: AuthRequest, res: Response) {
+    try {
+      // Only admins and super admins can create categories
+      if (req.user?.userType !== USER_TYPES.SUPER_ADMIN && req.user?.userType !== USER_TYPES.ADMIN) {
+        return res.status(403).json({
+          success: false,
+          error: 'Access denied. Admin privileges required.'
+        } as ApiResponse);
+      }
+
+      const { name, points_per_hour, description } = req.body;
+
+      // Validate points_per_hour
+      if (points_per_hour < 1 || points_per_hour > 30) {
+        return res.status(400).json({
+          success: false,
+          error: 'Points per hour must be between 1 and 30'
+        } as ApiResponse);
+      }
+
+      const { data: category, error } = await supabaseAdmin
+        .from('cpd_categories')
+        .insert({
+          name,
+          points_per_hour,
+          description,
+          is_active: true
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      res.status(201).json({
+        success: true,
+        data: category,
+        message: 'Category created successfully'
+      } as ApiResponse);
+    } catch (error) {
+      console.error('Create CPD category error:', error);
+      res.status(500).json({
+        success: false,
+        error: ERROR_MESSAGES.SERVER_ERROR
+      } as ApiResponse);
+    }
+  }
+
+  // Admin-only: Update category
+  async updateCategory(req: AuthRequest, res: Response) {
+    try {
+      // Only admins and super admins can update categories
+      if (req.user?.userType !== USER_TYPES.SUPER_ADMIN && req.user?.userType !== USER_TYPES.ADMIN) {
+        return res.status(403).json({
+          success: false,
+          error: 'Access denied. Admin privileges required.'
+        } as ApiResponse);
+      }
+
+      const { id } = req.params;
+      const { name, points_per_hour, description, is_active } = req.body;
+
+      // Validate points_per_hour if provided
+      if (points_per_hour !== undefined && (points_per_hour < 1 || points_per_hour > 30)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Points per hour must be between 1 and 30'
+        } as ApiResponse);
+      }
+
+      const updateData: any = { updated_at: new Date().toISOString() };
+      if (name !== undefined) updateData.name = name;
+      if (points_per_hour !== undefined) updateData.points_per_hour = points_per_hour;
+      if (description !== undefined) updateData.description = description;
+      if (is_active !== undefined) updateData.is_active = is_active;
+
+      const { data: category, error } = await supabaseAdmin
+        .from('cpd_categories')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      res.json({
+        success: true,
+        data: category,
+        message: 'Category updated successfully'
+      } as ApiResponse);
+    } catch (error) {
+      console.error('Update CPD category error:', error);
+      res.status(500).json({
+        success: false,
+        error: ERROR_MESSAGES.SERVER_ERROR
+      } as ApiResponse);
+    }
+  }
+
+  // Admin-only: Delete category
+  async deleteCategory(req: AuthRequest, res: Response) {
+    try {
+      // Only admins and super admins can delete categories
+      if (req.user?.userType !== USER_TYPES.SUPER_ADMIN && req.user?.userType !== USER_TYPES.ADMIN) {
+        return res.status(403).json({
+          success: false,
+          error: 'Access denied. Admin privileges required.'
+        } as ApiResponse);
+      }
+
+      const { id } = req.params;
+
+      // Check if category is being used
+      const { data: activities, error: checkError } = await supabaseAdmin
+        .from('cpd_activities')
+        .select('id')
+        .eq('cpd_category', id)
+        .limit(1);
+
+      if (checkError) throw checkError;
+
+      if (activities && activities.length > 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Cannot delete category that is being used by CPD activities. Consider deactivating it instead.'
+        } as ApiResponse);
+      }
+
+      const { error } = await supabaseAdmin
+        .from('cpd_categories')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      res.json({
+        success: true,
+        message: 'Category deleted successfully'
+      } as ApiResponse);
+    } catch (error) {
+      console.error('Delete CPD category error:', error);
       res.status(500).json({
         success: false,
         error: ERROR_MESSAGES.SERVER_ERROR

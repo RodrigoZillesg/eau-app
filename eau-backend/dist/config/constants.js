@@ -23,7 +23,9 @@ exports.PAYMENT_STATUS = {
 };
 exports.USER_TYPES = {
     SUPER_ADMIN: 'super_admin',
+    ADMIN: 'admin',
     INSTITUTION_ADMIN: 'institution_admin',
+    MEMBER: 'member',
     STAFF: 'staff',
     TEACHER: 'teacher',
     LIMITED: 'limited'

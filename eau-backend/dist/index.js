@@ -9,6 +9,7 @@ const morgan_1 = __importDefault(require("morgan"));
 const routes_1 = __importDefault(require("./routes"));
 const database_1 = require("./config/database");
 const reportScheduler_service_1 = require("./services/reportScheduler.service");
+// import { openLearningSyncScheduler } from './services/openlearningSyncScheduler.service'; // Temporarily disabled
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3001;
 // CORS Configuration
@@ -35,9 +36,10 @@ const startServer = async () => {
         // Initialize Report Scheduler
         reportScheduler_service_1.ReportSchedulerService.init();
         // Initialize OpenLearning Sync Scheduler
-        console.log('📊 OpenLearning Sync Scheduler Service initializing...');
+        // Temporarily disabled due to TypeScript errors
+        // console.log('📊 OpenLearning Sync Scheduler Service initializing...');
         // The scheduler is already initialized when imported
-        console.log('✅ OpenLearning Sync Scheduler Service initialized');
+        // console.log('✅ OpenLearning Sync Scheduler Service initialized');
         app.listen(PORT, () => {
             console.log('🚀 =================================');
             console.log('🚀 English Australia Backend API');

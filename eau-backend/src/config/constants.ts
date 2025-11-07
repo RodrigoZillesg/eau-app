@@ -24,7 +24,9 @@ export const PAYMENT_STATUS = {
 
 export const USER_TYPES = {
   SUPER_ADMIN: 'super_admin',
+  ADMIN: 'admin',
   INSTITUTION_ADMIN: 'institution_admin',
+  MEMBER: 'member',
   STAFF: 'staff',
   TEACHER: 'teacher',
   LIMITED: 'limited'

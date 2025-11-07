@@ -5,9 +5,11 @@ import institutionsRoutes from './institutions.routes';
 import invitationsRoutes from './invitations.routes';
 import cpdRoutes from './cpd.routes';
 import emailRoutes from './email.routes';
-import openlearningRoutes from './openlearning.routes';
-import openlearningPublicRoutes from './openlearning-public.routes';
-import openlearningSSORoutes from './openlearningSSO.routes';
+import institutionLinkRoutes from './institutionLink.routes';
+import openlearningCoursesRoutes from './openlearningCourses.routes';
+import openlearningRoutes from './openlearning.routes'; // OpenLearning SSO routes
+// import openlearningPublicRoutes from './openlearning-public.routes'; // Temporarily disabled
+// import openlearningSSORoutes from './openlearningSSO.routes'; // Temporarily disabled
 // import certificatesRoutes from './certificates.routes';
 import welcomeRoutes from './welcome.routes';
 import publicRoutes from './public.routes';
@@ -40,9 +42,11 @@ router.use(`${API_PREFIX}/institutions`, institutionsRoutes);
 router.use(`${API_PREFIX}/invitations`, invitationsRoutes);
 router.use(`${API_PREFIX}/cpd`, cpdRoutes);
 router.use(`${API_PREFIX}/email`, emailRoutes);
-router.use(`${API_PREFIX}/openlearning`, openlearningRoutes);
-router.use(`${API_PREFIX}/openlearning`, openlearningPublicRoutes); // Public routes (no auth required)
-router.use(`${API_PREFIX}/openlearning-sso`, openlearningSSORoutes); // SSO routes
+router.use(`${API_PREFIX}/institution-links`, institutionLinkRoutes); // Institution linking workflow
+router.use(`${API_PREFIX}/openlearning-courses`, openlearningCoursesRoutes); // OpenLearning courses catalog
+router.use(`${API_PREFIX}/openlearning`, openlearningRoutes); // OpenLearning SSO routes
+// router.use(`${API_PREFIX}/openlearning`, openlearningPublicRoutes); // Temporarily disabled
+// router.use(`${API_PREFIX}/openlearning-sso`, openlearningSSORoutes); // Temporarily disabled
 router.use(`${API_PREFIX}/welcome`, welcomeRoutes);
 router.use(`${API_PREFIX}/public`, publicRoutes); // Public membership application routes
 router.use(`${API_PREFIX}/admin/membership-applications`, adminMembershipApplicationsRoutes); // Admin application management routes

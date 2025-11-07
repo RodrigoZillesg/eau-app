@@ -10,9 +10,11 @@ const institutions_routes_1 = __importDefault(require("./institutions.routes"));
 const invitations_routes_1 = __importDefault(require("./invitations.routes"));
 const cpd_routes_1 = __importDefault(require("./cpd.routes"));
 const email_routes_1 = __importDefault(require("./email.routes"));
-const openlearning_routes_1 = __importDefault(require("./openlearning.routes"));
-const openlearning_public_routes_1 = __importDefault(require("./openlearning-public.routes"));
-const openlearningSSO_routes_1 = __importDefault(require("./openlearningSSO.routes"));
+const institutionLink_routes_1 = __importDefault(require("./institutionLink.routes"));
+const openlearningCourses_routes_1 = __importDefault(require("./openlearningCourses.routes"));
+const openlearning_routes_1 = __importDefault(require("./openlearning.routes")); // OpenLearning SSO routes
+// import openlearningPublicRoutes from './openlearning-public.routes'; // Temporarily disabled
+// import openlearningSSORoutes from './openlearningSSO.routes'; // Temporarily disabled
 // import certificatesRoutes from './certificates.routes';
 const welcome_routes_1 = __importDefault(require("./welcome.routes"));
 const public_routes_1 = __importDefault(require("./public.routes"));
@@ -41,9 +43,11 @@ router.use(`${constants_1.API_PREFIX}/institutions`, institutions_routes_1.defau
 router.use(`${constants_1.API_PREFIX}/invitations`, invitations_routes_1.default);
 router.use(`${constants_1.API_PREFIX}/cpd`, cpd_routes_1.default);
 router.use(`${constants_1.API_PREFIX}/email`, email_routes_1.default);
-router.use(`${constants_1.API_PREFIX}/openlearning`, openlearning_routes_1.default);
-router.use(`${constants_1.API_PREFIX}/openlearning`, openlearning_public_routes_1.default); // Public routes (no auth required)
-router.use(`${constants_1.API_PREFIX}/openlearning-sso`, openlearningSSO_routes_1.default); // SSO routes
+router.use(`${constants_1.API_PREFIX}/institution-links`, institutionLink_routes_1.default); // Institution linking workflow
+router.use(`${constants_1.API_PREFIX}/openlearning-courses`, openlearningCourses_routes_1.default); // OpenLearning courses catalog
+router.use(`${constants_1.API_PREFIX}/openlearning`, openlearning_routes_1.default); // OpenLearning SSO routes
+// router.use(`${API_PREFIX}/openlearning`, openlearningPublicRoutes); // Temporarily disabled
+// router.use(`${API_PREFIX}/openlearning-sso`, openlearningSSORoutes); // Temporarily disabled
 router.use(`${constants_1.API_PREFIX}/welcome`, welcome_routes_1.default);
 router.use(`${constants_1.API_PREFIX}/public`, public_routes_1.default); // Public membership application routes
 router.use(`${constants_1.API_PREFIX}/admin/membership-applications`, membershipApplications_routes_1.default); // Admin application management routes
