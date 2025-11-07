@@ -25,41 +25,11 @@ export default defineConfig({
     },
     rollupOptions: {
       output: {
-        // Smart code splitting strategy
+        // Simplified code splitting to avoid initialization errors
         manualChunks: (id) => {
-          // Vendor chunk for node_modules
+          // All node_modules go to vendor chunk
           if (id.includes('node_modules')) {
-            // React ecosystem in one chunk
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
-              return 'react-vendor';
-            }
-            // UI libraries
-            if (id.includes('@headlessui') || id.includes('@heroicons')) {
-              return 'ui-vendor';
-            }
-            // Supabase
-            if (id.includes('@supabase')) {
-              return 'supabase-vendor';
-            }
-            // Chart libraries
-            if (id.includes('recharts') || id.includes('d3')) {
-              return 'charts-vendor';
-            }
-            // Other vendors
             return 'vendor';
-          }
-          // Feature-based chunks for application code
-          if (id.includes('src/features/admin')) {
-            return 'admin-features';
-          }
-          if (id.includes('src/features/events')) {
-            return 'events-features';
-          }
-          if (id.includes('src/features/cpd')) {
-            return 'cpd-features';
-          }
-          if (id.includes('src/features/auth')) {
-            return 'auth-features';
           }
         },
         entryFileNames: 'assets/[name].[hash].js',
