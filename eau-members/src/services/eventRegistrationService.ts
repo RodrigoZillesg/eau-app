@@ -3,6 +3,7 @@ import { EventService } from './eventService';
 import { EmailService } from './emailService';
 import { CPDService } from '../features/cpd/cpdService';
 import { CertificatePdfService } from './certificatePdfService';
+import { MembershipPermissionsService } from './membershipPermissions';
 import { format } from 'date-fns';
 import { createClient } from '@supabase/supabase-js';
 
@@ -108,6 +109,40 @@ export class EventRegistrationService {
       const event = await EventService.getEventById(eventId);
       if (!event) {
         throw new Error('Event not found');
+      }
+
+      // Check if event is members-only
+      if (event.members_only) {
+        // Verify user is a member
+        const { data: member, error: memberError } = await supabase
+          .from('members')
+          .select('id, membership_status, user_type')
+          .eq('id', userId)
+          .single();
+
+        if (memberError || !member) {
+          throw new Error('This event is for members only. Please become a member to register.');
+        }
+
+        // Verify membership is active (not expired or cancelled)
+        if (member.membership_status !== 'active') {
+          throw new Error('This event is for active members only. Your membership status is inactive.');
+        }
+      }
+
+      // Check if event is paid and user has permission to access paid events
+      // Determine if event is paid (has non-zero price)
+      const isPaidEvent = (event.member_price_cents && event.member_price_cents > 0) ||
+                         (event.non_member_price_cents && event.non_member_price_cents > 0) ||
+                         (event.early_bird_price_cents && event.early_bird_price_cents > 0);
+
+      if (isPaidEvent) {
+        // Check if user's membership type allows paid events
+        const canAccessPaidEvents = await MembershipPermissionsService.canAccessPaidEvents(userId);
+
+        if (!canAccessPaidEvents) {
+          throw new Error('Your membership type does not allow registration for paid events. Please upgrade your membership or contact support.');
+        }
       }
 
       // Check capacity
@@ -221,6 +256,145 @@ export class EventRegistrationService {
   }
 
   /**
+   * Mark registration as paid (manual payment confirmation)
+   */
+  static async markRegistrationAsPaid(
+    registrationId: string,
+    paymentMethod: string = 'manual',
+    paymentReference?: string,
+    notes?: string
+  ): Promise<void> {
+    try {
+      // Get registration details first
+      const { data: registration, error: fetchError } = await supabase
+        .from('event_registrations')
+        .select(`
+          *,
+          events:event_id (
+            id,
+            title,
+            start_date
+          )
+        `)
+        .eq('id', registrationId)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!registration) throw new Error('Registration not found');
+
+      // Get member details
+      const { data: member, error: memberError } = await supabase
+        .from('members')
+        .select('id, first_name, last_name, email')
+        .eq('user_id', registration.user_id)
+        .single();
+
+      if (memberError) {
+        console.warn('Member not found for user_id:', registration.user_id);
+      }
+
+      // Add member to registration object
+      registration.members = member;
+
+      // Update payment status
+      const { error: updateError } = await supabase
+        .from('event_registrations')
+        .update({
+          payment_status: 'paid',
+          payment_method: paymentMethod,
+          payment_date: new Date().toISOString(),
+          payment_reference: paymentReference || null,
+          notes: notes ? `${registration.notes || ''}\n\nPayment confirmed: ${notes}`.trim() : registration.notes,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', registrationId);
+
+      if (updateError) throw updateError;
+
+      // Send payment confirmation email
+      try {
+        const memberEmail = registration.members?.email;
+        const memberName = `${registration.members?.first_name || ''} ${registration.members?.last_name || ''}`.trim() || 'Member';
+        const eventTitle = registration.events?.title || 'Event';
+        const eventDate = registration.events?.start_date
+          ? format(new Date(registration.events.start_date), 'EEEE, MMMM d, yyyy')
+          : 'TBA';
+
+        if (memberEmail) {
+          await EmailService.sendPaymentConfirmation({
+            to: memberEmail,
+            memberName,
+            eventTitle,
+            eventDate,
+            paymentAmount: registration.payment_amount || 0,
+            paymentReference: paymentReference || 'N/A'
+          });
+
+          console.log('Payment confirmation email sent to:', memberEmail);
+        }
+      } catch (emailError) {
+        console.error('Failed to send payment confirmation email:', emailError);
+        // Don't throw - email failure shouldn't break payment confirmation
+      }
+    } catch (error: any) {
+      console.error('Error marking registration as paid:', error);
+      throw new Error(error.message || 'Failed to mark registration as paid');
+    }
+  }
+
+  /**
+   * Get pending payments for admin
+   */
+  static async getPendingPayments(): Promise<any[]> {
+    try {
+      // First, fetch registrations with events
+      const { data: registrations, error: regError } = await supabase
+        .from('event_registrations')
+        .select(`
+          *,
+          events:event_id (
+            id,
+            title,
+            start_date,
+            location_type,
+            venue_name
+          )
+        `)
+        .eq('payment_status', 'pending')
+        .eq('status', 'confirmed')
+        .order('created_at', { ascending: false });
+
+      if (regError) throw regError;
+      if (!registrations || registrations.length === 0) return [];
+
+      // Get all unique user_ids
+      const userIds = [...new Set(registrations.map((r: any) => r.user_id))];
+
+      // Fetch members for these user_ids
+      const { data: members, error: membersError } = await supabase
+        .from('members')
+        .select('id, first_name, last_name, email, phone, user_id')
+        .in('user_id', userIds);
+
+      if (membersError) throw membersError;
+
+      // Create a map for quick lookup
+      const membersMap = new Map(members?.map((m: any) => [m.user_id, m]) || []);
+
+      // Combine data
+      const result = registrations.map((reg: any) => ({
+        ...reg,
+        members: membersMap.get(reg.user_id) || null
+      }));
+
+      return result;
+    } catch (error: any) {
+      console.error('Error fetching pending payments:', error);
+      throw new Error(error.message || 'Failed to fetch pending payments');
+    }
+  }
+
+  /**
    * Check in a user at an event
    */
   static async checkInUser(
@@ -291,10 +465,19 @@ export class EventRegistrationService {
             const durationMs = endDate.getTime() - startDate.getTime();
             const hours = Math.floor(durationMs / (1000 * 60 * 60));
             const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
-            
+
+            // FIXED: Get category dynamically from database instead of hardcoded ID
+            const categories = await CPDService.getCPDCategoriesFromAPI();
+            const eventCategory = categories.find(c => c.name === 'Attend English Australia PD event');
+
+            if (!eventCategory) {
+              console.error('CPD category "Attend English Australia PD event" not found in database');
+              throw new Error('CPD category not configured. Please configure categories in admin panel.');
+            }
+
             // Create CPD activity
             const cpdActivity = await CPDService.createActivity({
-              category_id: 14, // "Attend English Australia PD event"
+              category_id: eventCategory.id,
               activity_title: `Event: ${event.title}`,
               description: `Attended ${event.title} on ${format(startDate, 'MMMM d, yyyy')}`,
               provider: 'English Australia',

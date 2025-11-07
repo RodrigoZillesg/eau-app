@@ -10,6 +10,8 @@ import { EventService } from '../../../services/eventService'
 import { OpenLearningAccessButton } from '../../../components/openlearning/OpenLearningAccessButton'
 import { OpenLearningStatus } from '../../../components/OpenLearningStatus'
 import { getUserInstitution } from '../../../services/institutionService'
+import { supabase } from '../../../lib/supabase/client'
+import { EventRegistrationService } from '../../../services/eventRegistrationService'
 
 const { CPDService } = cpd
 
@@ -28,12 +30,14 @@ export const AdminDashboard: React.FC = () => {
   const [memberStats, setMemberStats] = useState({ total: 0, active: 0, newThisMonth: 0, inactive: 0 })
   const [eventStats, setEventStats] = useState({ active: 0, upcoming: 0, past: 0 })
   const [cpdSettings, setCpdSettings] = useState<CPDSettings | null>(null)
+  const [pendingPaymentsCount, setPendingPaymentsCount] = useState(0)
   const [pointsStats, setPointsStats] = useState({ totalPoints: 0, monthlyPoints: 0 })
   const [loading, setLoading] = useState(true)
   const [userInstitution, setUserInstitution] = useState<{ institutionId: string | null; institutionName: string }>({
     institutionId: null,
     institutionName: 'All Institutions'
   })
+  const [userName, setUserName] = useState<string>('')
 
   useEffect(() => {
     loadDashboardData()
@@ -42,6 +46,19 @@ export const AdminDashboard: React.FC = () => {
   const loadDashboardData = async () => {
     try {
       setLoading(true)
+
+      // Get user's name from members table
+      if (user?.id) {
+        const { data: memberData } = await supabase
+          .from('members')
+          .select('first_name, last_name')
+          .eq('user_id', user.id)
+          .single()
+
+        if (memberData) {
+          setUserName(`${memberData.first_name} ${memberData.last_name}`)
+        }
+      }
 
       // Get user's institution context
       const institution = await getUserInstitution()
@@ -56,7 +73,7 @@ export const AdminDashboard: React.FC = () => {
         institutionMemberIds = institutionMembers.map(m => m.id)
       }
 
-      const [stats, pending, members, events, settings, points] = await Promise.all([
+      const [stats, pending, members, events, settings, points, pendingPayments] = await Promise.all([
         // For Institution Admin, filter CPD stats by their members
         roles.includes('AdminSuper')
           ? CPDService.getAllActivitiesStats()
@@ -73,7 +90,9 @@ export const AdminDashboard: React.FC = () => {
         // Filter points by institution members
         roles.includes('AdminSuper')
           ? CPDService.getPointsStats()
-          : CPDService.getPointsStats(institutionMemberIds)
+          : CPDService.getPointsStats(institutionMemberIds),
+        // Get pending payments count
+        EventRegistrationService.getPendingPayments().catch(() => [])
       ])
 
       setCpdStats(stats)
@@ -81,6 +100,7 @@ export const AdminDashboard: React.FC = () => {
       setMemberStats(members)
       setCpdSettings(settings)
       setPointsStats(points)
+      setPendingPaymentsCount(pendingPayments.length)
 
       // Filter events for Institution Admin
       let filteredEvents = events
@@ -124,7 +144,7 @@ export const AdminDashboard: React.FC = () => {
                 Admin Dashboard
               </h1>
               <p className="text-gray-600">
-                Welcome, {user?.user_metadata?.full_name || user?.email} | Roles: {roles.join(', ')}
+                Welcome, {userName || user?.email} | Roles: {roles.join(', ')}
               </p>
             </div>
           </div>
@@ -147,7 +167,10 @@ export const AdminDashboard: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           
           {/* Total Members */}
-          <Card>
+          <Card
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => navigate('/admin/members')}
+          >
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -186,7 +209,10 @@ export const AdminDashboard: React.FC = () => {
           </Card>
 
           {/* Active Events */}
-          <Card>
+          <Card
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => navigate('/events')}
+          >
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -204,7 +230,10 @@ export const AdminDashboard: React.FC = () => {
           </Card>
 
           {/* Total Points Awarded */}
-          <Card>
+          <Card
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => navigate('/cpd/management')}
+          >
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -220,6 +249,29 @@ export const AdminDashboard: React.FC = () => {
               </p>
             </CardContent>
           </Card>
+
+          {/* Pending Payments */}
+          <PermissionGuard permissions={['Admin', 'AdminSuper']}>
+            <Card
+              className="cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => navigate('/admin/payments')}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Pending Payments</p>
+                    <p className="text-3xl font-bold text-gray-900">
+                      {loading ? '...' : pendingPaymentsCount}
+                    </p>
+                  </div>
+                  <div className="text-3xl">💳</div>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Click to manage payments
+                </p>
+              </CardContent>
+            </Card>
+          </PermissionGuard>
         </div>
 
 

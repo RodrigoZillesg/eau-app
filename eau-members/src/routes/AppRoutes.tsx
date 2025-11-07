@@ -22,10 +22,12 @@ import { CPDPage } from '../features/cpd/pages/CPDPage'
 import { CPDReviewPage } from '../features/cpd/pages/CPDReviewPage'
 import { CPDSettingsPage } from '../features/cpd/pages/CPDSettingsPage'
 import { CPDManagementPage } from '../features/cpd/pages/CPDManagementPage'
+import { CPDCategoriesPage } from '../features/admin/pages/CPDCategoriesPage'
 import { EventsListPage } from '../features/events/pages/EventsListPage'
 import { EventDetailsPage } from '../features/events/pages/EventDetailsPage'
 import { MyRegistrationsPage } from '../features/events/pages/MyRegistrationsPage'
 import { AdminEventsPage } from '../features/events/pages/AdminEventsPage'
+import PendingPaymentsPage from '../features/admin/pages/PendingPaymentsPage'
 import { SMTPSettingsPage } from '../features/admin/pages/SMTPSettingsPage'
 import EmailJSConfigPage from '../features/admin/pages/EmailJSConfigPage'
 import { EmailTemplatesPage } from '../features/admin/pages/EmailTemplatesPage'
@@ -52,8 +54,12 @@ import { StandardReportsPage } from '../features/admin/pages/StandardReportsPage
 import OpenLearningSyncPage from '../features/admin/pages/OpenLearningSyncPage'
 import EmailLogsPage from '../features/admin/pages/EmailLogsPage'
 import OpenLearningSSOTestPage from '../features/admin/pages/OpenLearningSSOTestPage'
+import OpenLearningCoursesManagement from '../features/admin/pages/OpenLearningCoursesManagement'
 import MemberImpersonationPage from '../features/admin/pages/MemberImpersonationPage'
 import { SystemSettingsPage } from '../features/admin/pages/SystemSettingsPage'
+import { InstitutionLinkPage } from '../features/institutions/pages/InstitutionLinkPage'
+import { InstitutionLinkRequestsPage } from '../features/institutions/pages/InstitutionLinkRequestsPage'
+import InstitutionCPDReportPage from '../features/admin/pages/InstitutionCPDReportPage'
 import TestLogin from '../pages/TestLogin'
 import DebugLogin from '../pages/DebugLogin'
 
@@ -229,7 +235,18 @@ export const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       />
-      
+
+      <Route
+        path="/admin/cpd-categories"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute roles={['AdminSuper']}>
+              <CPDCategoriesPage />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />
+
       {/* Events Routes */}
       <Route
         path="/events"
@@ -273,7 +290,17 @@ export const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       />
-      
+
+      {/* Institution Linking */}
+      <Route
+        path="/institutions/link"
+        element={
+          <ProtectedRoute>
+            <InstitutionLinkPage />
+          </ProtectedRoute>
+        }
+      />
+
       {/* Admin Routes */}
       <Route
         path="/admin"
@@ -329,7 +356,29 @@ export const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       />
-      
+
+      <Route
+        path="/admin/institution-links"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute roles={['AdminSuper', 'Admin', 'InstitutionAdmin']}>
+              <InstitutionLinkRequestsPage />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/institution/cpd-report"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute roles={['InstitutionAdmin']}>
+              <InstitutionCPDReportPage />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />
+
       <Route
         path="/admin/openlearning"
         element={
@@ -358,6 +407,17 @@ export const AppRoutes: React.FC = () => {
           <ProtectedRoute>
             <RoleBasedRoute roles={['AdminSuper', 'Admin']}>
               <OpenLearningSSOTestPage />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/openlearning/courses"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute roles={['AdminSuper', 'Admin']}>
+              <OpenLearningCoursesManagement />
             </RoleBasedRoute>
           </ProtectedRoute>
         }
@@ -476,13 +536,24 @@ export const AppRoutes: React.FC = () => {
         path="/admin/events"
         element={
           <ProtectedRoute>
-            <RoleBasedRoute roles={['AdminSuper', 'Admin', 'InstitutionAdmin']}>
+            <RoleBasedRoute roles={['AdminSuper', 'Admin']}>
               <AdminEventsPage />
             </RoleBasedRoute>
           </ProtectedRoute>
         }
       />
-      
+
+      <Route
+        path="/admin/payments"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute roles={['AdminSuper', 'Admin']}>
+              <PendingPaymentsPage />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />
+
       <Route
         path="/admin/smtp-settings"
         element={
