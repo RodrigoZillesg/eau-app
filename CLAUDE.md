@@ -16,6 +16,122 @@
 
 ## Important Project Guidelines
 
+### 🚨🚨🚨 REGRA #1: TESTAR ANTES DE MARCAR COMO CONCLUÍDO 🚨🚨🚨
+**⚠️ CRITICAL - LEIA ISTO ANTES DE QUALQUER TAREFA:**
+
+#### WORKFLOW OBRIGATÓRIO PARA TODA IMPLEMENTAÇÃO:
+```
+1. Implementar código
+2. ❌ NÃO MARCAR COMO CONCLUÍDO AINDA!
+3. 🧪 TESTAR VIA PLAYWRIGHT (obrigatório!)
+4. ✅ Se passou todos testes → Marcar como concluído
+5. ❌ Se falhou algum teste → Corrigir e voltar ao passo 3
+```
+
+#### 🚨 ANTES DE DIZER "TAREFA CONCLUÍDA":
+- [ ] Testei via Playwright MCP tools?
+- [ ] Validei o fluxo completo do usuário?
+- [ ] Verifiquei que não tem erros no console?
+- [ ] Testei cenários de erro (validações)?
+
+**SE QUALQUER RESPOSTA FOR "NÃO" → A TAREFA NÃO ESTÁ CONCLUÍDA!**
+
+#### 📋 COMO TESTAR (PASSO A PASSO):
+1. **Navegar**: `mcp__playwright__browser_navigate({ url: "http://localhost:5180/..." })`
+2. **Snapshot**: `mcp__playwright__browser_snapshot()` - Ver estado da página
+3. **Clicar**: `mcp__playwright__browser_click({ element: "...", ref: "..." })`
+4. **Digitar**: `mcp__playwright__browser_type({ element: "...", ref: "...", text: "..." })`
+5. **Validar**: `mcp__playwright__browser_snapshot()` - Confirmar resultado esperado
+
+#### ❌ EXEMPLOS DE FALHA (NÃO FAÇA ISSO):
+- "Implementei o código, tarefa concluída" ← ERRADO! Não testou!
+- "O código está correto, deve funcionar" ← ERRADO! Não validou!
+- "Já fiz antes, confio que funciona" ← ERRADO! Sempre teste!
+
+#### ✅ EXEMPLO CORRETO:
+```
+1. Implementei checkbox "Members Only"
+2. Testei via Playwright:
+   - Navegou para criar evento ✅
+   - Checkbox aparece ✅
+   - Marcar checkbox e salvar ✅
+   - Evento salvo com members_only=true ✅
+3. AGORA SIM: Tarefa concluída!
+```
+
+**🔥 SE VOCÊ MARCAR COMO CONCLUÍDO SEM TESTAR, VOCÊ FALHOU! 🔥**
+
+**Detalhes completos em**: Seção "🧪 TESTING METHODOLOGY - PLAYWRIGHT" abaixo
+
+---
+
+### 🚨🚨🚨 REGRA #2: SEMPRE RODAR BACKEND E FRONTEND JUNTOS 🚨🚨🚨
+**⚠️ CRITICAL - NOSSO SISTEMA DEPENDE DE DOIS SERVIDORES:**
+
+#### WORKFLOW OBRIGATÓRIO PARA TESTES:
+```
+1. ✅ Iniciar BACKEND (porta 3001): cd eau-backend && npm start
+2. ✅ Iniciar FRONTEND (porta 5180): cd eau-members && npm run dev
+3. ✅ Aguardar ambos estarem prontos
+4. 🧪 APENAS ENTÃO começar os testes via Playwright
+```
+
+#### 🚨 NUNCA FAÇA ISSO:
+- ❌ Testar só com frontend rodando
+- ❌ Dizer "precisa do backend rodando" DEPOIS de testar pela metade
+- ❌ Marcar como concluído sem testar com backend
+- ❌ Assumir que "o resto funciona" sem testar
+
+#### ✅ SEMPRE FAÇA ISSO:
+1. **ANTES de começar qualquer teste**: Verificar se AMBOS servidores estão rodando
+2. **Se não estiverem**: Iniciar AMBOS antes de testar
+3. **Testar o fluxo COMPLETO**: Frontend → Backend → Banco → Email → Frontend
+4. **Validar TUDO**: Não deixe nenhuma parte "para testar depois"
+
+**🔥 REGRA DE OURO: Teste incompleto = Teste inútil. Não serve de nada! 🔥**
+
+---
+
+### 🚨🚨🚨 REGRA #3: SISTEMA DE EMAIL DE TESTE (CRÍTICO!) 🚨🚨🚨
+**⚠️ CRITICAL - NUNCA ENVIAR EMAIL PARA USUÁRIO REAL EM MODO TESTE:**
+
+#### CONFIGURAÇÃO SMTP:
+- Existe uma página de configuração SMTP onde o admin configura:
+  - ✅ Servidor SMTP (host, porta, usuário, senha)
+  - ✅ **Modo de teste**: ON/OFF
+  - ✅ **Email de teste**: Para onde enviar quando modo teste está ativo
+
+#### 🚨 REGRA ABSOLUTA:
+```
+SE modo_teste == TRUE:
+  ✅ TODOS os emails vão para email_de_teste
+  ❌ NENHUM email vai para email real do membro
+
+SE modo_teste == FALSE:
+  ✅ Emails vão para email real do membro
+```
+
+#### WORKFLOW OBRIGATÓRIO ANTES DE ENVIAR EMAIL:
+1. **CONSULTAR configurações SMTP do banco**
+2. **VERIFICAR se modo_teste está ativo**
+3. **SE ATIVO**: Substituir destinatário por email_de_teste
+4. **APENAS ENTÃO**: Enviar email
+
+#### ❌ NUNCA FAÇA ISSO:
+- Enviar email direto para `member.email` sem verificar configuração
+- Assumir que modo teste está desativado
+- Implementar envio de email sem consultar tabela de configurações SMTP
+
+#### ✅ SEMPRE FAÇA ISSO:
+1. **Ler configuração SMTP** do banco antes de enviar
+2. **Verificar flag de modo teste**
+3. **Respeitar o email de teste** configurado
+4. **Logar no console** para qual email foi enviado (teste ou real)
+
+**🔥 ISTO É MUITÍSSIMO IMPORTANTE - Nunca quebrar esta regra! 🔥**
+
+---
+
 ### Language Convention
 - **Communication**: All conversation with the user should be in Portuguese (PT-BR)
 - **Code and Application**: All code, UI text, error messages, and application content must be in English
@@ -57,34 +173,162 @@ git add -A && git commit -m "Production build" && git push
 
 ### Development Server Management
 **CRITICAL: Port Management Rules**
-- **ALWAYS use port 5180** - This is our standard development port
-- **NEVER let Vite use alternative ports** (5181, 5182, etc.)
-- **If port 5180 is in use, it means our server is already running**
-- **⚠️ NEVER use `taskkill /F /IM node.exe`** - This kills Claude itself!
+- **Frontend port: 5180** - Vite dev server
+- **Backend port: 3001** - Node.js/Express API
+- **⚠️ NEVER use `taskkill /F /IM node.exe`** - This kills Claude Code itself!
 
-**Correct Server Restart Sequence:**
-1. **Use the safe restart script**: `powershell .\scripts\restart-server.ps1`
-2. This script will:
-   - Find ONLY processes using port 5180
-   - Kill ONLY those specific processes
-   - Wait for port release
-   - Start the dev server
+**🚨 CRITICAL RULE: NEVER KILL ALL NODE PROCESSES**
+```bash
+# ❌ WRONG - Kills Claude Code!
+taskkill /F /IM node.exe
 
-**Alternative manual method (if script fails):**
-1. Find process on port 5180: `netstat -ano | findstr :5180`
+# ✅ RIGHT - Kill specific port only
+netstat -ano | findstr :3001
+taskkill /F /PID [specific_pid]
+```
+
+**Frontend Server (Port 5180) - Correct Restart:**
+1. Find process: `netstat -ano | findstr :5180`
 2. Kill specific PID: `taskkill /F /PID [process_id]`
-3. Wait 2 seconds
+3. Wait 2 seconds: `sleep 2`
 4. Start server: `cd eau-members && npm run dev`
 
-**WRONG approach:**
-- Using `taskkill /F /IM node.exe` (kills ALL Node processes including Claude!)
-- Letting Vite increment ports (5181, 5182, 5183...)
-- This leaves multiple servers running and wastes resources
+**Backend Server (Port 3001) - Correct Restart:**
+1. Find process: `netstat -ano | findstr :3001`
+2. Kill specific PID: `taskkill /F /PID [process_id]`
+3. Wait 2 seconds: `sleep 2`
+4. Start server: `cd eau-backend && npm start`
 
-**RIGHT approach:**
-- Use the restart script: `powershell .\scripts\restart-server.ps1`
-- Kill ONLY processes on port 5180
-- One server, one port, always
+**Combined Safe Restart (Both Servers):**
+```bash
+# Find and kill frontend
+for /f "tokens=5" %a in ('netstat -ano ^| findstr :5180') do taskkill /F /PID %a 2>nul
+
+# Find and kill backend
+for /f "tokens=5" %a in ('netstat -ano ^| findstr :3001') do taskkill /F /PID %a 2>nul
+
+# Wait and restart both
+sleep 2 && cd eau-members && start /B npm run dev && cd ../eau-backend && npm start
+```
+
+**Alternative: Check if port is free first:**
+```bash
+# Check if port 3001 is in use
+netstat -ano | findstr :3001
+# If empty output = port is free, safe to start
+# If has output = port is in use, kill specific PID first
+```
+
+### 🧪 TESTING METHODOLOGY - PLAYWRIGHT (OBRIGATÓRIO)
+**⚠️ CRITICAL: SEMPRE usar Playwright para testes E2E antes de marcar tarefa como concluída**
+
+#### MCP Playwright Tools Disponíveis:
+- `mcp__playwright__browser_navigate` - Navegar para URL
+- `mcp__playwright__browser_click` - Clicar em elementos
+- `mcp__playwright__browser_type` - Digitar em campos
+- `mcp__playwright__browser_snapshot` - Capturar estado da página
+- `mcp__playwright__browser_take_screenshot` - Screenshot para debug
+- `mcp__playwright__browser_console_messages` - Ver erros de console
+
+#### Quando Usar Playwright:
+✅ **SEMPRE antes de:**
+- Marcar tarefa como concluída
+- Fazer commit de código significativo
+- Deploy para produção
+- Considerar feature "pronta"
+
+#### Workflow de Teste Obrigatório:
+1. **Implementar funcionalidade**
+2. **Escrever cenário de teste** (passo a passo do que usuário faria)
+3. **Executar teste via Playwright MCP**
+4. **Validar resultado esperado**
+5. **Corrigir bugs encontrados**
+6. **Re-testar até passar 100%**
+7. **Apenas então:** commit + deploy
+
+#### Exemplo de Teste CPD:
+```typescript
+// 1. Navegar para página CPD
+mcp__playwright__browser_navigate({ url: "http://localhost:5180/cpd" })
+
+// 2. Capturar snapshot
+mcp__playwright__browser_snapshot()
+
+// 3. Clicar em "Add Activity"
+mcp__playwright__browser_click({ element: "Add Activity button", ref: "..." })
+
+// 4. Preencher formulário
+mcp__playwright__browser_type({ element: "Title field", ref: "...", text: "Test Activity" })
+
+// 5. Submit
+mcp__playwright__browser_click({ element: "Submit button", ref: "..." })
+
+// 6. Validar sucesso
+mcp__playwright__browser_snapshot() // Verificar se apareceu na lista
+```
+
+#### Áreas Críticas para Testar:
+- ✅ Login/Logout
+- ✅ CRUD operations (Create, Read, Update, Delete)
+- ✅ Validações de formulário
+- ✅ Permissões (admin vs member)
+- ✅ Integrações (OpenLearning SSO, Emails)
+
+#### 🚨 REGRA DE OURO:
+**Se não testou com Playwright, NÃO está pronto. Ponto final.**
+
+---
+
+### 🔢 VERSION CONTROL - CACHE BUSTING (OBRIGATÓRIO)
+**⚠️ CRITICAL: SEMPRE incrementar versão após mudanças para evitar problemas de cache**
+
+#### Quando Incrementar Versão:
+✅ **SEMPRE após:**
+- Qualquer mudança em componentes React
+- Mudanças em services (frontend ou backend)
+- Mudanças em rotas ou API endpoints
+- Mudanças no backend que afetam frontend
+- Correções de bugs visíveis ao usuário
+- ANTES de testar mudanças (para garantir cache limpo)
+
+#### Como Incrementar Versão:
+
+**Frontend:**
+```bash
+# Abrir arquivo
+code eau-members/package.json
+
+# Incrementar versão
+# Mudança pequena: 1.0.0 → 1.0.1
+# Mudança média: 1.0.1 → 1.1.0
+# Mudança grande: 1.1.0 → 2.0.0
+```
+
+**Backend:**
+```bash
+# Abrir arquivo
+code eau-backend/package.json
+
+# Seguir mesmo padrão
+```
+
+#### Workflow Completo:
+1. **Fazer mudança no código**
+2. **Incrementar versão** em package.json
+3. **Build:** `npm run build`
+4. **Testar em modo incógnito** (cache limpo)
+5. **Validar que versão nova aparece**
+6. **Commit tudo junto** (código + versão)
+
+#### Exibir Versão no Sistema:
+- ✅ Footer do sistema deve mostrar versão atual
+- ✅ Console deve logar versão no startup
+- ✅ Facilita debug ("qual versão está rodando?")
+
+#### 🚨 REGRA DE OURO:
+**Mudou código? Mude versão. Simples assim.**
+
+---
 
 ### Cache Management and Version Control
 **CRITICAL: Always ensure the user sees the latest version of the application**
@@ -560,50 +804,84 @@ When implementing WYSIWYG in new areas:
 - ❌ Don't assume fields exist - CHECK FIRST
 - ✅ Use exact column names from DATABASE_SCHEMA.md
 
-### Database Access - MÉTODO DEFINITIVO QUE FUNCIONA ✅
-**🎯 IMPORTANTE: MÉTODO COMPROVADO PARA EXECUÇÃO DE SQL NO SUPABASE CLOUD**
+### Database Access - MÉTODO OFICIAL MCP SUPABASE ✅
+**🎯 CRÍTICO: SEMPRE usar MCP Supabase para todas as operações de banco de dados**
 
-#### ✅ MÉTODO QUE FUNCIONA (SEMPRE USAR):
-**Scripts Node.js com createClient usando Service Key**
+#### ✅ MÉTODO OFICIAL (SEMPRE USAR):
+**MCP Supabase Tools (mcp__supabase-novo__)**
 
-**Template de Script Funcional:**
-```javascript
-const { createClient } = require('@supabase/supabase-js');
+**Tools Disponíveis:**
+```typescript
+// Listar todas as tabelas
+mcp__supabase-novo__list_tables({ schemas: ['public'] })
 
-const supabaseUrl = 'https://ypsvoxelitgceclohxfu.supabase.co';
-const supabaseServiceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwc3ZveGVsaXRnY2VjbG9oeGZ1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODcwMTc1NSwiZXhwIjoyMDc0Mjc3NzU1fQ.y_k4b4TlAev9R4TTFqHA08EjdZA-7Ymm5V1zMl-CYhA';
+// Executar SQL (SELECT, INSERT, UPDATE, DELETE)
+mcp__supabase-novo__execute_sql({ query: "SELECT * FROM members LIMIT 10" })
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+// Criar migration (DDL: CREATE TABLE, ALTER TABLE, etc.)
+mcp__supabase-novo__apply_migration({
+  name: "add_cpd_categories",
+  query: "CREATE TABLE cpd_categories (...)"
+})
 
-async function executeOperation() {
-  // Usar métodos diretos do supabase client:
-  // - supabase.from('table').insert(data)
-  // - supabase.from('table').update(data).eq('id', id)
-  // - supabase.from('table').select('*')
-}
+// Listar migrations aplicadas
+mcp__supabase-novo__list_migrations()
+
+// Buscar documentação Supabase
+mcp__supabase-novo__search_docs({
+  graphql_query: "{ searchDocs(query: \"RLS policies\") { nodes { title href } } }"
+})
 ```
 
-#### ❌ MÉTODOS QUE NÃO FUNCIONAM (NUNCA MAIS TENTAR):
-1. **MCP Supabase**: Requer token de acesso não disponível
-2. **supabase.rpc('exec_sql')**: Função não existe no Supabase Cloud
-3. **HTTP REST API**: Endpoint `/rest/v1/rpc/exec_sql` não disponível
-4. **Playwright + Supabase Studio**: Editor SQL não carrega
-5. **Pedir execução manual**: Usuário explicitamente proibiu
+#### 🔧 PROCEDIMENTO PADRÃO:
+1. **Verificar schema atual:** `mcp__supabase-novo__list_tables`
+2. **Executar operação:** `mcp__supabase-novo__execute_sql` ou `apply_migration`
+3. **Validar resultado:** Verificar resposta do tool
+4. **Atualizar documentação:** DATABASE_SCHEMA.md
 
-#### 🔧 PROCEDIMENTO PADRÃO COMPROVADO:
-1. **Criar script Node.js** usando template acima
-2. **Usar métodos diretos** do supabase client (insert, update, select)
-3. **Executar com**: `node nome-do-script.js`
-4. **Verificar resultado** no próprio script
-5. **Reportar sucesso** ao usuário
+#### 🎯 EXEMPLOS DE USO:
 
-#### 🎯 EXEMPLO DE SUCESSO (USAR COMO REFERÊNCIA):
-- **Script**: `fix-super-admin-direct.js`
-- **Método**: `supabase.from('members').update({ user_type: 'super_admin' }).eq('email', 'dev@platty.tech')`
-- **Resultado**: ✅ Funcionou perfeitamente
+**Criar nova tabela (Migration):**
+```typescript
+mcp__supabase-novo__apply_migration({
+  name: "create_cpd_categories",
+  query: `
+    CREATE TABLE IF NOT EXISTS cpd_categories (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      name TEXT NOT NULL UNIQUE,
+      points_per_hour INTEGER NOT NULL CHECK (points_per_hour IN (1, 2, 3)),
+      created_at TIMESTAMPTZ DEFAULT now()
+    );
+  `
+})
+```
+
+**Consultar dados:**
+```typescript
+mcp__supabase-novo__execute_sql({
+  query: "SELECT id, name, email FROM members WHERE user_type = 'super_admin'"
+})
+```
+
+**Atualizar dados:**
+```typescript
+mcp__supabase-novo__execute_sql({
+  query: "UPDATE members SET user_type = 'admin' WHERE email = 'user@example.com'"
+})
+```
+
+#### ⚠️ IMPORTANTE: DATABASE_SCHEMA.md é DOCUMENTAÇÃO
+- **Fonte da Verdade:** Banco de dados real via MCP
+- **DATABASE_SCHEMA.md:** Documentação de referência (pode estar desatualizado)
+- **Workflow:** Sempre validar com `list_tables` antes de assumir schema
+
+#### ❌ MÉTODOS ANTIGOS (NÃO USAR MAIS):
+1. ~~Scripts Node.js com createClient~~ (usar MCP em vez disso)
+2. ~~Supabase Studio manual~~ (usar MCP apply_migration)
+3. ~~Pedir execução manual ao usuário~~ (usar MCP execute_sql)
 
 #### 🚨 REGRA DE OURO:
-**SEMPRE use scripts Node.js com createClient + service key. NUNCA peça execução manual de SQL.**
+**SEMPRE use MCP Supabase para operações de banco. É rastreável, seguro e padronizado.**
 
 #### 🛡️ FALLBACK STRATEGIES IMPLEMENTADAS:
 **Quando tabelas não existem, implementar fallbacks no código em vez de criar tabelas:**

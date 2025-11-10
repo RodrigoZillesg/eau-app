@@ -53,6 +53,23 @@ export interface EmailJob {
   created_at: string;
 }
 
+/**
+ * 🚨 CRITICAL: EMAIL TEST MODE HANDLING
+ *
+ * This service sends emails via BACKEND API.
+ * The BACKEND is responsible for checking test_mode and redirecting emails.
+ *
+ * WORKFLOW:
+ * 1. Frontend calls backend with ORIGINAL recipient email
+ * 2. Backend fetches smtp_settings from database
+ * 3. Backend checks if test_mode = true
+ * 4. If test_mode is true, backend replaces recipient with test_email
+ * 5. Backend logs where email was sent (test or real)
+ *
+ * NEVER modify the recipient email in frontend.
+ * ALWAYS send the original recipient to backend.
+ * Backend handles test_mode redirection automatically.
+ */
 export class EmailService {
   /**
    * Check if SMTP table exists in database
@@ -355,6 +372,51 @@ export class EmailService {
       return {
         success: false,
         message: error.message || 'Failed to send CPD notification'
+      };
+    }
+  }
+
+  /**
+   * Send payment confirmation
+   */
+  static async sendPaymentConfirmation(params: {
+    to: string;
+    memberName: string;
+    eventTitle: string;
+    eventDate: string;
+    paymentAmount: number;
+    paymentReference: string;
+  }): Promise<{ success: boolean; message: string }> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        return {
+          success: false,
+          message: 'You must be logged in to send emails'
+        };
+      }
+
+      const response = await fetch(getApiUrl('/email/payment-confirmation'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify(params)
+      });
+
+      const data = await response.json();
+
+      return {
+        success: data.success,
+        message: data.message
+      };
+    } catch (error: any) {
+      console.error('Error sending payment confirmation email:', error);
+      return {
+        success: false,
+        message: error.message || 'Failed to send payment confirmation email'
       };
     }
   }
