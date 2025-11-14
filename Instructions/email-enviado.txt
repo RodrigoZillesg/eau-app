@@ -1,0 +1,46 @@
+Hello teeeeam!!
+
+I hope you’re doing well!
+
+We’d like to share a quick update and clarify a few points regarding the platform development:
+
+Update
+Unfortunately, it will not be possible to automatically import activities and certificates from OpenLearning into our system. The OpenLearning API allows for:
+
+Automatic member registration
+SSO (automatic login)
+Course listing
+These three functionalities will be available in our platform. However, importing user data and completed course information is not supported by their API.
+
+We’ve followed all documentation and tested multiple approaches, but the OpenLearning endpoints that should enable this functionality are currently offline and non-functional.
+
+
+Questions for Clarification
+CPD Calculation
+When a user manually adds an activity, how should CPD be calculated? Should we consider 1 hour of activity as 1 CPD point, or should there be a different value depending on the activity category?
+Institution Linking
+From our understanding, each member can link themselves to any institution. Is that correct?
+If so, does this require administrator approval, or is it automatically approved?
+Can a single member be linked to more than one institution?
+Events
+Will there be a feature to send event invitations to non-members? If yes, who will have permission to send these invitations?
+Who can create events? Only English Australia administrators, or can institutions also create new events?
+In the event creation form, can we remove the “Featured Event (shown prominently)” option, or is it required?
+Member Registration
+In the current system, we have three fields — System Role, Membership Type, and Interest Group. Could you please clarify if all three are necessary, what they mean, and how they should affect user permissions within the platform?
+Event Registration and Payments
+Should event registrations be automatically approved, or should they require manual approval?
+We noticed events can be Free or Paid, and paid events may have different prices for members and non-members. How will these payments be processed?
+Through the platform (via Secure Pay integration)?
+Or externally, with your team manually marking users as paid and granting access in the system?
+Membership Payments
+Similarly, how should membership payments be handled?
+Through the platform (Secure Pay integration)?
+Or externally, with your team manually updating membership approval, payment status, and expiration date?
+ 
+
+We appreciate your help clarifying these points so we can continue building the system according to your expectations.
+
+Thanks again for your collaboration, and we look forward to your feedback!
+
+Best regards,

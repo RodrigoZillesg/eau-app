@@ -14,7 +14,7 @@ export function EventsListPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { hasPermission } = usePermissions();
-  const isAdmin = hasPermission('ACCESS_ADMIN_DASHBOARD');
+  const canManageEvents = hasPermission('CREATE_EVENT');
   
   const [events, setEvents] = useState<Event[]>([]);
   const [categories, setCategories] = useState<EventCategory[]>([]);
@@ -119,7 +119,7 @@ export function EventsListPage() {
           <h1 className="text-3xl font-bold text-gray-900">Events</h1>
           <p className="text-gray-600 mt-1">Discover and register for upcoming events</p>
         </div>
-        {isAdmin && (
+        {canManageEvents && (
           <div className="flex gap-2">
             <Button onClick={() => navigate('/admin/events')}>
               <Settings className="h-4 w-4 mr-2" />
@@ -263,7 +263,7 @@ export function EventsListPage() {
 
       {/* Past Events */}
       {pastEvents.length > 0 && (
-        <div>
+        <div className="mt-8">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Past Events</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-75">
             {pastEvents.map(event => (

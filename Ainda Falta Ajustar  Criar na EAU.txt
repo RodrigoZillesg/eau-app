@@ -1,0 +1,8 @@
+*Ainda Falta Ajustar / Criar na EAU*
+
+✅ Subir a imagem de perfil no My Profile 
+✅ Erro ao tentar atualizar os dados no My profile - "Error updating profile"
+• Fazer funcionar o modo "Imperson"
+• Aparentemente os comprovantes das atividades não estão sendo importadas junto com as atividades. Fiz um teste clicando no "olho" das atividades de alguns membros e não abre nada.
+• Gerar o certificado após assistir a um evento
+• Colocar um espaçamento entre os cards de "Upcoming Events" e "Past Events"

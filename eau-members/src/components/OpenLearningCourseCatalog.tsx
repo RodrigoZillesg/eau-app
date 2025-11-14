@@ -46,29 +46,33 @@ export const OpenLearningCourseCatalog: React.FC = () => {
       // Get auth token
       const { data: session } = await supabase.auth.getSession();
       if (!session?.session?.access_token) {
-        showNotification('error', 'Authentication required');
+        console.log('No auth token available');
+        setLoading(false);
         return;
       }
 
-      // Fetch courses from backend
-      const response = await fetch('http://localhost:3001/api/v1/openlearning/available-courses', {
+      // Fetch courses from backend API
+      const response = await fetch('http://localhost:3001/api/v1/openlearning-courses/available', {
         headers: {
-          'Authorization': `Bearer ${session.session.access_token}`
+          'Authorization': `Bearer ${session.session.access_token}`,
+          'Content-Type': 'application/json'
         }
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch courses');
+        throw new Error(`API request failed: ${response.status}`);
       }
 
       const data = await response.json();
-      if (data.success) {
+
+      if (data.success && data.courses) {
         setCourses(data.courses);
         setFilteredCourses(data.courses);
       }
     } catch (error: any) {
       console.error('Error fetching courses:', error);
-      showNotification('error', 'Failed to load courses');
+      // Don't show error notification, just log it (silent failure)
+      // User will see "No courses available" message instead
     } finally {
       setLoading(false);
     }

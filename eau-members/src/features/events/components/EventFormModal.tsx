@@ -1,16 +1,22 @@
 import { useState, useEffect } from 'react';
-import { X, Calendar, MapPin, Users, DollarSign, Award, Globe, Building, Upload } from 'lucide-react';
+import { X, Calendar, MapPin, Users, DollarSign, Award, Globe, Building } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Label } from '../../../components/ui/Label';
 import { QuillBulletFix } from '../../../components/ui/QuillBulletFix';
-import { MediaGalleryModal } from '../../../components/media/MediaGalleryModal';
+import { EventImageUpload } from '../../../components/ui/EventImageUpload';
 import { EventService } from '../../../services/eventService';
 import type { Event, EventCategory, EventFormData } from '../../../types/events';
 import { showNotification } from '../../../lib/notifications';
-import cpd from '../../cpd/cpdService';
+import { supabase } from '../../../lib/supabase';
 
-const { CPD_CATEGORIES } = cpd;
+interface CPDCategory {
+  id: number;
+  name: string;
+  points_per_hour: number;
+  description: string | null;
+  is_active: boolean;
+}
 
 interface EventFormModalProps {
   event: Event | null;
@@ -22,8 +28,8 @@ interface EventFormModalProps {
 export function EventFormModal({ event, categories, onClose, onSuccess }: EventFormModalProps) {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
-  const [showMediaGallery, setShowMediaGallery] = useState(false);
-  
+  const [cpdCategories, setCpdCategories] = useState<CPDCategory[]>([]);
+
   const [formData, setFormData] = useState<EventFormData>({
     title: '',
     description: '',
@@ -48,10 +54,10 @@ export function EventFormModal({ event, categories, onClose, onSuccess }: EventF
     cpd_points: 1,
     cpd_category: '',
     visibility: 'public',
-    featured: false,
     allow_guests: false,
     max_guests_per_registration: 0,
     requires_approval: false,
+    members_only: true,
     image_url: '',
   });
 
@@ -64,14 +70,25 @@ export function EventFormModal({ event, categories, onClose, onSuccess }: EventF
         description_preview: event.description?.substring(0, 100)
       });
       
+      // Convert UTC timestamps to local datetime for datetime-local inputs
+      const formatForInput = (utcString: string) => {
+        const date = new Date(utcString);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+      };
+
       // Load existing event data
       setFormData({
         title: event.title,
         description: event.description || '',
         short_description: event.short_description || '',
         category_id: event.category_id || '',
-        start_date: event.start_date.slice(0, 16), // Format for datetime-local input
-        end_date: event.end_date.slice(0, 16),
+        start_date: formatForInput(event.start_date),
+        end_date: formatForInput(event.end_date),
         timezone: event.timezone,
         location_type: event.location_type,
         venue_name: event.venue_name || '',
@@ -85,18 +102,51 @@ export function EventFormModal({ event, categories, onClose, onSuccess }: EventF
         member_price: event.member_price_cents / 100,
         non_member_price: event.non_member_price_cents / 100,
         early_bird_price: event.early_bird_price_cents ? event.early_bird_price_cents / 100 : undefined,
-        early_bird_end_date: event.early_bird_end_date?.slice(0, 16),
+        early_bird_end_date: event.early_bird_end_date ? formatForInput(event.early_bird_end_date) : undefined,
         cpd_points: event.cpd_points,
         cpd_category: event.cpd_category || '',
         visibility: event.visibility,
-        featured: event.featured,
         allow_guests: event.allow_guests,
         max_guests_per_registration: event.max_guests_per_registration,
         requires_approval: event.requires_approval,
+        members_only: event.members_only || false,
         image_url: event.image_url || '',
       });
     }
   }, [event]);
+
+  // Load CPD categories from database
+  useEffect(() => {
+    const loadCPDCategories = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('cpd_categories')
+          .select('*')
+          .eq('is_active', true)
+          .order('name');
+
+        if (error) throw error;
+
+        setCpdCategories(data || []);
+      } catch (error) {
+        console.error('Error loading CPD categories:', error);
+        showNotification('error', 'Failed to load CPD categories');
+      }
+    };
+
+    loadCPDCategories();
+  }, []);
+
+  // Handler to update CPD points when category changes
+  const handleCPDCategoryChange = (categoryName: string) => {
+    const selectedCategory = cpdCategories.find(cat => cat.name === categoryName);
+
+    setFormData({
+      ...formData,
+      cpd_category: categoryName,
+      cpd_points: selectedCategory ? selectedCategory.points_per_hour : 1
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,7 +164,12 @@ export function EventFormModal({ event, categories, onClose, onSuccess }: EventF
       showNotification('error', 'Please fill in all required fields');
       return;
     }
-    
+
+    if (!formData.cpd_category) {
+      showNotification('error', 'Please select a CPD category');
+      return;
+    }
+
     if (new Date(formData.end_date) < new Date(formData.start_date)) {
       showNotification('error', 'End date must be after start date');
       return;
@@ -249,21 +304,6 @@ export function EventFormModal({ event, categories, onClose, onSuccess }: EventF
                   </p>
                 </div>
 
-                <div>
-                  <Label htmlFor="category">Category</Label>
-                  <select
-                    id="category"
-                    value={formData.category_id}
-                    onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  >
-                    <option value="">Select a category</option>
-                    {categories.map(cat => (
-                      <option key={cat.id} value={cat.id}>{cat.name}</option>
-                    ))}
-                  </select>
-                </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="start_date">Start Date & Time *</Label>
@@ -306,43 +346,10 @@ export function EventFormModal({ event, categories, onClose, onSuccess }: EventF
 
                 <div>
                   <Label htmlFor="image_url">Event Image</Label>
-                  
-                  {/* Preview */}
-                  {formData.image_url && (
-                    <div className="mb-3">
-                      <img 
-                        src={formData.image_url} 
-                        alt="Event preview" 
-                        className="w-full h-48 object-cover rounded-md border"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.onerror = null;
-                          target.src = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400';
-                        }}
-                      />
-                    </div>
-                  )}
-                  
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setShowMediaGallery(true)}
-                    className="w-full"
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    {formData.image_url ? 'Change Image' : 'Select Image'}
-                  </Button>
-                  
-                  {formData.image_url && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => setFormData({ ...formData, image_url: '' })}
-                      className="w-full mt-2 text-red-600 hover:text-red-700"
-                    >
-                      Remove Image
-                    </Button>
-                  )}
+                  <EventImageUpload
+                    currentImage={formData.image_url}
+                    onImageChange={(url) => setFormData({ ...formData, image_url: url || '' })}
+                  />
                 </div>
               </div>
             )}
@@ -586,17 +593,18 @@ export function EventFormModal({ event, categories, onClose, onSuccess }: EventF
                     </div>
 
                     <div>
-                      <Label htmlFor="cpd_category">CPD Category</Label>
+                      <Label htmlFor="cpd_category">CPD Category *</Label>
                       <select
                         id="cpd_category"
                         value={formData.cpd_category}
-                        onChange={(e) => setFormData({ ...formData, cpd_category: e.target.value })}
+                        onChange={(e) => handleCPDCategoryChange(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        required
                       >
                         <option value="">Select CPD category</option>
-                        {CPD_CATEGORIES.map(category => (
+                        {cpdCategories.map(category => (
                           <option key={category.id} value={category.name}>
-                            {category.name}
+                            {category.name} ({category.points_per_hour} {category.points_per_hour === 1 ? 'point' : 'points'}/hour)
                           </option>
                         ))}
                       </select>
@@ -623,21 +631,21 @@ export function EventFormModal({ event, categories, onClose, onSuccess }: EventF
                     <label className="flex items-center">
                       <input
                         type="checkbox"
-                        checked={formData.featured}
-                        onChange={(e) => setFormData({ ...formData, featured: e.target.checked })}
-                        className="mr-2"
-                      />
-                      Featured Event (shown prominently)
-                    </label>
-
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
                         checked={formData.requires_approval}
                         onChange={(e) => setFormData({ ...formData, requires_approval: e.target.checked })}
                         className="mr-2"
                       />
                       Require approval for registrations
+                    </label>
+
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.members_only}
+                        onChange={(e) => setFormData({ ...formData, members_only: e.target.checked })}
+                        className="mr-2"
+                      />
+                      Members Only (only authenticated members can register)
                     </label>
                   </div>
                 </div>
@@ -664,19 +672,6 @@ export function EventFormModal({ event, categories, onClose, onSuccess }: EventF
           </div>
         </form>
       </div>
-      
-      {/* Media Gallery Modal */}
-      {showMediaGallery && (
-        <MediaGalleryModal
-          onSelectImage={(url) => {
-            setFormData({ ...formData, image_url: url });
-            setShowMediaGallery(false);
-          }}
-          onClose={() => setShowMediaGallery(false)}
-          category="events"
-          currentImageUrl={formData.image_url}
-        />
-      )}
     </div>
   );
 }

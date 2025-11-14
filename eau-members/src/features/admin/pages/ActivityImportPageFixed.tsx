@@ -460,8 +460,13 @@ export const ActivityImportPageFixed: React.FC = () => {
           }
 
           // Add evidence and provider
+          // Use supplyEvidence field for evidence_url (not eventWebsite)
+          if (activity.supplyEvidence) {
+            insertData.evidence_url = activity.supplyEvidence
+          }
+
+          // Set provider based on eventWebsite
           if (activity.eventWebsite) {
-            insertData.evidence_url = activity.eventWebsite
             insertData.provider = 'External'
           } else {
             insertData.provider = 'Self-directed'

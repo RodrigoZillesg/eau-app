@@ -231,6 +231,7 @@ export class EventService {
       allow_guests: Boolean(eventData.allow_guests),
       max_guests_per_registration: Number(eventData.max_guests_per_registration) || 0,
       requires_approval: Boolean(eventData.requires_approval),
+      members_only: Boolean(eventData.members_only),
       image_url: eventData.image_url || null,
       created_by: session.user.id,
       status: 'published'
@@ -269,10 +270,10 @@ export class EventService {
     });
     
     const dataForDb: any = { ...eventData };
-    
-    // Remove undefined fields that might cause issues
+
+    // Remove undefined fields and empty strings (that cause UUID errors)
     Object.keys(dataForDb).forEach(key => {
-      if (dataForDb[key] === undefined) {
+      if (dataForDb[key] === undefined || dataForDb[key] === '') {
         delete dataForDb[key];
       }
     });

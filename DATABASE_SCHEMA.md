@@ -1,6 +1,6 @@
 # 📊 DATABASE SCHEMA DOCUMENTATION - EAU SYSTEM
 
-**Last Updated:** 19 January 2025
+**Last Updated:** 31 October 2025 (Institution Linking Feature Added)
 **Database:** Supabase PostgreSQL
 **URL:** https://english-australia-eau-supabase.lkobs5.easypanel.host
 
@@ -165,7 +165,56 @@ CREATE TABLE cpd_activities (
 );
 ```
 
-### 4. **event_certificates**
+### 4. **cpd_categories** ⭐ NEW (Added 31/10/2025)
+Master table for CPD activity categories with points per hour calculation.
+
+```sql
+-- EXACT STRUCTURE (Created via migration 31/10/2025)
+CREATE TABLE cpd_categories (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    points_per_hour INTEGER NOT NULL CHECK (points_per_hour IN (1, 2, 3)),
+    description TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+```
+
+**Key Points:**
+- ✅ Contains 17 standardized CPD categories
+- ✅ `points_per_hour` determines automatic points calculation: `cpd_points = hours × points_per_hour`
+- ✅ Valid values: 1, 2, or 3 points per hour (CHECK constraint enforced)
+- ✅ Used by frontend dropdown to show category options
+- ✅ Backend API endpoint: `GET /api/v1/cpd/categories`
+
+**Implementation Details:**
+- **Sprint 1 - CPD Categories** (Completed 31/10/2025)
+- **Frontend:** `AddCPDActivityModal.tsx` loads categories from API
+- **Backend:** `cpd.controller.ts` provides `getCPDCategories()` endpoint
+- **Points Calculation:** Automatic when creating CPD activity via API
+- **Fallback:** Frontend has hardcoded categories if API fails
+
+**Categories (17 total):**
+1. Learning Circle Interactive Course (1 pt/hr)
+2. Mentor TESOL teacher (1 pt/hr)
+3. Attend industry webinar (1 pt/hr)
+4. Attend industry PD event (1 pt/hr)
+5. Attend English Australia PD event (1 pt/hr)
+6. Present at industry event (2 pt/hr)
+7. Attend in-house PD or Training event (1 pt/hr)
+8. Present at in-house PD event (2 pt/hr)
+9. Attend English Australia webinar (1 pt/hr)
+10. Watch recorded webinar (1 pt/hr)
+11. Peer-observe someone's lesson (1 pt/hr)
+12. Be observed teaching (1 pt/hr)
+13. Complete professional course (1 pt/hr)
+14. Attend Industry Training (1 pt/hr)
+15. Read journal article (1 pt/hr)
+16. Read professional article (1 pt/hr)
+17. ELICOS teaching (2 pt/hr)
+
+### 5. **event_certificates**
 Stores generated certificates for events.
 
 ```sql
@@ -223,7 +272,7 @@ CREATE TABLE institutions (
 Members of institutions and organizations.
 
 ```sql
--- EXACT STRUCTURE (Updated 16/01/2025)
+-- EXACT STRUCTURE (Updated 31/10/2025)
 CREATE TABLE members (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email VARCHAR(255) NOT NULL,
@@ -244,6 +293,8 @@ CREATE TABLE members (
     openlearning_user_id VARCHAR(255),
     openlearning_external_id VARCHAR(255),
     openlearning_provisioned_at TIMESTAMP WITH TIME ZONE,
+    institution_linked_at TIMESTAMPTZ, -- ⭐ NEW: When institution link was approved
+    institution_linked_by UUID REFERENCES members(id), -- ⭐ NEW: Admin who approved link
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -419,6 +470,60 @@ CREATE TABLE openlearning_sso_sessions (
     UNIQUE(session_token)
 );
 ```
+
+### 16. **institution_link_requests** ⭐ NEW (Added 31/10/2025)
+Manages member requests to link with institutions. Allows members to request institutional affiliation, with admin approval workflow.
+
+```sql
+-- EXACT STRUCTURE (Created via migration 31/10/2025)
+CREATE TABLE institution_link_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    member_id UUID NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+    institution_id UUID NOT NULL REFERENCES institutions(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    requested_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    reviewed_by UUID REFERENCES members(id),
+    reviewed_at TIMESTAMPTZ,
+    review_notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Unique constraint: only one pending request per member
+CREATE UNIQUE INDEX idx_unique_pending_request
+    ON institution_link_requests(member_id)
+    WHERE status = 'pending';
+```
+
+**Key Points:**
+- ✅ Enforces **one pending request per member** via unique partial index
+- ✅ Status: `'pending'`, `'approved'`, `'rejected'` (CHECK constraint)
+- ✅ Tracks reviewer and review timestamp
+- ✅ Email notifications sent on request/approval/rejection
+- ✅ On approval: Updates `members.institution_id` + audit fields
+
+**Implementation Details:**
+- **Sprint 1 - Week 2 - Institution Linking** (Completed 31/10/2025)
+- **Backend Service:** `institutionLink.service.ts` - Complete workflow logic
+- **Backend Controller:** `institutionLink.controller.ts` - 7 REST endpoints
+- **Backend Routes:** `POST /api/v1/institution-links/request`, `/approve`, `/reject`, etc.
+- **Frontend (Members):** `InstitutionLinkPage.tsx` - Request and view status
+- **Frontend (Admins):** `InstitutionLinkRequestsPage.tsx` - Review and approve/reject
+- **Email Notifications:** Automatic at each workflow step (request, approval, rejection)
+
+**Workflow:**
+1. Member selects institution and submits request
+2. All institution admins receive email notification
+3. Admin reviews request and approves/rejects (notes required for rejection)
+4. Member receives email with decision
+5. On approval: `members.institution_id`, `institution_linked_at`, `institution_linked_by` updated
+6. Member can unlink anytime (resets fields to NULL)
+
+**RLS Policies:**
+- **View Own Requests**: Members can view their own requests
+- **View Institution Requests**: Admins can view requests for their institution
+- **Create Request**: Authenticated members can create requests
+- **Update Request**: Only admins can update (approve/reject)
 
 ---
 

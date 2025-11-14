@@ -8,7 +8,7 @@ import { useApplicationNotifications } from '../../../hooks/useApplicationNotifi
 import { OpenLearningAccessButton } from '../../../components/openlearning/OpenLearningAccessButton'
 import { getUserInstitution } from '../../../services/institutionService'
 import { supabase } from '../../../lib/supabase/client'
-import { Users, Calendar, BookOpen, Settings, UserCheck, FileText, Upload, Database, Trash2, GraduationCap, Award, Mail, FileCheck, Bell, BarChart3, RefreshCw } from 'lucide-react'
+import { Users, Calendar, Settings, UserCheck, FileText, Upload, Database, Trash2, Award, Mail, FileCheck, Bell, BarChart3 } from 'lucide-react'
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate()
@@ -69,25 +69,6 @@ export const AdminDashboard: React.FC = () => {
       requireInstitutionAdmin: true // All admin levels can manage members (scoped)
     },
     {
-      title: 'CPDs',
-      description: 'Approve and manage CPD activities',
-      icon: BookOpen,
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-100',
-      onClick: () => navigate('/admin/cpds'),
-      requireInstitutionAdmin: true, // All admin levels can approve CPDs (scoped)
-      hidden: cpdSettings?.auto_approval_enabled && !isSuperAdmin && !isAdmin
-    },
-    {
-      title: 'Approvals',
-      description: 'Pending approval items',
-      icon: UserCheck,
-      color: 'text-orange-600',
-      bgColor: 'bg-orange-100',
-      onClick: () => navigate('/admin/approvals'),
-      requireInstitutionAdmin: true // All admin levels can approve (scoped)
-    },
-    {
       title: 'Standard Reports',
       description: 'Pre-configured business reports and analytics',
       icon: BarChart3,
@@ -113,24 +94,6 @@ export const AdminDashboard: React.FC = () => {
       bgColor: 'bg-rose-100',
       onClick: () => navigate('/admin/import-system'),
       requireSuperAdmin: true
-    },
-    {
-      title: 'OpenLearning',
-      description: 'Manage OpenLearning integration',
-      icon: GraduationCap,
-      color: 'text-green-600',
-      bgColor: 'bg-green-100',
-      onClick: () => navigate('/admin/openlearning'),
-      requireAdmin: true // Admin+ can manage integrations
-    },
-    {
-      title: 'OpenLearning Sync',
-      description: 'Monitor automatic sync operations',
-      icon: RefreshCw,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-100',
-      onClick: () => navigate('/admin/openlearning/sync'),
-      requireAdmin: true // Admin+ can monitor sync
     },
     {
       title: 'Certificates & CPD',
@@ -289,8 +252,8 @@ export const AdminDashboard: React.FC = () => {
             </div>
           </Button>
           
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             className="h-16 text-left justify-start"
             onClick={() => navigate('/admin/events')}
           >
@@ -300,19 +263,7 @@ export const AdminDashboard: React.FC = () => {
               <div className="text-xs opacity-75">Create event</div>
             </div>
           </Button>
-          
-          <Button 
-            variant="outline" 
-            className="h-16 text-left justify-start"
-            onClick={() => navigate('/admin/cpds')}
-          >
-            <BookOpen className="mr-3 h-5 w-5" />
-            <div>
-              <div className="font-medium">Approve CPDs</div>
-              <div className="text-xs opacity-75">Review pending</div>
-            </div>
-          </Button>
-          
+
           <Button
             variant="outline"
             className="h-16 text-left justify-start"

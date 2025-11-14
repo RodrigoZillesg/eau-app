@@ -40,60 +40,181 @@ export class StorageService {
   }
 
   static async uploadAvatar(userId: string, file: File): Promise<string> {
-    // Get file extension from the file name or type
-    const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg'
-    const fileName = `avatar-${userId}-${Date.now()}.${fileExt}`
-    const filePath = `avatars/${fileName}`
-
-    console.log('Uploading file:', {
+    console.log('Uploading file to backend:', {
       name: file.name,
       type: file.type,
       size: file.size,
-      path: filePath
+      userId
     })
 
-    // Upload file with its actual content type
-    const { data, error: uploadError } = await supabase.storage
-      .from('profiles')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: true
-      })
-
-    if (uploadError) {
-      console.error('Upload error details:', uploadError)
-      throw uploadError
+    // Get authentication token
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.access_token) {
+      throw new Error('No authentication token found')
     }
 
-    console.log('Upload successful:', data)
+    // Create FormData
+    const formData = new FormData()
+    formData.append('avatar', file)
 
-    // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('profiles')
-      .getPublicUrl(filePath)
+    // Backend API URL
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
+    const uploadUrl = `${backendUrl}/api/v1/storage/upload-avatar`
 
-    return publicUrl
+    console.log('Uploading to:', uploadUrl)
+
+    // Upload to backend
+    const response = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`
+      },
+      body: formData
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Upload failed' }))
+      console.error('Upload error:', errorData)
+      throw new Error(errorData.error || 'Upload failed')
+    }
+
+    const result = await response.json()
+    console.log('Upload successful:', result)
+
+    return result.publicUrl
   }
 
   static async deleteAvatar(avatarUrl: string): Promise<void> {
     try {
-      // Extract file path from URL
+      // Extract filename from URL (e.g., http://localhost:3001/uploads/avatars/avatar-123-456.jpg)
       const url = new URL(avatarUrl)
-      const pathMatch = url.pathname.match(/\/profiles\/(.+)$/)
-      
-      if (pathMatch && pathMatch[1]) {
-        const filePath = pathMatch[1]
-        
-        const { error } = await supabase.storage
-          .from('profiles')
-          .remove([filePath])
+      const pathMatch = url.pathname.match(/\/uploads\/avatars\/(.+)$/)
 
-        if (error) {
-          console.warn('Error deleting avatar file:', error)
-        }
+      if (!pathMatch || !pathMatch[1]) {
+        console.warn('Could not extract filename from avatar URL:', avatarUrl)
+        return
+      }
+
+      const fileName = pathMatch[1]
+
+      // Get authentication token
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        throw new Error('No authentication token found')
+      }
+
+      // Backend API URL
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
+      const deleteUrl = `${backendUrl}/api/v1/storage/delete-avatar`
+
+      // Delete from backend
+      const response = await fetch(deleteUrl, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ fileName })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Delete failed' }))
+        console.warn('Error deleting avatar file:', errorData)
+      } else {
+        console.log('Avatar deleted successfully')
       }
     } catch (error) {
-      console.warn('Error parsing avatar URL for deletion:', error)
+      console.warn('Error deleting avatar:', error)
     }
+  }
+
+  static async uploadEventImage(file: File): Promise<string> {
+    console.log('Uploading event image to backend:', {
+      name: file.name,
+      type: file.type,
+      size: file.size
+    })
+
+    // Get authentication token
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.access_token) {
+      throw new Error('No authentication token found')
+    }
+
+    // Create FormData
+    const formData = new FormData()
+    formData.append('eventImage', file)
+
+    // Backend API URL
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
+    const uploadUrl = `${backendUrl}/api/v1/storage/upload-event-image`
+
+    console.log('Uploading to:', uploadUrl)
+
+    // Upload to backend
+    const response = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`
+      },
+      body: formData
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Upload failed' }))
+      console.error('Upload error:', errorData)
+      throw new Error(errorData.error || 'Upload failed')
+    }
+
+    const result = await response.json()
+    console.log('Upload successful:', result)
+
+    return result.publicUrl
+  }
+
+  static async uploadPaymentReceipt(registrationId: string, file: File): Promise<string> {
+    console.log('Uploading payment receipt to backend:', {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      registrationId
+    })
+
+    // Get authentication token
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.access_token) {
+      throw new Error('No authentication token found')
+    }
+
+    // Create FormData
+    const formData = new FormData()
+    formData.append('receipt', file)
+    formData.append('registrationId', registrationId)
+
+    // Backend API URL
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
+    const uploadUrl = `${backendUrl}/api/v1/storage/upload-payment-receipt`
+
+    console.log('Uploading to:', uploadUrl)
+
+    // Upload to backend
+    const response = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`
+      },
+      body: formData
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Upload failed' }))
+      console.error('Upload error:', errorData)
+      throw new Error(errorData.error || 'Upload failed')
+    }
+
+    const result = await response.json()
+    console.log('Upload successful:', result)
+
+    return result.publicUrl
   }
 }

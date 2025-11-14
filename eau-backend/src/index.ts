@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
+import path from 'path';
 import routes from './routes';
 import { supabaseAdmin } from './config/database';
 import { ReportSchedulerService } from './services/reportScheduler.service';
@@ -21,6 +22,9 @@ app.use(cors({
 app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// Serve static files from public directory (uploaded avatars)
+app.use('/uploads', express.static(path.join(__dirname, '../public')));
 
 // Routes
 app.use('/', routes);

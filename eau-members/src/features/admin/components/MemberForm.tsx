@@ -5,7 +5,7 @@ import { Label } from '../../../components/ui/Label'
 import { Card } from '../../../components/ui/Card'
 import { PhoneInput } from '../../../components/ui/PhoneInput'
 import { MembersService, type MemberWithRoles } from '../../../lib/supabase/members'
-import type { MembershipStatus, MembershipType, MemberRole } from '../../../types/supabase'
+import type { MembershipStatus, MembershipType } from '../../../types/supabase'
 import { InviteUserModal } from './InviteUserModal'
 import { useAuthStore } from '../../../stores/authStore'
 
@@ -14,6 +14,8 @@ interface MemberFormProps {
   onSave?: (member: MemberWithRoles) => void
   onCancel?: () => void
 }
+
+type UserType = 'member' | 'institution_admin' | 'admin' | 'super_admin'
 
 interface FormData {
   first_name: string
@@ -36,7 +38,7 @@ interface FormData {
   qualifications: string
   receive_newsletters: boolean
   receive_event_notifications: boolean
-  roles: MemberRole[]
+  user_type: UserType
 }
 
 export const MemberForm: React.FC<MemberFormProps> = ({
@@ -47,39 +49,8 @@ export const MemberForm: React.FC<MemberFormProps> = ({
   const isEditing = !!member
   const { roles } = useAuthStore()
 
-  // Define available roles based on current user's permissions
-  const getAvailableRoles = (): MemberRole[] => {
-    const isSuperAdmin = roles.includes('AdminSuper')
-    const isAdmin = roles.includes('Admin')
-    const isInstitutionAdmin = roles.includes('InstitutionAdmin')
-
-    if (isSuperAdmin) {
-      // SuperAdmin can assign any role
-      return ['member', 'admin', 'super_admin', 'moderator', 'instructor', 'Institution Admin']
-    } else if (isAdmin) {
-      // Admin can assign admin roles and below, but not super_admin
-      return ['member', 'admin', 'moderator', 'instructor', 'Institution Admin']
-    } else if (isInstitutionAdmin) {
-      // Institution Admin can only assign member-level roles
-      return ['member', 'moderator', 'instructor']
-    }
-
-    // Default: only member role
-    return ['member']
-  }
-
-  // Helper function to format role names for display
-  const formatRoleName = (role: MemberRole): string => {
-    const roleNames: Record<MemberRole, string> = {
-      'member': 'Member',
-      'admin': 'System Admin',
-      'super_admin': 'Super Admin',
-      'moderator': 'Moderator',
-      'instructor': 'Instructor',
-      'Institution Admin': 'Institution Admin'
-    }
-    return roleNames[role] || role
-  }
+  // All new members created through the form are regular members by default
+  // User type is handled by the system administrators through backend operations
 
   const [formData, setFormData] = useState<FormData>({
     first_name: member?.first_name || '',
@@ -102,7 +73,7 @@ export const MemberForm: React.FC<MemberFormProps> = ({
     qualifications: member?.qualifications || '',
     receive_newsletters: member?.receive_newsletters ?? true,
     receive_event_notifications: member?.receive_event_notifications ?? true,
-    roles: member?.member_roles?.map(r => r.role) || ['member']
+    user_type: (member?.user_type as UserType) || 'member'
   })
 
   const [loading, setLoading] = useState(false)
@@ -162,16 +133,6 @@ export const MemberForm: React.FC<MemberFormProps> = ({
     setLoading(true)
     setError(null)
 
-    // Validate roles before saving - ensure no unauthorized roles are being assigned
-    const availableRoles = getAvailableRoles()
-    const invalidRoles = formData.roles.filter(role => !availableRoles.includes(role))
-
-    if (invalidRoles.length > 0) {
-      setError(`Unauthorized role assignment: ${invalidRoles.join(', ')}. You don't have permission to assign these roles.`)
-      setLoading(false)
-      return
-    }
-
     try {
       const memberData = {
         first_name: formData.first_name,
@@ -193,7 +154,8 @@ export const MemberForm: React.FC<MemberFormProps> = ({
         experience_years: formData.experience_years ? parseInt(formData.experience_years) : null,
         qualifications: formData.qualifications || null,
         receive_newsletters: formData.receive_newsletters,
-        receive_event_notifications: formData.receive_event_notifications
+        receive_event_notifications: formData.receive_event_notifications,
+        user_type: formData.user_type
       }
 
       let savedMember
@@ -203,32 +165,11 @@ export const MemberForm: React.FC<MemberFormProps> = ({
         savedMember = await MembersService.createMember(memberData)
       }
 
-      // Gerenciar roles se for uma edição
-      if (isEditing && member) {
-        // Remover roles que não estão mais na lista
-        const currentRoles = member.member_roles.map(r => r.role)
-        const rolesToRemove = currentRoles.filter(role => !formData.roles.includes(role))
-        const rolesToAdd = formData.roles.filter(role => !currentRoles.includes(role))
-
-        for (const role of rolesToRemove) {
-          await MembersService.removeMemberRole(member.id, role)
-        }
-
-        for (const role of rolesToAdd) {
-          await MembersService.addMemberRole(member.id, role)
-        }
-      } else {
-        // Adicionar roles para novo membro
-        for (const role of formData.roles) {
-          await MembersService.addMemberRole(savedMember.id, role)
-        }
-      }
-
-      // Buscar o membro atualizado com roles
+      // Buscar o membro atualizado
       const updatedMember = await MembersService.getMemberById(savedMember.id)
       if (updatedMember) {
         onSave?.(updatedMember)
-        
+
         // Se for um novo membro, perguntar se quer convidar
         if (!isEditing) {
           setSavedMemberEmail(formData.email)
@@ -243,26 +184,6 @@ export const MemberForm: React.FC<MemberFormProps> = ({
     }
   }
 
-  const handleRoleChange = (role: MemberRole, checked: boolean) => {
-    // Additional validation: only allow roles that are in available roles
-    const availableRoles = getAvailableRoles()
-    if (!availableRoles.includes(role)) {
-      console.warn(`Role ${role} is not available for current user level`)
-      return
-    }
-
-    if (checked) {
-      setFormData(prev => ({
-        ...prev,
-        roles: [...prev.roles, role]
-      }))
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        roles: prev.roles.filter(r => r !== role)
-      }))
-    }
-  }
 
   return (
     <Card className="p-6">
@@ -474,35 +395,9 @@ export const MemberForm: React.FC<MemberFormProps> = ({
           </div>
         </div>
 
-        {/* Roles */}
-        <div className="space-y-4">
-          <div>
-            <h3 className="text-lg font-medium text-gray-900">Roles</h3>
-            {roles.includes('InstitutionAdmin') && !roles.includes('Admin') && !roles.includes('AdminSuper') && (
-              <p className="text-sm text-amber-600 mt-1">
-                ⚠️ As Institution Admin, you can only assign member-level roles (Member, Moderator, Instructor)
-              </p>
-            )}
-            {roles.includes('Admin') && !roles.includes('AdminSuper') && (
-              <p className="text-sm text-blue-600 mt-1">
-                ℹ️ As System Admin, you can assign most roles except Super Admin
-              </p>
-            )}
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {getAvailableRoles().map((role) => (
-              <label key={role} className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={formData.roles.includes(role)}
-                  onChange={(e) => handleRoleChange(role, e.target.checked)}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700">{formatRoleName(role)}</span>
-              </label>
-            ))}
-          </div>
-        </div>
+        {/* User Type - Removed from UI as per client request
+            All new members are created as regular members (user_type: 'member')
+            User type assignments are managed by system administrators through backend */}
 
         {/* Configurações */}
         <div className="space-y-4">

@@ -20,5 +20,9 @@ router.post('/refresh', [
 router.post('/logout', auth_1.authenticate, authController.logout);
 // Get current user
 router.get('/me', auth_1.authenticate, authController.me);
+// Impersonate user (admin only)
+router.post('/impersonate', [
+    (0, express_validator_1.body)('email').isEmail().normalizeEmail()
+], validation_1.handleValidationErrors, auth_1.authenticate, authController.impersonate);
 exports.default = router;
 //# sourceMappingURL=auth.routes.js.map

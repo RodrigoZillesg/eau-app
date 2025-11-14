@@ -337,7 +337,7 @@ export class MembersService {
     search?: string
     status?: MembershipStatus
     type?: MembershipType
-    interestGroup?: string
+    userType?: 'member' | 'institution_admin' | 'admin' | 'super_admin' | ''
     city?: string
     state?: string
     hasRoles?: boolean
@@ -385,8 +385,8 @@ export class MembersService {
       query = query.eq('membership_type', filters.type)
     }
 
-    if (filters.interestGroup) {
-      query = query.eq('interest_group', filters.interestGroup)
+    if (filters.userType) {
+      query = query.eq('user_type', filters.userType)
     }
 
     if (filters.city) {

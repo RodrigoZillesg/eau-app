@@ -707,31 +707,37 @@ export const CompleteImportPage: React.FC = () => {
           
           /**
            * Determine user_type based on Member Groups hierarchy
+           *
+           * ✅ SIMPLIFIED USER TYPE SYSTEM (Nov 2025)
+           * Only 4 types: member, institution_admin, admin, super_admin
+           *
            * Priority (highest to lowest):
-           * 1. admin (from Member Groups) → 'admin'
-           * 2. Primary Contact → 'institution_admin'
-           * 3. Board Members (from Member Groups) → 'board_member'
-           * 4. Affiliates or Consultants & Agents → 'affiliate'
-           * 5. Default → 'member'
+           * 1. "super_admin" in Member Groups → 'super_admin'
+           * 2. "admin" in Member Groups → 'admin'
+           * 3. Primary Contact → 'institution_admin'
+           * 4. All others (Board Members, Affiliates, etc.) → 'member'
            */
           let userType = 'member' // Default
 
           // Parse Member Groups
-          const memberGroups = record.memberGroups ? record.memberGroups.split(',').map(g => g.trim()) : []
+          const memberGroups = record.memberGroups ? record.memberGroups.split(',').map(g => g.trim().toLowerCase()) : []
 
           // Check hierarchy from highest to lowest
-          if (memberGroups.some(g => g.toLowerCase() === 'admin')) {
+          if (memberGroups.includes('super_admin') || memberGroups.includes('super admin')) {
+            userType = 'super_admin'
+            console.log(`✅ Super Admin detected: ${record.memberEmail}`)
+          } else if (memberGroups.includes('admin')) {
             userType = 'admin'
             console.log(`✅ System Admin detected: ${record.memberEmail}`)
           } else if (record.primaryContactUserId && parseInt(record.userId) === parseInt(record.primaryContactUserId)) {
             userType = 'institution_admin'
             console.log(`✅ Institution Admin detected: ${record.memberEmail}`)
-          } else if (memberGroups.includes('Board Members')) {
-            userType = 'board_member'
-            console.log(`✅ Board Member detected: ${record.memberEmail}`)
-          } else if (memberGroups.includes('Affiliates') || memberGroups.includes('Consultants & Agents')) {
-            userType = 'affiliate'
-            console.log(`✅ Affiliate detected: ${record.memberEmail}`)
+          } else {
+            // All other types (Board Members, Affiliates, etc.) are regular members
+            userType = 'member'
+            if (memberGroups.length > 0) {
+              console.log(`ℹ️ Member with groups [${record.memberGroups}]: ${record.memberEmail} → user_type: member`)
+            }
           }
 
           // Create member

@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const morgan_1 = __importDefault(require("morgan"));
+const path_1 = __importDefault(require("path"));
 const routes_1 = __importDefault(require("./routes"));
 const database_1 = require("./config/database");
 const reportScheduler_service_1 = require("./services/reportScheduler.service");
@@ -23,6 +24,8 @@ app.use((0, cors_1.default)({
 app.use((0, morgan_1.default)('combined'));
 app.use(express_1.default.json({ limit: '10mb' }));
 app.use(express_1.default.urlencoded({ extended: true }));
+// Serve static files from public directory (uploaded avatars)
+app.use('/uploads', express_1.default.static(path_1.default.join(__dirname, '../public')));
 // Routes
 app.use('/', routes_1.default);
 // Initialize server

@@ -38,12 +38,12 @@ const authenticate = async (req, res, next) => {
                 userId = decoded.userId;
             }
             console.log('decoded token:', decoded);
-            // Verify user still exists and is active using email
+            // Verify user still exists and is active using ID (more reliable than email for duplicates)
             const { data: member, error } = await database_1.supabaseAdmin
                 .from('members')
                 .select('id, email, institution_id, user_type, membership_status')
-                .eq('email', decoded.email || '')
-                .single();
+                .eq('id', userId)
+                .maybeSingle();
             console.log('member query result:', { member, error });
             if (error || !member) {
                 return res.status(401).json({

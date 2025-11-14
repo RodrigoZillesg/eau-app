@@ -38,15 +38,24 @@ export const RoleBasedRoute: React.FC<RoleBasedRouteProps> = ({
     if (permission) {
       return hasPermission(permission)
     }
-    
+
     if (roles) {
-      return requireAll ? hasAllRoles(roles) : hasAnyRole(roles)
+      const access = requireAll ? hasAllRoles(roles) : hasAnyRole(roles)
+      console.log('🔐 RoleBasedRoute check:', {
+        requiredRoles: roles,
+        requireAll,
+        hasAccess: access,
+        rolesLoaded,
+        isLoading
+      })
+      return access
     }
-    
+
     return true
   })()
 
   if (!hasAccess) {
+    console.log('❌ Access DENIED - redirecting to:', redirectTo)
     return <Navigate to={redirectTo} replace />
   }
 

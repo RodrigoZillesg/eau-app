@@ -108,28 +108,28 @@ class CPDService {
       const finalUserId: string = userId
       console.log('Using auth user_id for CPD activity:', finalUserId)
 
-      // Get settings and category configuration
-      const [settings, categorySettings] = await Promise.all([
-        CPDService.getCPDSettings(),
-        CPDService.getCategorySettings()
-      ])
+      // Get categories from database API
+      const categories = await CPDService.getCPDCategoriesFromAPI()
 
-      // Find category configuration
-      const categoryConfig = categorySettings.find(c => c.category_id === formData.category_id)
+      // Find category configuration from database
+      const categoryConfig = categories.find(c => c.id === formData.category_id)
       const fallbackCategory = CPD_CATEGORIES.find(c => c.id === formData.category_id)
-      
+
       // Calculate points based on database configuration, fallback to hardcoded values
       const pointsPerHour = categoryConfig?.points_per_hour || fallbackCategory?.points_per_hour || 1
-      const categoryName = categoryConfig?.category_name || fallbackCategory?.name || 'Unknown Category'
+      const categoryName = categoryConfig?.name || fallbackCategory?.name || 'Unknown Category'
       const totalHours = formData.hours + (formData.minutes / 60)
       const points = totalHours * pointsPerHour
 
-      // ALWAYS auto-approve activities (as per client requirements)
-      const initialStatus = 'approved'
-      const approvalData: any = {
-        approved_date: new Date().toISOString(),  // Column is approved_date, not approved_at
-        approved_by: userId  // Use the user's own ID for auto-approval
-      }
+      // Check CPD settings for auto-approval configuration
+      const cpdSettings = await CPDService.getCPDSettings()
+      const shouldAutoApprove = cpdSettings?.auto_approval_enabled ?? false
+
+      const initialStatus = shouldAutoApprove ? 'approved' : 'pending'
+      const approvalData: any = shouldAutoApprove ? {
+        approved_date: new Date().toISOString(),
+        approved_by: userId
+      } : {}
 
       // Upload evidence if provided
       let evidence_url = null
@@ -200,9 +200,11 @@ class CPDService {
         console.error('Activity data that failed:', activityData)
         throw error
       }
-      
-      const message = 'CPD activity added and automatically approved!'
-      
+
+      const message = shouldAutoApprove
+        ? 'CPD activity added and automatically approved!'
+        : 'CPD activity added successfully! Waiting for admin approval.'
+
       showNotification('success', message)
       return data
     } catch (error) {
@@ -673,7 +675,7 @@ class CPDService {
   }): Promise<CPDActivity | null> {
     try {
       console.log('Creating CPD activity from event:', params);
-      
+
       // Get member_id if not provided
       let userId = params.user_id;
       if (!userId) {
@@ -682,7 +684,7 @@ class CPDService {
           .select('id')
           .eq('user_id', params.user_id)
           .single();
-        
+
         if (!memberData) {
           console.error('Member not found for user:', params.user_id);
           return null;
@@ -690,18 +692,29 @@ class CPDService {
         userId = memberData.id;
       }
 
-      // Determine CPD category (default to "Attend English Australia PD event")
+      // FIXED: Fetch category from database instead of hardcoded array
       const categoryName = params.cpd_category || 'Attend English Australia PD event';
-      const category = CPD_CATEGORIES.find(c => c.name === categoryName) || CPD_CATEGORIES[4]; // Index 4 is "Attend English Australia PD event"
-      
-      // Calculate points (use event points if provided, otherwise calculate from duration)
-      const points = params.cpd_points || category.points_per_hour || 1;
+
+      // Get categories from database API
+      const categories = await CPDService.getCPDCategoriesFromAPI();
+      const category = categories.find(c => c.name === categoryName);
+
+      if (!category) {
+        console.warn(`Category "${categoryName}" not found in database, using fallback from hardcoded array`);
+      }
+
+      // Fallback to hardcoded array if database category not found
+      const fallbackCategory = CPD_CATEGORIES.find(c => c.name === categoryName) || CPD_CATEGORIES[4];
+      const categoryToUse = category || fallbackCategory;
+
+      // Calculate points (use event points if provided, otherwise use category points_per_hour)
+      const points = params.cpd_points || categoryToUse.points_per_hour || 1;
       
       // Create the CPD activity
       const activityData = {
         user_id: params.user_id || userId,
-        category_id: category.id,
-        category_name: category.name,
+        category_id: categoryToUse.id,
+        category_name: categoryToUse.name,
         activity_title: `Event: ${params.event_title}`,
         description: `Attended online event "${params.event_title}" on ${params.event_date}${params.certificate_number ? `. Certificate: ${params.certificate_number}` : ''}`,
         provider: 'English Australia',
@@ -875,6 +888,52 @@ class CPDService {
       return data || []
     } catch (error) {
       console.error('Error fetching category settings:', error)
+      return []
+    }
+  }
+
+  /**
+   * Fetch CPD categories from backend API (new cpd_categories table)
+   */
+  static async getCPDCategoriesFromAPI(): Promise<CPDCategory[]> {
+    try {
+      // Get Supabase auth token (same way as CPDCategoriesPage.tsx)
+      const authData = localStorage.getItem('sb-ypsvoxelitgceclohxfu-auth-token')
+      const token = authData ? JSON.parse(authData).access_token : null
+
+      if (!token) {
+        throw new Error('No authentication token found')
+      }
+
+      const { getApiUrl } = await import('../../config/api')
+      const response = await fetch(getApiUrl('/cpd/categories'), {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch CPD categories: ${response.statusText}`)
+      }
+
+      const result = await response.json()
+
+      if (!result.success || !result.data) {
+        throw new Error('Invalid response format from API')
+      }
+
+      // Map backend response to CPDCategory format
+      return result.data.map((cat: any) => ({
+        id: cat.id,
+        name: cat.name,
+        points_per_hour: cat.points_per_hour,
+        description: cat.description
+      }))
+    } catch (error) {
+      console.error('Error fetching CPD categories from API:', error)
+      // Return empty array, will fallback to hardcoded categories
       return []
     }
   }

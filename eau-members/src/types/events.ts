@@ -4,7 +4,7 @@ export type EventStatus = 'draft' | 'published' | 'cancelled' | 'completed';
 export type EventVisibility = 'public' | 'members' | 'private';
 export type LocationType = 'physical' | 'virtual' | 'hybrid';
 export type RegistrationStatus = 'pending' | 'confirmed' | 'waitlisted' | 'cancelled' | 'refunded';
-export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded' | 'exempt';
+export type PaymentStatus = 'pending' | 'paid' | 'partially_paid' | 'failed' | 'refunded' | 'exempt';
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
 export type EmailType = 
   | 'registration_confirmation'
@@ -122,6 +122,13 @@ export interface EventRegistration {
   event?: Event;
   member_id?: string;
   user_id?: string;
+  members?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone?: string;
+  };
   
   // Registration Details
   registration_number: string;
@@ -146,8 +153,11 @@ export interface EventRegistration {
   // Payment Information
   payment_status: PaymentStatus;
   amount_paid_cents: number;
+  payment_amount?: number; // Alternative field name used in database
   payment_method?: string;
   payment_reference?: string;
+  payment_date?: string; // Date when payment was made
+  payment_receipt_url?: string; // URL to uploaded receipt
   paid_at?: string;
   refunded_at?: string;
   refund_amount_cents?: number;

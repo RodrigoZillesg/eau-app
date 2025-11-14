@@ -65,30 +65,73 @@
 
 ---
 
-### 🚨🚨🚨 REGRA #2: SEMPRE RODAR BACKEND E FRONTEND JUNTOS 🚨🚨🚨
-**⚠️ CRITICAL - NOSSO SISTEMA DEPENDE DE DOIS SERVIDORES:**
+### 🚨🚨🚨 REGRA #2: GERENCIAMENTO DE SERVIDORES (CRÍTICO!) 🚨🚨🚨
+**⚠️ CRITICAL - USE SCRIPTS CORRETOS PARA GERENCIAR SERVIDORES:**
+
+#### 📖 DOCUMENTAÇÃO COMPLETA:
+**SEMPRE CONSULTAR:** `SERVER_MANAGEMENT.md`
+- Guia completo de gerenciamento de servidores
+- Scripts prontos e testados
+- Troubleshooting detalhado
+- Nunca mais matar Claude Code por engano!
+
+#### ⚠️ REGRA ABSOLUTA - NUNCA MATAR TODOS OS PROCESSOS NODE:
+```bash
+# ❌ ERRADO - Mata Claude Code e tudo mais!
+taskkill /F /IM node.exe
+
+# ✅ CORRETO - Usa scripts específicos
+./scripts/stop-servers.bat
+```
+
+#### 🛠️ SCRIPTS DISPONÍVEIS (Use sempre!):
+
+**1. Iniciar servidores:**
+```bash
+./scripts/start-servers.bat
+# Inicia Backend (3001) e Frontend (5180) automaticamente
+```
+
+**2. Parar servidores:**
+```bash
+./scripts/stop-servers.bat
+# Para APENAS os processos nas portas 3001 e 5180
+```
+
+**3. Reiniciar servidores:**
+```bash
+./scripts/restart-servers.bat
+# Para e reinicia ambos os servidores
+```
+
+**4. Verificar status:**
+```bash
+./scripts/check-servers.bat
+# Mostra se servidores estão rodando e seus PIDs
+```
 
 #### WORKFLOW OBRIGATÓRIO PARA TESTES:
 ```
-1. ✅ Iniciar BACKEND (porta 3001): cd eau-backend && npm start
-2. ✅ Iniciar FRONTEND (porta 5180): cd eau-members && npm run dev
-3. ✅ Aguardar ambos estarem prontos
+1. ✅ Verificar status: ./scripts/check-servers.bat
+2. ✅ Se não estiverem rodando: ./scripts/start-servers.bat
+3. ✅ Aguardar ambos estarem prontos (Backend: 3001, Frontend: 5180)
 4. 🧪 APENAS ENTÃO começar os testes via Playwright
 ```
 
 #### 🚨 NUNCA FAÇA ISSO:
+- ❌ `taskkill /F /IM node.exe` (Mata Claude Code!)
+- ❌ Matar processos sem verificar PID específico
 - ❌ Testar só com frontend rodando
-- ❌ Dizer "precisa do backend rodando" DEPOIS de testar pela metade
-- ❌ Marcar como concluído sem testar com backend
-- ❌ Assumir que "o resto funciona" sem testar
+- ❌ Assumir que servidores estão rodando sem verificar
 
 #### ✅ SEMPRE FAÇA ISSO:
-1. **ANTES de começar qualquer teste**: Verificar se AMBOS servidores estão rodando
-2. **Se não estiverem**: Iniciar AMBOS antes de testar
-3. **Testar o fluxo COMPLETO**: Frontend → Backend → Banco → Email → Frontend
-4. **Validar TUDO**: Não deixe nenhuma parte "para testar depois"
+1. **Use os scripts** em `scripts/` directory
+2. **Verifique status** antes de iniciar
+3. **Mate apenas portas específicas** (3001, 5180)
+4. **Espere servidores iniciarem** completamente
+5. **Teste o fluxo COMPLETO**: Frontend → Backend → Banco → Email → Frontend
 
-**🔥 REGRA DE OURO: Teste incompleto = Teste inútil. Não serve de nada! 🔥**
+**🔥 REGRA DE OURO: Use scripts! Nunca mate todos os processos node.exe! 🔥**
 
 ---
 

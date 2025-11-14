@@ -162,13 +162,22 @@ export function AddressAutocomplete({ postalCode, onAddressChange, register }: A
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="md:col-span-2">
-          <Label htmlFor="address_line1">Address Line 1</Label>
+        <div>
+          <Label htmlFor="postal_code">Postal Code / CEP</Label>
+          <Input
+            id="postal_code"
+            {...register('postal_code')}
+            placeholder="2000"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="country">Country</Label>
           <div className="relative">
             <Input
-              id="address_line1"
-              {...register('address_line1')}
-              placeholder="123 Main Street"
+              id="country"
+              {...register('country')}
+              placeholder="Australia"
             />
             {loading && (
               <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -176,6 +185,15 @@ export function AddressAutocomplete({ postalCode, onAddressChange, register }: A
               </div>
             )}
           </div>
+        </div>
+
+        <div className="md:col-span-2">
+          <Label htmlFor="address_line1">Address Line 1</Label>
+          <Input
+            id="address_line1"
+            {...register('address_line1')}
+            placeholder="123 Main Street"
+          />
         </div>
 
         <div className="md:col-span-2">
@@ -202,24 +220,6 @@ export function AddressAutocomplete({ postalCode, onAddressChange, register }: A
             id="state"
             {...register('state')}
             placeholder="NSW"
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="postal_code">Postal Code</Label>
-          <Input
-            id="postal_code"
-            {...register('postal_code')}
-            placeholder="2000"
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="country">Country</Label>
-          <Input
-            id="country"
-            {...register('country')}
-            placeholder="Australia"
           />
         </div>
       </div>

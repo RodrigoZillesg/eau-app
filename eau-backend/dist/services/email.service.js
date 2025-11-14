@@ -4,6 +4,26 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EmailService = void 0;
+/**
+ * 🚨 CRITICAL: EMAIL SERVICE WITH TEST MODE SUPPORT
+ *
+ * This service handles ALL email sending in the application.
+ *
+ * TEST MODE BEHAVIOR:
+ * - When smtp_settings.test_mode = true, ALL emails are redirected to smtp_settings.test_email
+ * - Original recipient is stored in email_logs.metadata.original_to
+ * - Subject line is prefixed with "[TEST MODE]" and includes original recipient
+ * - This ensures NO emails are sent to real users during testing
+ *
+ * PRODUCTION MODE:
+ * - When smtp_settings.test_mode = false, emails are sent to actual recipients
+ * - Normal behavior applies
+ *
+ * IMPORTANT:
+ * - Test mode is checked for EVERY email sent
+ * - Settings are fetched fresh from database for each email
+ * - All redirections are logged in console and email_logs table
+ */
 const nodemailer_1 = __importDefault(require("nodemailer"));
 const database_1 = require("../config/database");
 const emailLogger_service_1 = require("./emailLogger.service");
@@ -121,7 +141,8 @@ class EmailService {
                     message: 'Failed to create email transporter'
                 };
             }
-            // Check if test mode is enabled and redirect to test email
+            // 🚨 CRITICAL: Test Mode Check
+            // If test_mode is enabled, ALL emails are redirected to test_email
             const finalRecipient = settings.test_mode && settings.test_email
                 ? settings.test_email
                 : options.to;
@@ -129,6 +150,16 @@ class EmailService {
             const finalSubject = settings.test_mode && settings.test_email
                 ? `[TEST MODE] ${options.subject} (Original to: ${options.to})`
                 : options.subject;
+            // Log test mode redirection
+            if (settings.test_mode && settings.test_email) {
+                console.warn('🚨 TEST MODE ACTIVE - Email redirected!');
+                console.warn(`  Original recipient: ${options.to}`);
+                console.warn(`  Actual recipient: ${finalRecipient}`);
+                console.warn(`  Subject: ${finalSubject}`);
+            }
+            else {
+                console.info(`📧 Sending email to: ${options.to}`);
+            }
             // Prepare email options
             const mailOptions = {
                 from: options.from || `"${settings.from_name}" <${settings.from_email}>`,

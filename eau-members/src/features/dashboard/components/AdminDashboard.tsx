@@ -323,18 +323,28 @@ export const AdminDashboard: React.FC = () => {
                 </PermissionGuard>
                 
                 <PermissionGuard permission="CREATE_EVENT">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="w-full justify-start"
                     onClick={() => navigate('/events')}
                   >
                     📅 Create New Event
                   </Button>
                 </PermissionGuard>
-                
+
+                <PermissionGuard roles={['Admin', 'AdminSuper']}>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={() => navigate('/admin/events')}
+                  >
+                    🎟️ Manage Events
+                  </Button>
+                </PermissionGuard>
+
                 <PermissionGuard permission="MANAGE_USERS">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="w-full justify-start"
                     onClick={() => navigate('/admin/members')}
                   >

@@ -73,9 +73,15 @@ export function usePermissions() {
 
   const hasAnyRole = (requiredRoles: UserRole[]): boolean => {
     const effectiveRoles = getEffectiveRoles()
-    return requiredRoles.some(role =>
+    const result = requiredRoles.some(role =>
       effectiveRoles.includes(role) || hasRole(role)
     )
+    console.log('✅ hasAnyRole check:', {
+      requiredRoles,
+      effectiveRoles,
+      result
+    })
+    return result
   }
 
   const hasAllRoles = (requiredRoles: UserRole[]): boolean => {

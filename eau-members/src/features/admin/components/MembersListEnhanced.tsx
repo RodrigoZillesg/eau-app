@@ -9,7 +9,7 @@ import {
   ChevronLeft, ChevronRight, Edit, Eye, UserCheck,
   Mail, Trash2, UserX
 } from 'lucide-react'
-import type { MembershipStatus, MembershipType, InterestGroup } from '../../../types/supabase'
+import type { MembershipStatus, MembershipType } from '../../../types/supabase'
 import { exportMembersToCSV } from '../../../utils/csvExport'
 import { showNotification } from '../../../lib/notifications'
 import { impersonationService } from '../../../services/impersonationService'
@@ -25,23 +25,32 @@ interface MembersListEnhancedProps {
   onEditMember?: (member: MemberWithRoles) => void
 }
 
+type UserType = 'member' | 'institution_admin' | 'admin' | 'super_admin' | ''
+
+// Helper function to format user_type for display
+const formatUserType = (userType: string | null | undefined): { label: string; color: string } => {
+  switch (userType) {
+    case 'super_admin':
+      return { label: 'Super Admin', color: 'bg-red-100 text-red-800' }
+    case 'admin':
+      return { label: 'System Admin', color: 'bg-purple-100 text-purple-800' }
+    case 'institution_admin':
+      return { label: 'Institution Admin', color: 'bg-blue-100 text-blue-800' }
+    case 'member':
+      return { label: 'Member', color: 'bg-gray-100 text-gray-800' }
+    default:
+      return { label: 'Member', color: 'bg-gray-100 text-gray-800' }
+  }
+}
+
 interface FilterState {
   search: string
   status: MembershipStatus | ''
   type: MembershipType | ''
-  interestGroup: InterestGroup | ''
+  userType: UserType
   city: string
   state: string
-  hasRoles: boolean
-  roleFilter: 'all' | 'super_admin' | 'admin' | 'institution_admin' | 'board_member' | 'affiliate' | 'staff' | 'no_roles'
 }
-
-const INTEREST_GROUPS: InterestGroup[] = [
-  'Full Provider',
-  'Associate Provider', 
-  'Corporate Affiliate',
-  'Professional Affiliate'
-]
 
 export const MembersListEnhanced: React.FC<MembersListEnhancedProps> = ({
   onMemberSelect,
@@ -56,11 +65,9 @@ export const MembersListEnhanced: React.FC<MembersListEnhancedProps> = ({
     search: '',
     status: '',
     type: '',
-    interestGroup: '',
+    userType: '',
     city: '',
-    state: '',
-    hasRoles: false,
-    roleFilter: 'all'
+    state: ''
   })
 
   // Navigation and auth
@@ -138,16 +145,14 @@ export const MembersListEnhanced: React.FC<MembersListEnhancedProps> = ({
       const institution = await getUserInstitution()
       setUserInstitution(institution)
 
-      // Build filter object for API - now includes ALL filters
+      // Build filter object for API
       const apiFilters = {
         search: filters.search || undefined,
         status: filters.status || undefined,
         type: filters.type || undefined,
-        interestGroup: filters.interestGroup || undefined,
+        userType: filters.userType || undefined,
         city: filters.city || undefined,
         state: filters.state || undefined,
-        hasRoles: filters.hasRoles || undefined,
-        roleFilter: filters.roleFilter || 'all',
         institutionId: institution.institutionId, // Apply institution filter
         page: currentPage,
         pageSize
@@ -214,11 +219,9 @@ export const MembersListEnhanced: React.FC<MembersListEnhancedProps> = ({
       search: '',
       status: '',
       type: '',
-      interestGroup: '',
+      userType: '',
       city: '',
-      state: '',
-      hasRoles: false,
-      roleFilter: 'all'
+      state: ''
     })
     setCurrentPage(1)
   }
@@ -327,9 +330,9 @@ export const MembersListEnhanced: React.FC<MembersListEnhancedProps> = ({
               <select
                 id="type-filter"
                 value={filters.type}
-                onChange={(e) => setFilters(prev => ({ 
-                  ...prev, 
-                  type: e.target.value as MembershipType | '' 
+                onChange={(e) => setFilters(prev => ({
+                  ...prev,
+                  type: e.target.value as MembershipType | ''
                 }))}
                 className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
@@ -342,42 +345,21 @@ export const MembersListEnhanced: React.FC<MembersListEnhancedProps> = ({
             </div>
 
             <div>
-              <Label htmlFor="group-filter">Interest Group</Label>
+              <Label htmlFor="usertype-filter">User Type (System Access)</Label>
               <select
-                id="group-filter"
-                value={filters.interestGroup}
-                onChange={(e) => setFilters(prev => ({ 
-                  ...prev, 
-                  interestGroup: e.target.value as InterestGroup | '' 
-                }))}
-                className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">All Groups</option>
-                {INTEREST_GROUPS.map(group => (
-                  <option key={group} value={group}>{group}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <Label htmlFor="role-filter">System Role</Label>
-              <select
-                id="role-filter"
-                value={filters.roleFilter}
+                id="usertype-filter"
+                value={filters.userType}
                 onChange={(e) => setFilters(prev => ({
                   ...prev,
-                  roleFilter: e.target.value as FilterState['roleFilter']
+                  userType: e.target.value as UserType
                 }))}
                 className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="all">All Roles</option>
-                <option value="super_admin">Super Admin (Developer)</option>
-                <option value="admin">System Admin</option>
+                <option value="">All User Types</option>
+                <option value="member">Member</option>
                 <option value="institution_admin">Institution Admin</option>
-                <option value="board_member">Board Members</option>
-                <option value="affiliate">Affiliates</option>
-                <option value="staff">Staff (Legacy)</option>
-                <option value="no_roles">No Roles (Regular Members)</option>
+                <option value="admin">System Admin</option>
+                <option value="super_admin">Super Admin</option>
               </select>
             </div>
 
@@ -403,19 +385,7 @@ export const MembersListEnhanced: React.FC<MembersListEnhancedProps> = ({
               />
             </div>
 
-            <div className="flex items-end">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={filters.hasRoles}
-                  onChange={(e) => setFilters(prev => ({ ...prev, hasRoles: e.target.checked }))}
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                />
-                <span className="text-sm">Has special roles</span>
-              </label>
-            </div>
-
-            <div className="md:col-span-3 flex justify-end gap-2">
+            <div className="md:col-span-2 flex justify-end gap-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -477,13 +447,10 @@ export const MembersListEnhanced: React.FC<MembersListEnhancedProps> = ({
                       Membership
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Interest Group
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Location
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Roles
+                      User Type
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
@@ -536,26 +503,19 @@ export const MembersListEnhanced: React.FC<MembersListEnhancedProps> = ({
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-sm text-gray-900">
-                          {member.interest_group || '-'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
                         <div className="text-sm text-gray-900">
                           {[member.city, member.state].filter(Boolean).join(', ') || '-'}
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex flex-wrap gap-1">
-                          {member.member_roles?.map((role) => (
-                            <span
-                              key={role.id}
-                              className="px-2 py-1 text-xs font-medium rounded bg-purple-100 text-purple-800"
-                            >
-                              {role.role}
+                        {(() => {
+                          const userTypeInfo = formatUserType(member.user_type)
+                          return (
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${userTypeInfo.color}`}>
+                              {userTypeInfo.label}
                             </span>
-                          )) || '-'}
-                        </div>
+                          )
+                        })()}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex justify-center gap-2">

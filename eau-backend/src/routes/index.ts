@@ -8,6 +8,7 @@ import emailRoutes from './email.routes';
 import institutionLinkRoutes from './institutionLink.routes';
 import openlearningCoursesRoutes from './openlearningCourses.routes';
 import openlearningRoutes from './openlearning.routes'; // OpenLearning SSO routes
+import storageRoutes from './storage.routes'; // Storage routes for avatar upload
 // import openlearningPublicRoutes from './openlearning-public.routes'; // Temporarily disabled
 // import openlearningSSORoutes from './openlearningSSO.routes'; // Temporarily disabled
 // import certificatesRoutes from './certificates.routes';
@@ -42,6 +43,7 @@ router.use(`${API_PREFIX}/institutions`, institutionsRoutes);
 router.use(`${API_PREFIX}/invitations`, invitationsRoutes);
 router.use(`${API_PREFIX}/cpd`, cpdRoutes);
 router.use(`${API_PREFIX}/email`, emailRoutes);
+router.use(`${API_PREFIX}/storage`, storageRoutes); // Storage routes for avatar upload (auth required)
 router.use(`${API_PREFIX}/institution-links`, institutionLinkRoutes); // Institution linking workflow
 router.use(`${API_PREFIX}/openlearning-courses`, openlearningCoursesRoutes); // OpenLearning courses catalog
 router.use(`${API_PREFIX}/openlearning`, openlearningRoutes); // OpenLearning SSO routes

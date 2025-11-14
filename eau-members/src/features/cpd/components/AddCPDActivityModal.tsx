@@ -31,6 +31,7 @@ export function AddCPDActivityModal({ isOpen, onClose, onSuccess }: AddCPDActivi
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null)
   const [categorySettings, setCategorySettings] = useState<CPDCategorySettings[]>([])
+  const [categories, setCategories] = useState(CPD_CATEGORIES) // Start with hardcoded, will update from API
   const { user, getEffectiveUserId } = useAuthStore()
   const effectiveUserId = getEffectiveUserId()
   
@@ -61,19 +62,30 @@ export function AddCPDActivityModal({ isOpen, onClose, onSuccess }: AddCPDActivi
 
   const loadCategorySettings = async () => {
     try {
-      const settings = await CPDService.getCategorySettings()
+      // Load both category settings and categories from API
+      const [settings, apiCategories] = await Promise.all([
+        CPDService.getCategorySettings(),
+        CPDService.getCPDCategoriesFromAPI()
+      ])
+
       setCategorySettings(settings)
+
+      // Use API categories if available, otherwise fallback to hardcoded
+      if (apiCategories && apiCategories.length > 0) {
+        setCategories(apiCategories)
+      }
     } catch (error) {
       console.error('Error loading category settings:', error)
       setCategorySettings([])
+      // Keep hardcoded categories as fallback
     }
   }
   
-  // Calculate points based on selected category (using database settings first, fallback to hardcoded)
+  // Calculate points based on selected category (using database settings first, fallback to API categories)
   const calculatePoints = () => {
     const categoryConfig = categorySettings.find(c => c.category_id === Number(selectedCategoryId))
-    const fallbackCategory = CPD_CATEGORIES.find(c => c.id === Number(selectedCategoryId))
-    
+    const fallbackCategory = categories.find(c => c.id === Number(selectedCategoryId))
+
     const pointsPerHour = categoryConfig?.points_per_hour || fallbackCategory?.points_per_hour || 1
     const safeHours = isNaN(hours) ? 0 : hours
     const safeMinutes = isNaN(minutes) ? 0 : minutes
@@ -152,9 +164,9 @@ export function AddCPDActivityModal({ isOpen, onClose, onSuccess }: AddCPDActivi
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">-- Select a Category --</option>
-              {CPD_CATEGORIES.map(category => (
+              {categories.map(category => (
                 <option key={category.id} value={category.id}>
-                  {category.name}
+                  {category.name} ({category.points_per_hour} pts/hr)
                 </option>
               ))}
             </select>

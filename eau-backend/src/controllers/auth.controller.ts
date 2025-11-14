@@ -283,4 +283,98 @@ export class AuthController {
       } as ApiResponse);
     }
   }
+
+  async impersonate(req: Request & { user?: any }, res: Response) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          error: ERROR_MESSAGES.UNAUTHORIZED
+        } as ApiResponse);
+      }
+
+      // Check if user is admin or super_admin
+      const { data: currentMember } = await supabaseAdmin
+        .from('members')
+        .select('user_type')
+        .eq('id', req.user.id)
+        .single();
+
+      if (!currentMember || !['admin', 'super_admin'].includes(currentMember.user_type)) {
+        return res.status(403).json({
+          success: false,
+          error: 'Only admins can impersonate users'
+        } as ApiResponse);
+      }
+
+      const { email } = req.body;
+
+      // Find member to impersonate
+      const { data: member, error: memberError } = await supabaseAdmin
+        .from('members')
+        .select('*')
+        .eq('email', email.toLowerCase())
+        .single();
+
+      if (memberError || !member) {
+        return res.status(404).json({
+          success: false,
+          error: 'Member not found'
+        } as ApiResponse);
+      }
+
+      if (!member.user_id) {
+        return res.status(400).json({
+          success: false,
+          error: 'Member does not have authentication credentials'
+        } as ApiResponse);
+      }
+
+      // Use Supabase Admin API to generate a session for the user
+      const { data: sessionData, error: sessionError } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'magiclink',
+        email: member.email,
+      });
+
+      if (sessionError || !sessionData) {
+        console.error('Failed to generate session:', sessionError);
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to generate impersonation session'
+        } as ApiResponse);
+      }
+
+      // Extract the token from the generated link
+      const url = new URL(sessionData.properties.action_link);
+      const token = url.searchParams.get('token');
+      const type = url.searchParams.get('type');
+
+      if (!token) {
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to extract authentication token'
+        } as ApiResponse);
+      }
+
+      res.json({
+        success: true,
+        data: {
+          member: {
+            id: member.id,
+            email: member.email,
+            fullName: `${member.first_name || ''} ${member.last_name || ''}`.trim(),
+            userType: member.user_type
+          },
+          token,
+          type: type || 'magiclink'
+        }
+      } as ApiResponse);
+    } catch (error: any) {
+      console.error('Impersonation error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || ERROR_MESSAGES.SERVER_ERROR
+      } as ApiResponse);
+    }
+  }
 }

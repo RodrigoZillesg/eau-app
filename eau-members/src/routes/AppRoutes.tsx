@@ -27,6 +27,7 @@ import { EventsListPage } from '../features/events/pages/EventsListPage'
 import { EventDetailsPage } from '../features/events/pages/EventDetailsPage'
 import { MyRegistrationsPage } from '../features/events/pages/MyRegistrationsPage'
 import { AdminEventsPage } from '../features/events/pages/AdminEventsPage'
+import { EventRegistrationsPage } from '../features/events/pages/EventRegistrationsPage'
 import PendingPaymentsPage from '../features/admin/pages/PendingPaymentsPage'
 import { SMTPSettingsPage } from '../features/admin/pages/SMTPSettingsPage'
 import EmailJSConfigPage from '../features/admin/pages/EmailJSConfigPage'
@@ -41,7 +42,6 @@ import { OverflowTestPage } from '../features/admin/pages/OverflowTestPage'
 import { ListDebugPage } from '../features/admin/pages/ListDebugPage'
 import { MemberDuplicatesPage } from '../pages/admin/MemberDuplicatesPage'
 import { BulkManagementPage } from '../features/admin/pages/BulkManagementPage'
-import { OpenLearningIntegrationPage } from '../features/admin/pages/OpenLearningIntegrationPage'
 import { CertificateBatchPage } from '../features/admin/pages/CertificateBatchPage'
 import { CertificateTestPage } from '../features/admin/pages/CertificateTestPage'
 import { PaymentHistoryPage } from '../features/membership/pages/PaymentHistoryPage'
@@ -215,10 +215,10 @@ export const AppRoutes: React.FC = () => {
       />
       
       <Route
-        path="/cpd/settings"
+        path="/admin/cpd/settings"
         element={
           <ProtectedRoute>
-            <RoleBasedRoute roles={['AdminSuper']}>
+            <RoleBasedRoute roles={['Admin', 'AdminSuper']}>
               <CPDSettingsPage />
             </RoleBasedRoute>
           </ProtectedRoute>
@@ -380,17 +380,6 @@ export const AppRoutes: React.FC = () => {
       />
 
       <Route
-        path="/admin/openlearning"
-        element={
-          <ProtectedRoute>
-            <RoleBasedRoute roles={['AdminSuper', 'Admin']}>
-              <OpenLearningIntegrationPage />
-            </RoleBasedRoute>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
         path="/admin/openlearning/sync"
         element={
           <ProtectedRoute>
@@ -538,6 +527,17 @@ export const AppRoutes: React.FC = () => {
           <ProtectedRoute>
             <RoleBasedRoute roles={['AdminSuper', 'Admin']}>
               <AdminEventsPage />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/events/:eventId/registrations"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute roles={['AdminSuper', 'Admin']}>
+              <EventRegistrationsPage />
             </RoleBasedRoute>
           </ProtectedRoute>
         }

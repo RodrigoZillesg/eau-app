@@ -64,7 +64,11 @@ export const notifications = {
       text,
       showCancelButton: true,
       confirmButtonText: confirmText,
-      cancelButtonText: cancelText
+      cancelButtonText: cancelText,
+      customClass: {
+        ...swalConfig.customClass,
+        actions: 'gap-3'
+      }
     })
   },
 
@@ -79,7 +83,9 @@ export const notifications = {
       cancelButtonText: 'Cancel',
       customClass: {
         ...swalConfig.customClass,
-        confirmButton: 'bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-md transition-colors'
+        confirmButton: 'bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-md transition-colors',
+        cancelButton: 'bg-gray-300 hover:bg-gray-400 text-gray-700 font-medium py-2 px-4 rounded-md transition-colors ml-2',
+        actions: 'gap-3'
       }
     })
   },
@@ -154,6 +160,24 @@ export const notifications = {
 }
 
 // Export individual notification functions for easier importing
-export const showNotification = (type: 'success' | 'error' | 'warning' | 'info', title: string, text?: string) => {
-  return notifications[type](title, text)
+// Supports both formats:
+// 1. showNotification('success', 'Title', 'Text')
+// 2. showNotification({ type: 'success', title: 'Title', message: 'Text' })
+export const showNotification = (
+  typeOrOptions: 'success' | 'error' | 'warning' | 'info' | {
+    type: 'success' | 'error' | 'warning' | 'info';
+    title: string;
+    message?: string;
+  },
+  title?: string,
+  text?: string
+) => {
+  // Handle object format
+  if (typeof typeOrOptions === 'object') {
+    const { type, title, message } = typeOrOptions
+    return notifications[type](title, message)
+  }
+
+  // Handle separate parameters format
+  return notifications[typeOrOptions](title!, text)
 }

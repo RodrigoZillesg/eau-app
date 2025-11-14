@@ -118,7 +118,6 @@ export function exportMembersToCSV(members: any[], filename?: string) {
     'Phone': member.phone || '',
     'Membership Status': member.membership_status,
     'Membership Type': member.membership_type,
-    'Interest Group': member.interest_group || '',
     'City': member.city || '',
     'State': member.state || '',
     'Country': member.country || 'Australia',

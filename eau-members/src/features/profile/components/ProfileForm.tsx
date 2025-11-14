@@ -34,9 +34,8 @@ type ProfileFormData = z.infer<typeof profileSchema>
 export function ProfileForm() {
   const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(true)
-  const { user, getEffectiveUserId } = useAuthStore()
-  const effectiveUserId = getEffectiveUserId()
-  
+  const { user } = useAuthStore()
+
   const {
     register,
     handleSubmit,
@@ -53,28 +52,28 @@ export function ProfileForm() {
 
   useEffect(() => {
     loadUserProfile()
-  }, [effectiveUserId])
+  }, [user?.email])
 
   const loadUserProfile = async () => {
-    if (!effectiveUserId) return
-    
+    if (!user?.email) return
+
     try {
       setLoadingData(true)
-      
+
       // Add timeout to prevent infinite loading
-      const timeoutPromise = new Promise((_, reject) => 
+      const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Load timeout')), 3000)
       )
-      
+
       const queryPromise = supabase
         .from('members')
         .select('*')
-        .eq('id', effectiveUserId)
+        .eq('email', user.email)
         .single()
-      
+
       let memberData = null
       let memberError = null
-      
+
       try {
         const result = await Promise.race([queryPromise, timeoutPromise]) as { data: any, error: any }
         memberData = result.data
@@ -136,16 +135,16 @@ export function ProfileForm() {
   }
 
   const onSubmit = async (data: ProfileFormData) => {
-    if (!effectiveUserId) return
+    if (!user?.email) return
 
     try {
       setLoading(true)
 
-      // Verificar se o membro existe pelo ID
+      // Verificar se o membro existe pelo email
       const { data: existingMember } = await supabase
         .from('members')
         .select('id')
-        .eq('id', effectiveUserId)
+        .eq('email', user.email)
         .single()
 
       const memberData = {
@@ -163,18 +162,20 @@ export function ProfileForm() {
         profession: data.profession || null,
         experience_years: data.experience_years ? Number(data.experience_years) : null,
         qualifications: data.qualifications || null,
-        updated_at: new Date().toISOString(),
-        updated_by: effectiveUserId
+        updated_at: new Date().toISOString()
       }
 
       if (existingMember) {
-        // Atualizar membro existente usando o ID correto do membro
+        // Atualizar membro existente usando o email
         const { error: memberError } = await supabase
           .from('members')
           .update(memberData)
-          .eq('id', existingMember.id)
+          .eq('email', user.email)
 
-        if (memberError) throw memberError
+        if (memberError) {
+          console.error('Update error:', memberError)
+          throw memberError
+        }
       } else {
         // Criar novo membro
         const { error: memberError } = await supabase
@@ -182,19 +183,21 @@ export function ProfileForm() {
           .insert({
             ...memberData,
             membership_status: 'active',
-            membership_type: 'standard',
+            user_type: 'member',
             receive_newsletters: true,
-            receive_event_notifications: true,
-            created_by: effectiveUserId
+            receive_event_notifications: true
           })
 
-        if (memberError) throw memberError
+        if (memberError) {
+          console.error('Insert error:', memberError)
+          throw memberError
+        }
       }
 
       showNotification('success', 'Profile updated successfully!')
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating profile:', error)
-      showNotification('error', 'Error updating profile')
+      showNotification('error', error.message || 'Error updating profile')
     } finally {
       setLoading(false)
     }

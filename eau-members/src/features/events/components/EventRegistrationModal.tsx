@@ -9,6 +9,7 @@ import type { Event } from '../../../types/events';
 import { format } from 'date-fns';
 import { useAuthStore } from '../../../stores/authStore';
 import { showNotification } from '../../../lib/notifications';
+import { usePermissions } from '../../../hooks/usePermissions';
 
 interface EventRegistrationModalProps {
   event: Event;
@@ -18,6 +19,7 @@ interface EventRegistrationModalProps {
 
 export function EventRegistrationModal({ event, onClose, onSuccess }: EventRegistrationModalProps) {
   const { user } = useAuthStore();
+  const { isAdmin, isSuper } = usePermissions();
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'details' | 'payment' | 'confirmation'>('details');
   const [formData, setFormData] = useState({
@@ -31,8 +33,8 @@ export function EventRegistrationModal({ event, onClose, onSuccess }: EventRegis
     return null;
   }
 
-  // Calculate price based on membership
-  const isMember = user.membership_status === 'active';
+  // Calculate price based on membership - consider admin/super_admin as members
+  const isMember = user.membership_status === 'active' || isAdmin() || isSuper();
   let price = isMember ? event.member_price_cents : event.non_member_price_cents;
   let priceLabel = isMember ? 'Member Price' : 'Non-Member Price';
   

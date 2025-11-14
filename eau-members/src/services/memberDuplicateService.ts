@@ -581,12 +581,55 @@ class MemberDuplicateService {
 
       // Transfer relationships if configured
       if (config.relationships.merge_cpd_activities) {
-        const { error: cpdError } = await supabase
-          .from('cpd_activities')
-          .update({ member_id: primaryId })
-          .eq('member_id', secondaryId)
-        
-        if (cpdError) console.error('Error transferring CPD activities:', cpdError)
+        try {
+          // Precisa pegar o user_id dos membros, não o member_id
+          // Primeiro, pega os user_ids associados aos membros
+          const { data: member1Data } = await supabase
+            .from('members')
+            .select('user_id')
+            .eq('id', primaryId)
+            .single()
+
+          const { data: member2Data } = await supabase
+            .from('members')
+            .select('user_id')
+            .eq('id', secondaryId)
+            .single()
+
+          if (member1Data?.user_id && member2Data?.user_id) {
+            // Verifica se existem atividades CPD para transferir
+            const { data: activities, error: checkError } = await supabase
+              .from('cpd_activities')
+              .select('id')
+              .eq('user_id', member2Data.user_id)
+              .limit(1)
+
+            // Se houver atividades, transfere
+            if (!checkError && activities && activities.length > 0) {
+              const { data: allActivities } = await supabase
+                .from('cpd_activities')
+                .select('count', { count: 'exact', head: true })
+                .eq('user_id', member2Data.user_id)
+
+              const { error: cpdError } = await supabase
+                .from('cpd_activities')
+                .update({ user_id: member1Data.user_id })
+                .eq('user_id', member2Data.user_id)
+
+              if (cpdError) {
+                console.log('CPD activities transfer warning:', cpdError.message || 'Unknown error')
+              } else {
+                console.log(`Transferred ${allActivities?.count || 0} CPD activities`)
+              }
+            } else if (!checkError) {
+              console.log('No CPD activities to transfer')
+            }
+          } else {
+            console.log('Members do not have associated user accounts, skipping CPD transfer')
+          }
+        } catch (error) {
+          console.log('CPD activities transfer error:', error)
+        }
       }
 
       if (config.relationships.merge_event_registrations) {

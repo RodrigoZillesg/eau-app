@@ -29,17 +29,21 @@ import { useAuthStore } from '../../../stores/authStore';
 import { showNotification } from '../../../lib/notifications';
 import { QuillContentUltraFixed } from '../../../components/ui/QuillContentUltraFixed';
 import { EventCountdown } from '../../../components/EventCountdown';
+import { supabase } from '../../../lib/supabase';
+import { usePermissions } from '../../../hooks/usePermissions';
 
 export function EventDetailsPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const { user, getEffectiveUserId } = useAuthStore();
   const effectiveUserId = getEffectiveUserId();
+  const { isAdmin, isSuper } = usePermissions();
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [userRegistration, setUserRegistration] = useState<EventRegistration | null>(null);
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
   const [registrationCount, setRegistrationCount] = useState(0);
+  const [memberData, setMemberData] = useState<any>(null);
 
   useEffect(() => {
     if (slug) {
@@ -61,11 +65,24 @@ export function EventDetailsPage() {
       }
       
       setEvent(eventData);
-      
+
       // Load registrations count
       const regs = await EventRegistrationService.getEventRegistrations(eventData.id);
       setRegistrationCount(regs.length);
-      
+
+      // Load member data if user is logged in (only membership info, not user_type)
+      if (user?.email) {
+        const { data: member, error: memberError } = await supabase
+          .from('members')
+          .select('membership_status, membership_type')
+          .eq('email', user.email)
+          .single();
+
+        if (!memberError && member) {
+          setMemberData(member);
+        }
+      }
+
       // Check if current user is registered and auto check-in if applicable
       if (effectiveUserId) {
         const isRegistered = await EventRegistrationService.isUserRegistered(eventData.id, effectiveUserId);
@@ -201,7 +218,8 @@ export function EventDetailsPage() {
     return null;
   }
 
-  const isMember = user?.membership_status === 'active';
+  // Consider as member if: active membership OR is admin/super_admin
+  const isMember = memberData?.membership_status === 'active' || isAdmin() || isSuper();
   const price = isMember ? event.member_price_cents : event.non_member_price_cents;
   const availableSpots = event.capacity - registrationCount;
   const isRegistrationOpen = EventService.isRegistrationOpen(event);

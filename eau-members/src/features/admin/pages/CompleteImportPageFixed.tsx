@@ -116,6 +116,54 @@ export default function CompleteImportPageFixed() {
         const email = record['Member Email Address'] || record['Member Email'] || record['Email'] || ''
 
         if (firstName && lastName && email) {
+          /**
+           * 🎯 USER TYPE DETECTION (Nov 2025)
+           * Source of Truth: USER_TYPE_BUSINESS_RULES.md
+           *
+           * Priority Hierarchy:
+           * 1. Super Admin - Member Groups contains "super_admin" or "super admin"
+           * 2. System Admin - Member Groups contains "admin" (but not super_admin)
+           * 3. Institution Admin - UserId equals Primary Contact's User ID
+           * 4. Member - Default (none of the above)
+           */
+          let userType = 'member' // Default fallback
+
+          // Extract required fields for detection
+          const userId = record['User ID'] || record['UserId'] || ''
+          const primaryContactUserId = record["Primary Contact's User ID"] || record['Primary Contact User ID'] || ''
+          const memberGroups = record['Member Groups'] || ''
+
+          // Parse Member Groups safely (case-insensitive)
+          const memberGroupsArray = memberGroups
+            ? memberGroups.split(',').map((g: string) => g.trim().toLowerCase())
+            : []
+
+          // Apply hierarchy (highest to lowest priority)
+          if (memberGroupsArray.includes('super_admin') || memberGroupsArray.includes('super admin')) {
+            userType = 'super_admin'
+            console.log(`✅ Super Admin detected: ${email} (Groups: ${memberGroups})`)
+          } else if (memberGroupsArray.includes('admin')) {
+            userType = 'admin'
+            console.log(`✅ System Admin detected: ${email} (Groups: ${memberGroups})`)
+          } else if (userId && primaryContactUserId && parseInt(userId) === parseInt(primaryContactUserId)) {
+            userType = 'institution_admin'
+            console.log(`✅ Institution Admin detected: ${email} (UserId: ${userId} matches Primary Contact)`)
+          } else {
+            userType = 'member'
+            // Only log members with special groups for debugging
+            if (memberGroupsArray.length > 0 && !memberGroupsArray.includes('public') && !memberGroupsArray.includes('members')) {
+              console.log(`ℹ️ Member with groups [${memberGroups}]: ${email} → user_type: member`)
+            }
+          }
+
+          // Validation warning if critical fields are missing
+          if (!userId) {
+            console.warn(`⚠️ Missing User ID for member: ${email}`)
+          }
+          if (!primaryContactUserId && institutionName) {
+            console.warn(`⚠️ Missing Primary Contact ID for member: ${email} (Institution: ${institutionName})`)
+          }
+
           membersToImport.push({
             first_name: firstName,
             last_name: lastName,
@@ -125,12 +173,30 @@ export default function CompleteImportPageFixed() {
             institution: institutionName,
             membership_type: record['Type'] || record['Membership Type'] || null,
             membership_status: record['Status'] === 'Active' ? 'active' : 'inactive',
-            user_type: 'member'
+            user_type: userType // ✅ CORRECTED: Properly detected user_type based on business rules
           })
         }
       }
 
-      console.log(`Found ${institutionsMap.size} institutions and ${membersToImport.length} members`)
+      // Calculate user type statistics
+      const userTypeStats = {
+        super_admin: membersToImport.filter(m => m.user_type === 'super_admin').length,
+        admin: membersToImport.filter(m => m.user_type === 'admin').length,
+        institution_admin: membersToImport.filter(m => m.user_type === 'institution_admin').length,
+        member: membersToImport.filter(m => m.user_type === 'member').length
+      }
+
+      console.log(`
+📊 IMPORT SUMMARY:
+   Institutions: ${institutionsMap.size}
+   Total Members: ${membersToImport.length}
+
+   User Type Distribution:
+   ✅ Super Admins: ${userTypeStats.super_admin}
+   ✅ System Admins: ${userTypeStats.admin}
+   ✅ Institution Admins: ${userTypeStats.institution_admin}
+   ✅ Members: ${userTypeStats.member}
+      `)
 
       // Step 1: Import Institutions
       setProgress({ message: 'Importing institutions...', current: 0, total: institutionsMap.size })

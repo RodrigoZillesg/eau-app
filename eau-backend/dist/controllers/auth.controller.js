@@ -253,6 +253,89 @@ class AuthController {
             });
         }
     }
+    async impersonate(req, res) {
+        try {
+            if (!req.user) {
+                return res.status(401).json({
+                    success: false,
+                    error: constants_1.ERROR_MESSAGES.UNAUTHORIZED
+                });
+            }
+            // Check if user is admin or super_admin
+            const { data: currentMember } = await database_1.supabaseAdmin
+                .from('members')
+                .select('user_type')
+                .eq('id', req.user.id)
+                .single();
+            if (!currentMember || !['admin', 'super_admin'].includes(currentMember.user_type)) {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Only admins can impersonate users'
+                });
+            }
+            const { email } = req.body;
+            // Find member to impersonate
+            const { data: member, error: memberError } = await database_1.supabaseAdmin
+                .from('members')
+                .select('*')
+                .eq('email', email.toLowerCase())
+                .single();
+            if (memberError || !member) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Member not found'
+                });
+            }
+            if (!member.user_id) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Member does not have authentication credentials'
+                });
+            }
+            // Use Supabase Admin API to generate a session for the user
+            const { data: sessionData, error: sessionError } = await database_1.supabaseAdmin.auth.admin.generateLink({
+                type: 'magiclink',
+                email: member.email,
+            });
+            if (sessionError || !sessionData) {
+                console.error('Failed to generate session:', sessionError);
+                return res.status(500).json({
+                    success: false,
+                    error: 'Failed to generate impersonation session'
+                });
+            }
+            // Extract the token from the generated link
+            const url = new URL(sessionData.properties.action_link);
+            const token = url.searchParams.get('token');
+            const type = url.searchParams.get('type');
+            if (!token) {
+                return res.status(500).json({
+                    success: false,
+                    error: 'Failed to extract authentication token'
+                });
+            }
+            res.json({
+                success: true,
+                data: {
+                    member: {
+                        id: member.id,
+                        email: member.email,
+                        fullName: `${member.first_name || ''} ${member.last_name || ''}`.trim(),
+                        userType: member.user_type
+                    },
+                    token,
+                    type: type || 'magiclink'
+                }
+            });
+        }
+        catch (error) {
+            console.error('Impersonation error:', error);
+            res.status(500).json({
+                success: false,
+                error: error.message || constants_1.ERROR_MESSAGES.SERVER_ERROR
+            });
+        }
+    }
 }
 exports.AuthController = AuthController;
 //# sourceMappingURL=auth.controller.js.map

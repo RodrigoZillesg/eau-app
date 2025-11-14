@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { showNotification } from '../../../lib/notifications';
-import { Search, LogIn, User, Mail, Building2 } from 'lucide-react';
+import { Search, LogIn, User, Mail, Building2, Filter } from 'lucide-react';
 
 export default function MemberImpersonationPage() {
   const [members, setMembers] = useState<any[]>([]);
   const [filteredMembers, setFilteredMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [userTypeFilter, setUserTypeFilter] = useState<string>('all');
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [impersonating, setImpersonating] = useState(false);
   const navigate = useNavigate();
@@ -18,17 +19,25 @@ export default function MemberImpersonationPage() {
   }, []);
 
   useEffect(() => {
+    let filtered = members;
+
+    // Apply user type filter
+    if (userTypeFilter !== 'all') {
+      filtered = filtered.filter(member => member.user_type === userTypeFilter);
+    }
+
+    // Apply search filter
     if (searchTerm) {
-      const filtered = members.filter(member =>
+      filtered = filtered.filter(member =>
         member.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         member.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         member.institution_name?.toLowerCase().includes(searchTerm.toLowerCase())
       );
-      setFilteredMembers(filtered);
-    } else {
-      setFilteredMembers(members.slice(0, 50)); // Show first 50 when no search
     }
-  }, [searchTerm, members]);
+
+    // Limit to 50 if no search term
+    setFilteredMembers(searchTerm ? filtered : filtered.slice(0, 50));
+  }, [searchTerm, userTypeFilter, members]);
 
   const loadMembers = async () => {
     try {
@@ -43,6 +52,7 @@ export default function MemberImpersonationPage() {
           institution_id,
           membership_type,
           membership_status,
+          user_type,
           institutions (
             name
           )
@@ -77,7 +87,7 @@ export default function MemberImpersonationPage() {
     if (!member.has_auth) {
       showNotification({
         title: 'No Credentials',
-        message: 'This member does not have login credentials yet. Run the SQL script to create credentials.',
+        message: 'This member does not have login credentials yet.',
         type: 'warning'
       });
       return;
@@ -87,25 +97,42 @@ export default function MemberImpersonationPage() {
     setSelectedMember(member);
 
     try {
-      // First, sign out current user
-      await supabase.auth.signOut();
+      // Get current session for auth token
+      const { data: { session } } = await supabase.auth.getSession();
 
-      // Sign in as the selected member with default password
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: member.email,
-        password: 'EAU2025temp!'
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
+      }
+
+      // Call backend API to generate impersonation token
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const response = await fetch(`${backendUrl}/api/v1/auth/impersonate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ email: member.email })
       });
 
-      if (error) {
-        // Try alternative password if the first one fails
-        const { data: data2, error: error2 } = await supabase.auth.signInWithPassword({
-          email: member.email,
-          password: 'Salmo119:97' // Your default password
-        });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate impersonation token');
+      }
 
-        if (error2) {
-          throw new Error('Failed to login as member. Make sure the SQL script has been run to create credentials.');
-        }
+      const { data } = await response.json();
+
+      // Sign out current user
+      await supabase.auth.signOut();
+
+      // Use the magic link token to authenticate as the target user
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        token_hash: data.token,
+        type: 'magiclink'
+      });
+
+      if (verifyError) {
+        throw new Error(verifyError.message || 'Failed to authenticate as member');
       }
 
       showNotification({
@@ -123,9 +150,37 @@ export default function MemberImpersonationPage() {
         message: error.message || 'Failed to impersonate member',
         type: 'error'
       });
+
+      // Try to restore the admin session if impersonation failed
+      window.location.href = '/login';
     } finally {
       setImpersonating(false);
     }
+  };
+
+  const getUserTypeBadge = (userType: string) => {
+    const colorMap: Record<string, string> = {
+      'super_admin': 'bg-purple-100 text-purple-800',
+      'admin': 'bg-red-100 text-red-800',
+      'institution_admin': 'bg-orange-100 text-orange-800',
+      'member': 'bg-gray-100 text-gray-800'
+    };
+
+    const labelMap: Record<string, string> = {
+      'super_admin': 'Super Admin',
+      'admin': 'Admin',
+      'institution_admin': 'Institution Admin',
+      'member': 'Member'
+    };
+
+    const color = colorMap[userType] || 'bg-gray-100 text-gray-800';
+    const label = labelMap[userType] || userType || 'Member';
+
+    return (
+      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${color}`}>
+        {label}
+      </span>
+    );
   };
 
   const getMembershipBadge = (type: string, status: string) => {
@@ -154,6 +209,21 @@ export default function MemberImpersonationPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Loading Overlay */}
+      {impersonating && selectedMember && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-sm mx-4 shadow-xl">
+            <div className="flex items-center space-x-3">
+              <div className="animate-spin h-8 w-8 border-3 border-primary-600 border-t-transparent rounded-full"></div>
+              <div>
+                <p className="text-lg font-semibold text-gray-900">Logging in as {selectedMember.full_name}</p>
+                <p className="text-sm text-gray-600 mt-1">Please wait...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white shadow-sm rounded-lg">
         <div className="px-6 py-4 border-b border-gray-200">
           <h1 className="text-2xl font-bold text-gray-900">Member Impersonation (Dev Tool)</h1>
@@ -163,20 +233,38 @@ export default function MemberImpersonationPage() {
         </div>
 
         <div className="p-6">
-          {/* Search Bar */}
+          {/* Search Bar and Filters */}
           <div className="mb-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search by email, name, or institution..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+              <div className="md:col-span-3 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search by email, name, or institution..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+
+              <div className="relative">
+                <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <select
+                  value={userTypeFilter}
+                  onChange={(e) => setUserTypeFilter(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent appearance-none bg-white"
+                >
+                  <option value="all">All User Types</option>
+                  <option value="super_admin">Super Admin</option>
+                  <option value="admin">Admin</option>
+                  <option value="institution_admin">Institution Admin</option>
+                  <option value="member">Member</option>
+                </select>
+              </div>
             </div>
-            <p className="mt-2 text-sm text-gray-500">
-              Total members: {members.length} | Members with auth: {members.filter(m => m.has_auth).length}
+
+            <p className="text-sm text-gray-500">
+              Total members: {members.length} | Members with auth: {members.filter(m => m.has_auth).length} | Showing: {filteredMembers.length}
             </p>
           </div>
 
@@ -208,22 +296,31 @@ export default function MemberImpersonationPage() {
                       </div>
                     </div>
 
-                    <div className="mt-2">
-                      {getMembershipBadge(member.membership_type, member.membership_status)}
+                    <div className="mt-2 space-y-2">
+                      <div>
+                        {getUserTypeBadge(member.user_type)}
+                      </div>
+                      <div>
+                        {getMembershipBadge(member.membership_type, member.membership_status)}
+                      </div>
                     </div>
                   </div>
 
                   <button
                     onClick={() => handleImpersonate(member)}
                     disabled={!member.has_auth || impersonating}
-                    className={`ml-2 p-2 rounded-lg transition-colors ${
-                      member.has_auth
+                    className={`ml-2 p-2 rounded-lg transition-colors relative ${
+                      member.has_auth && !impersonating
                         ? 'text-primary-600 hover:bg-primary-50'
                         : 'text-gray-300 cursor-not-allowed'
-                    }`}
+                    } ${impersonating && selectedMember?.id === member.id ? 'bg-primary-50' : ''}`}
                     title={member.has_auth ? 'Login as this member' : 'No credentials available'}
                   >
-                    <LogIn className="h-5 w-5" />
+                    {impersonating && selectedMember?.id === member.id ? (
+                      <div className="animate-spin h-5 w-5 border-2 border-primary-600 border-t-transparent rounded-full"></div>
+                    ) : (
+                      <LogIn className="h-5 w-5" />
+                    )}
                   </button>
                 </div>
 

@@ -1,0 +1,37 @@
+Thanks for sharing this information and for your questions, and sorry about the slow reply as I have been away for a couple of weeks.
+
+ 
+
+I have a question about the OpenLearning integration and I’ve answered your questions for clarification below too.
+
+Regarding automatically import activities and certificates from OpenLearning, you have said this: We’ve followed all documentation and tested multiple approaches, but the OpenLearning endpoints that should enable this functionality are currently offline and non-functional.
+
+Question: Should I get in touch with OpenLearning to ask about this? Perhaps they can advise about if they can make the endpoints functional.
+
+Here are the answers to your questions for clarification:
+
+Questions for Clarification
+CPD Calculation
+When a user manually adds an activity, how should CPD be calculated? Should we consider 1 hour of activity as 1 CPD point, or should there be a different value depending on the activity category?The CPD points are weighted as 1, 2 or 3 points per hour depending on the type of activity. So, there should be a different value depending on the activity category – 1, 2 or 3. We should be able to set up the category when we set up an activity. This is the same functionality as the current website.
+Institution Linking
+From our understanding, each member can link themselves to any institution. Is that correct? Yes
+If so, does this require administrator approval, or is it automatically approved? We’d like their institution’s administrator to be emailed for approval
+Can a single member be linked to more than one institution? No
+Events
+Will there be a feature to send event invitations to non-members? If yes, who will have permission to send these invitations? No we don’t need this feature.
+Who can create events? Only English Australia administrators, or can institutions also create new events? Only English Australia admins
+In the event creation form, can we remove the “Featured Event (shown prominently)” option, or is it required? Not required – can remove.
+Member Registration
+In the current system, we have three fields — System Role, Membership Type, and Interest Group. Could you please clarify if all three are necessary, what they mean, and how they should affect user permissions within the platform? I believe we only need Membership Type. Depending on the Membership Type, some people can access all member documents, whereas some member types can only access free events and a limited number of documents.
+Event Registration and Payments
+Should event registrations be automatically approved, or should they require manual approval? They should be automatically approved. We would like a function whereby we can create some events where only members can register.
+We noticed events can be Free or Paid, and paid events may have different prices for members and non-members. How will these payments be processed? Through our payment gateway, Secure Pay
+Through the platform (via Secure Pay integration)?
+Or externally, with your team manually marking users as paid and granting access in the system?
+Membership Payments
+Similarly, how should membership payments be handled?
+Through the platform (Secure Pay integration)?
+Or externally, with your team manually updating membership approval, payment status, and expiration date? This one
+ 
+
+Let me know if you have any other questions.

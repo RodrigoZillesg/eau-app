@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../ui/Button'
 import { useAuthStore } from '../../stores/authStore'
@@ -18,14 +18,15 @@ import {
   Shield,
   Building2,
   FileText,
-  UserCheck
+  UserCheck,
+  Link2,
+  Award
 } from 'lucide-react'
-import { RoleSwitcher } from '../dev/RoleSwitcher'
 import { APP_VERSION } from '../../config/version'
 import { ImpersonationBanner } from '../shared/ImpersonationBanner'
 import { impersonationService } from '../../services/impersonationService'
 import { ApplicationNotificationBadge, ApplicationNotificationDropdown } from '../notifications/ApplicationNotificationBadge'
-import { OpenLearningAccessButton } from '../openlearning/OpenLearningAccessButton'
+import { showNotification } from '../../lib/notifications'
 
 interface MainLayoutProps {
   children: React.ReactNode
@@ -33,13 +34,41 @@ interface MainLayoutProps {
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const navigate = useNavigate()
-  const { user, roles, reset, getEffectiveRoles, simulatedRole } = useAuthStore()
+  const { user, roles, reset, getEffectiveRoles } = useAuthStore()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isNotificationDropdownOpen, setIsNotificationDropdownOpen] = useState(false)
-  
+  const [isOpenLearningLoading, setIsOpenLearningLoading] = useState(false)
+  const [canInstitutionsCreateEvents, setCanInstitutionsCreateEvents] = useState<boolean | null>(null) // null = loading, true/false = loaded
+
   // Get effective roles (considering simulation)
   const effectiveRoles = getEffectiveRoles()
+
+  // Load event management settings
+  useEffect(() => {
+    const loadEventSettings = async () => {
+      try {
+        const { data: settingsRow, error } = await supabase
+          .from('system_settings')
+          .select('setting_value')
+          .eq('setting_key', 'event_management')
+          .single()
+
+        console.log('🔍 Settings query result:', { settingsRow, error })
+
+        const eventSettings = settingsRow?.setting_value as any
+        const canCreate = eventSettings?.institutions_can_create_events ?? true
+        console.log('🔧 Event settings loaded:', { canCreate, eventSettings, roles })
+        setCanInstitutionsCreateEvents(canCreate)
+      } catch (error) {
+        console.error('Error loading event settings:', error)
+        // Default to true if error
+        setCanInstitutionsCreateEvents(true)
+      }
+    }
+
+    loadEventSettings()
+  }, [roles])
 
   const handleLogout = async () => {
     setIsLoggingOut(true)
@@ -51,6 +80,95 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       console.error('Error signing out:', error)
     } finally {
       setIsLoggingOut(false)
+    }
+  }
+
+  const handleOpenLearningAccess = async () => {
+    if (!user?.id) {
+      showNotification('error', 'Please log in to access OpenLearning')
+      return
+    }
+
+    setIsOpenLearningLoading(true)
+    setIsMobileMenuOpen(false) // Close menu when clicking
+
+    try {
+      // Get auth token for backend API
+      const { data: session } = await supabase.auth.getSession()
+      if (!session?.session?.access_token) {
+        showNotification('error', 'Authentication required')
+        return
+      }
+
+      // Get member ID from user ID
+      const { data: member } = await supabase
+        .from('members')
+        .select('id')
+        .eq('user_id', user.id)
+        .single()
+
+      if (!member) {
+        throw new Error('Member profile not found')
+      }
+
+      // Generate SSO link from backend
+      const ssoResponse = await fetch('http://localhost:3001/api/v1/openlearning/sso/launch', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          memberId: member.id
+        })
+      })
+
+      if (!ssoResponse.ok) {
+        const error = await ssoResponse.json()
+        throw new Error(error.error || 'Failed to generate SSO link')
+      }
+
+      const result = await ssoResponse.json()
+
+      if (result.success && result.launchData) {
+        const launchData = result.launchData
+
+        // Create a form and submit it (LTI requires POST)
+        const form = document.createElement('form')
+        form.method = launchData.method || 'POST'
+        form.action = launchData.url
+        form.target = '_blank'
+
+        // Add all LTI/OAuth parameters as hidden fields
+        if (launchData.params) {
+          Object.entries(launchData.params).forEach(([key, value]) => {
+            const input = document.createElement('input')
+            input.type = 'hidden'
+            input.name = key
+            input.value = String(value)
+            form.appendChild(input)
+          })
+        }
+
+        // Append form to body and submit
+        document.body.appendChild(form)
+        form.submit()
+
+        // Clean up
+        setTimeout(() => {
+          document.body.removeChild(form)
+        }, 100)
+
+        showNotification('success', 'Opening OpenLearning...')
+      } else {
+        throw new Error(result.error || 'No SSO data received')
+      }
+
+    } catch (error: any) {
+      console.error('Error accessing OpenLearning:', error)
+      showNotification('error', error.message || 'Failed to access OpenLearning')
+    } finally {
+      setIsOpenLearningLoading(false)
     }
   }
 
@@ -157,15 +275,19 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                   Dashboard
                 </button>
 
-                <PermissionGuard permission="CREATE_CPD">
-                  <button
-                    onClick={() => handleNavigateAndClose('/cpd')}
-                    className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
-                  >
-                    <BookOpen className="h-4 w-4 mr-3 text-green-500" />
-                    My CPDs
-                  </button>
-                </PermissionGuard>
+                {/* My CPDs - Only for Members and Institution Admins (not technical admins) */}
+                {(roles.includes('Members') || roles.includes('InstitutionAdmin')) &&
+                 !roles.includes('AdminSuper') && !roles.includes('Admin') && (
+                  <PermissionGuard permission="CREATE_CPD">
+                    <button
+                      onClick={() => handleNavigateAndClose('/cpd')}
+                      className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                    >
+                      <BookOpen className="h-4 w-4 mr-3 text-green-500" />
+                      My CPDs
+                    </button>
+                  </PermissionGuard>
+                )}
 
                 <PermissionGuard permission="REGISTER_EVENT">
                   <button
@@ -177,31 +299,60 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                   </button>
                 </PermissionGuard>
 
-                <PermissionGuard permission="REGISTER_EVENT">
+                {/* My Registrations - Only for Members and Institution Admins (not technical admins) */}
+                {(roles.includes('Members') || roles.includes('InstitutionAdmin')) &&
+                 !roles.includes('AdminSuper') && !roles.includes('Admin') && (
+                  <PermissionGuard permission="REGISTER_EVENT">
+                    <button
+                      onClick={() => handleNavigateAndClose('/my-registrations')}
+                      className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                    >
+                      <Calendar className="h-4 w-4 mr-3 text-orange-500" />
+                      My Registrations
+                    </button>
+                  </PermissionGuard>
+                )}
+
+                {/* Institution Linking - Only for Members (not admins) */}
+                {roles.includes('Members') && !roles.includes('Admin') &&
+                 !roles.includes('AdminSuper') && !roles.includes('InstitutionAdmin') && (
                   <button
-                    onClick={() => handleNavigateAndClose('/my-registrations')}
+                    onClick={() => handleNavigateAndClose('/institutions/link')}
                     className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
                   >
-                    <Calendar className="h-4 w-4 mr-3 text-orange-500" />
-                    My Registrations
+                    <Building2 className="h-4 w-4 mr-3 text-teal-500" />
+                    Institution Linking
                   </button>
-                </PermissionGuard>
+                )}
               </div>
 
-              {/* External Integration */}
-              <div className="border-b pb-4 mb-4">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                  Learning Platform
-                </h3>
+              {/* External Integration - Only for Members and Institution Admins (not technical admins) */}
+              {(roles.includes('Members') || roles.includes('InstitutionAdmin')) &&
+               !roles.includes('AdminSuper') && !roles.includes('Admin') && (
+                <div className="border-b pb-4 mb-4">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                    Learning Platform
+                  </h3>
 
-                <div className="px-3">
-                  <OpenLearningAccessButton
-                    variant="outline"
-                    fullWidth={true}
-                    size="sm"
-                  />
+                  <button
+                    onClick={handleOpenLearningAccess}
+                    disabled={isOpenLearningLoading}
+                    className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors disabled:opacity-50"
+                  >
+                    {isOpenLearningLoading ? (
+                      <>
+                        <div className="animate-spin w-4 h-4 border-2 border-gray-700 border-t-transparent rounded-full mr-3"></div>
+                        Connecting...
+                      </>
+                    ) : (
+                      <>
+                        <GraduationCap className="h-4 w-4 mr-3 text-indigo-500" />
+                        Access OpenLearning
+                      </>
+                    )}
+                  </button>
                 </div>
-              </div>
+              )}
 
               {/* Admin Section */}
               <PermissionGuard permission="ACCESS_ADMIN_DASHBOARD">
@@ -218,6 +369,20 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     Admin Dashboard
                   </button>
 
+                  {/* Manage Events - Show to SuperAdmin/Admin always, Institution Admin only if setting enabled */}
+                  {canInstitutionsCreateEvents !== null && (
+                    (roles.includes('AdminSuper') || roles.includes('Admin') ||
+                      (roles.includes('InstitutionAdmin') && canInstitutionsCreateEvents === true)) && (
+                      <button
+                        onClick={() => handleNavigateAndClose('/admin/events')}
+                        className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                      >
+                        <Calendar className="h-4 w-4 mr-3 text-purple-500" />
+                        Manage Events
+                      </button>
+                    )
+                  )}
+
                   <button
                     onClick={() => handleNavigateAndClose('/admin/members')}
                     className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
@@ -226,12 +391,23 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     Members
                   </button>
 
+                  {/* Membership - Only Super Admin and Admin (not Institution Admin) */}
+                  {(roles.includes('AdminSuper') || roles.includes('Admin')) && (
+                    <button
+                      onClick={() => handleNavigateAndClose('/admin/membership')}
+                      className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                    >
+                      <Settings className="h-4 w-4 mr-3 text-gray-500" />
+                      Membership
+                    </button>
+                  )}
+
                   <button
-                    onClick={() => handleNavigateAndClose('/admin/membership')}
+                    onClick={() => handleNavigateAndClose('/admin/institution-links')}
                     className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
                   >
-                    <Settings className="h-4 w-4 mr-3 text-gray-500" />
-                    Membership
+                    <Link2 className="h-4 w-4 mr-3 text-teal-500" />
+                    Institution Link Requests
                   </button>
 
                   {/* Only for Super Admin - Institution Management */}
@@ -256,14 +432,36 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     </button>
                   )}
 
-                  {/* Only for Super Admin - OpenLearning Integration */}
-                  {roles.includes('AdminSuper') && (
+                  {/* Only for Super Admin and Admin - OpenLearning Courses Management */}
+                  {(roles.includes('AdminSuper') || roles.includes('Admin')) && (
                     <button
-                      onClick={() => handleNavigateAndClose('/admin/openlearning')}
+                      onClick={() => handleNavigateAndClose('/admin/openlearning/courses')}
                       className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
                     >
-                      <GraduationCap className="h-4 w-4 mr-3 text-indigo-500" />
-                      OpenLearning Integration
+                      <GraduationCap className="h-4 w-4 mr-3 text-green-500" />
+                      OpenLearning Courses
+                    </button>
+                  )}
+
+                  {/* Only for Super Admin - CPD Categories Management */}
+                  {roles.includes('AdminSuper') && (
+                    <button
+                      onClick={() => handleNavigateAndClose('/admin/cpd-categories')}
+                      className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                    >
+                      <Settings className="h-4 w-4 mr-3 text-yellow-500" />
+                      CPD Categories
+                    </button>
+                  )}
+
+                  {/* Only for Admin and Super Admin - Event Certificates Batch */}
+                  {(roles.includes('Admin') || roles.includes('AdminSuper')) && (
+                    <button
+                      onClick={() => handleNavigateAndClose('/admin/certificates')}
+                      className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                    >
+                      <Award className="h-4 w-4 mr-3 text-blue-500" />
+                      Event Certificates
                     </button>
                   )}
 
@@ -335,17 +533,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             
             <div className="flex items-center space-x-4">
               <span className="text-xs text-gray-400">{APP_VERSION.simple}</span>
-              
-              {/* Development Role Switcher - Hidden during impersonation */}
-              {process.env.NODE_ENV === 'development' && !impersonationService.isImpersonating() && (
-                <RoleSwitcher />
-              )}
-              
-              {simulatedRole && !impersonationService.isImpersonating() && (
-                <div className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">
-                  Simulating: {simulatedRole}
-                </div>
-              )}
             </div>
           </div>
         </div>

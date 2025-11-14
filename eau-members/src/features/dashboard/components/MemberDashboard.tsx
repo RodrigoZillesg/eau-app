@@ -7,6 +7,7 @@ import { PermissionGuard } from '../../../components/shared/PermissionGuard'
 import { supabase } from '../../../lib/supabase/client'
 import { impersonationService } from '../../../services/impersonationService'
 import { MembershipStatusCard } from './MembershipStatusCard'
+import { InstitutionCPDCard } from './InstitutionCPDCard'
 import { OpenLearningAccessButton } from '../../../components/openlearning/OpenLearningAccessButton'
 import { OpenLearningCourseCatalog } from '../../../components/OpenLearningCourseCatalog'
 
@@ -42,7 +43,39 @@ export const MemberDashboard: React.FC = () => {
   // State for recent activities
   const [recentActivities, setRecentActivities] = useState<any[]>([])
   const [activitiesLoading, setActivitiesLoading] = useState(true)
-  
+
+  // State for user name and institution
+  const [userName, setUserName] = useState<string>('')
+  const [institutionName, setInstitutionName] = useState<string>('')
+
+  // Fetch user name and institution from members table
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!user?.id) return
+
+      try {
+        const { data: memberData } = await supabase
+          .from('members')
+          .select('first_name, last_name, institution_id, institutions(name)')
+          .eq('user_id', user.id)
+          .single()
+
+        if (memberData) {
+          setUserName(`${memberData.first_name} ${memberData.last_name}`)
+
+          // Set institution name if available
+          if (memberData.institutions && memberData.institutions.name) {
+            setInstitutionName(memberData.institutions.name)
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error)
+      }
+    }
+
+    fetchUserData()
+  }, [user?.id])
+
   // Fetch CPD statistics
   useEffect(() => {
     const fetchCPDStats = async () => {
@@ -161,10 +194,10 @@ export const MemberDashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
-                Welcome back, {displayUser?.user_metadata?.full_name || displayUser?.email}
+                Welcome back, {userName || displayUser?.email}
               </h1>
               <p className="text-gray-600">
-                Roles: {displayRoles.join(', ') || 'No roles assigned'}
+                {institutionName ? `Institution: ${institutionName}` : `Roles: ${displayRoles.join(', ') || 'No roles assigned'}`}
               </p>
             </div>
           </div>
@@ -178,14 +211,19 @@ export const MemberDashboard: React.FC = () => {
           {/* Membership Status Card - Priority placement */}
           <MembershipStatusCard />
 
+          {/* Institution CPD Overview - Only for Institution Admins */}
+          {displayRoles.includes('InstitutionAdmin') && (
+            <InstitutionCPDCard />
+          )}
+
           {/* CPD Summary Card */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                📚 CPD Summary
+                📚 My CPD Summary
               </CardTitle>
               <CardDescription>
-                Your Continuing Professional Development progress
+                Your personal Continuing Professional Development progress
               </CardDescription>
             </CardHeader>
             <CardContent>

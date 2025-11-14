@@ -13,6 +13,7 @@ const email_routes_1 = __importDefault(require("./email.routes"));
 const institutionLink_routes_1 = __importDefault(require("./institutionLink.routes"));
 const openlearningCourses_routes_1 = __importDefault(require("./openlearningCourses.routes"));
 const openlearning_routes_1 = __importDefault(require("./openlearning.routes")); // OpenLearning SSO routes
+const storage_routes_1 = __importDefault(require("./storage.routes")); // Storage routes for avatar upload
 // import openlearningPublicRoutes from './openlearning-public.routes'; // Temporarily disabled
 // import openlearningSSORoutes from './openlearningSSO.routes'; // Temporarily disabled
 // import certificatesRoutes from './certificates.routes';
@@ -43,6 +44,7 @@ router.use(`${constants_1.API_PREFIX}/institutions`, institutions_routes_1.defau
 router.use(`${constants_1.API_PREFIX}/invitations`, invitations_routes_1.default);
 router.use(`${constants_1.API_PREFIX}/cpd`, cpd_routes_1.default);
 router.use(`${constants_1.API_PREFIX}/email`, email_routes_1.default);
+router.use(`${constants_1.API_PREFIX}/storage`, storage_routes_1.default); // Storage routes for avatar upload (auth required)
 router.use(`${constants_1.API_PREFIX}/institution-links`, institutionLink_routes_1.default); // Institution linking workflow
 router.use(`${constants_1.API_PREFIX}/openlearning-courses`, openlearningCourses_routes_1.default); // OpenLearning courses catalog
 router.use(`${constants_1.API_PREFIX}/openlearning`, openlearning_routes_1.default); // OpenLearning SSO routes

@@ -400,7 +400,7 @@ export const ActivityImportPage: React.FC = () => {
               cpd_category: activity.category, // cpd_category como VARCHAR
               description: descriptionParts || null,
               provider: activity.eventWebsite ? 'External' : 'Self-directed', // Provider baseado na presença de website
-              evidence_url: activity.eventWebsite || null,
+              evidence_url: activity.supplyEvidence || null, // Use supplyEvidence field for evidence_url
               status: activity.verified === '1' ? 'approved' : 'pending'
             })
 

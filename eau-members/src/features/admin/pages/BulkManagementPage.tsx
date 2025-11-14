@@ -180,7 +180,7 @@ export const BulkManagementPage: React.FC = () => {
 
     try {
       setDeleting(true)
-      
+
       // Get current user's member ID to prevent self-deletion
       const { data: currentMember } = await supabase
         .from('members')
@@ -198,13 +198,30 @@ export const BulkManagementPage: React.FC = () => {
         return
       }
 
+      showNotification('info', 'Preparing to delete members...')
+
+      // CRITICAL: Clear foreign key references that prevent deletion
+      // 1. Clear reviewed_by in institution_link_requests
+      await supabase
+        .from('institution_link_requests')
+        .update({ reviewed_by: null })
+        .in('reviewed_by', membersToDelete)
+
+      // 2. Clear institution_linked_by in members
+      await supabase
+        .from('members')
+        .update({ institution_linked_by: null })
+        .in('institution_linked_by', membersToDelete)
+
+      showNotification('info', 'Foreign key references cleared, deleting members...')
+
       // Delete in batches to avoid timeout
       const batchSize = 10
       let deletedCount = 0
 
       for (let i = 0; i < membersToDelete.length; i += batchSize) {
         const batch = membersToDelete.slice(i, i + batchSize)
-        
+
         // Delete members (cascade will handle related data)
         const { error } = await supabase
           .from('members')
@@ -212,23 +229,23 @@ export const BulkManagementPage: React.FC = () => {
           .in('id', batch)
 
         if (error) throw error
-        
+
         deletedCount += batch.length
-        
+
         // Update progress
         showNotification('info', `Deleted ${deletedCount} of ${membersToDelete.length} members...`)
       }
 
       showNotification('success', `Successfully deleted ${deletedCount} member(s)`)
-      
+
       // Reload data
       await loadMembers()
       await loadStats()
       setSelectedMembers(new Set())
-      
+
     } catch (error) {
       console.error('Error deleting members:', error)
-      showNotification('error', 'Failed to delete members')
+      showNotification('error', 'Failed to delete members: ' + (error as Error).message)
     } finally {
       setDeleting(false)
     }
@@ -284,9 +301,9 @@ export const BulkManagementPage: React.FC = () => {
 
     try {
       setDeleting(true)
-      
+
       showNotification('info', 'Starting complete database cleanup...')
-      
+
       // Get current user's member ID to preserve it
       const { data: currentMember } = await supabase
         .from('members')
@@ -299,6 +316,23 @@ export const BulkManagementPage: React.FC = () => {
         return
       }
 
+      showNotification('info', 'Step 1/3: Clearing foreign key references...')
+
+      // CRITICAL: Clear ALL foreign key references that prevent deletion
+      // 1. Clear reviewed_by in institution_link_requests
+      await supabase
+        .from('institution_link_requests')
+        .update({ reviewed_by: null })
+        .neq('reviewed_by', currentMember.id)
+
+      // 2. Clear institution_linked_by in members
+      await supabase
+        .from('members')
+        .update({ institution_linked_by: null })
+        .neq('institution_linked_by', currentMember.id)
+
+      showNotification('info', 'Step 2/3: Deleting all members except you...')
+
       // Delete all members except current user
       const { error: deleteError } = await supabase
         .from('members')
@@ -306,6 +340,8 @@ export const BulkManagementPage: React.FC = () => {
         .neq('id', currentMember.id)
 
       if (deleteError) throw deleteError
+
+      showNotification('info', 'Step 3/3: Cleaning orphaned data...')
 
       // Clean up orphaned data (if any)
       // CPD activities without members
@@ -321,15 +357,15 @@ export const BulkManagementPage: React.FC = () => {
         .neq('user_id', user?.id)
 
       showNotification('success', 'Database cleaned successfully! Only your account remains.')
-      
+
       // Reload data
       await loadMembers()
       await loadStats()
       setSelectedMembers(new Set())
-      
+
     } catch (error) {
       console.error('Error cleaning database:', error)
-      showNotification('error', 'Failed to clean database')
+      showNotification('error', 'Failed to clean database: ' + (error as Error).message)
     } finally {
       setDeleting(false)
     }

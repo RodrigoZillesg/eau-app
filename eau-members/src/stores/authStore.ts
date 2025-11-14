@@ -7,12 +7,10 @@ interface AuthState {
   roles: UserRole[]
   isLoading: boolean
   rolesLoaded: boolean
-  simulatedRole: UserRole | null
   setUser: (user: User | null) => void
   setRoles: (roles: UserRole[]) => void
   setIsLoading: (isLoading: boolean) => void
   setRolesLoaded: (loaded: boolean) => void
-  setSimulatedRole: (role: UserRole | null) => void
   hasRole: (role: UserRole) => boolean
   getEffectiveRoles: () => UserRole[]
   getEffectiveUserId: () => string | undefined
@@ -24,8 +22,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   roles: [],
   isLoading: true,
   rolesLoaded: false,
-  simulatedRole: null,
-  
+
   setUser: (user) => set({ user }),
   
   setRoles: (roles) => set({ roles, rolesLoaded: true }),
@@ -36,17 +33,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
   
   setRolesLoaded: (loaded) => set({ rolesLoaded: loaded }),
-  
-  setSimulatedRole: (role) => {
-    // Save to localStorage for persistence
-    if (role) {
-      localStorage.setItem('simulatedRole', role)
-    } else {
-      localStorage.removeItem('simulatedRole')
-    }
-    set({ simulatedRole: role })
-  },
-  
+
   hasRole: (role) => {
     const state = get()
     
@@ -62,18 +49,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return state.roles.includes(role)
       }
     }
-    
-    // Only use simulated role if user is authenticated and roles are loaded
-    if (state.simulatedRole && !import.meta.env.PROD && state.user && state.rolesLoaded) {
-      return state.simulatedRole === role
-    }
-    // Otherwise use actual roles
+
+    // Use actual roles
     return state.roles.includes(role)
   },
   
   getEffectiveRoles: () => {
     const state = get()
-    
+
     // During impersonation, use the impersonated user's roles from session
     const impersonationSession = localStorage.getItem('eau_impersonation_session')
     if (impersonationSession) {
@@ -86,12 +69,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return state.roles
       }
     }
-    
-    // Only use simulated role if user is authenticated and roles are loaded
-    if (state.simulatedRole && !import.meta.env.PROD && state.user && state.rolesLoaded) {
-      return [state.simulatedRole]
-    }
-    // Otherwise return actual roles
+
+    // Return actual roles
     return state.roles
   },
   
@@ -115,11 +94,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
   
   reset: () => {
-    localStorage.removeItem('simulatedRole')
     // CRITICAL: Clear role cache on logout to ensure clean state
     sessionStorage.removeItem('eau_cached_roles')
     console.log('🧹 Role cache cleared on logout')
-    set({ user: null, roles: [], isLoading: false, rolesLoaded: false, simulatedRole: null })
+    set({ user: null, roles: [], isLoading: false, rolesLoaded: false })
   },
 }))
 

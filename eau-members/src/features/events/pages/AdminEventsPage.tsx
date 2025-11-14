@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Plus, Calendar, Edit, Trash2, Eye, Copy, MoreVertical } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Plus, Calendar, Edit, Trash2, Eye, Copy, MoreVertical, Users } from 'lucide-react';
 import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
@@ -14,6 +14,7 @@ import { getUserInstitution } from '../../../services/institutionService';
 import { useAuthStore } from '../../../stores/authStore';
 import { MembersService } from '../../../lib/supabase/members';
 import { supabase } from '../../../lib/supabase/client';
+import Swal from 'sweetalert2';
 
 export function AdminEventsPage() {
   const navigate = useNavigate();
@@ -80,11 +81,6 @@ export function AdminEventsPage() {
       type: 'boolean'
     },
     {
-      id: 'featured',
-      label: 'Featured Event',
-      type: 'boolean'
-    },
-    {
       id: 'capacity_min',
       label: 'Min Capacity',
       type: 'number',
@@ -105,17 +101,22 @@ export function AdminEventsPage() {
       setUserInstitution(institution);
 
       // Check if institutions can create events
-      if (roles.includes('AdminSuper')) {
-        // SuperAdmins can always create events
+      if (roles.includes('AdminSuper') || roles.includes('Admin')) {
+        // SuperAdmins and Admins can always create events
         setCanCreateEvents(true);
-      } else {
+      } else if (roles.includes('InstitutionAdmin')) {
         // Check system settings for Institution Admins
-        const { data: settings } = await supabase
+        const { data: settingsRow } = await supabase
           .from('system_settings')
-          .select('institutions_can_create_events')
+          .select('setting_value')
+          .eq('setting_key', 'event_management')
           .single();
 
-        setCanCreateEvents(settings?.institutions_can_create_events || false);
+        const eventSettings = settingsRow?.setting_value as any;
+        setCanCreateEvents(eventSettings?.institutions_can_create_events || false);
+      } else {
+        // Regular members cannot create events
+        setCanCreateEvents(false);
       }
 
       const [eventsData, categoriesData] = await Promise.all([
@@ -185,6 +186,39 @@ export function AdminEventsPage() {
   };
 
   const handleDeleteEvent = async (id: string) => {
+    // Find event name for confirmation message
+    const event = events.find(e => e.id === id);
+    const eventName = event?.title || 'this event';
+
+    // Show confirmation dialog
+    const result = await Swal.fire({
+      title: 'Delete Event?',
+      html: `
+        <div class="text-left">
+          <p class="mb-4">Are you sure you want to delete <strong>"${eventName}"</strong>?</p>
+          <p class="mb-2 text-red-600"><strong>This will permanently delete:</strong></p>
+          <ul class="list-disc list-inside text-sm text-gray-700">
+            <li>Event details and information</li>
+            <li>All registrations for this event</li>
+            <li>Related payments and records</li>
+            <li>CPD points awarded (if applicable)</li>
+          </ul>
+          <p class="mt-4 text-sm text-gray-600"><strong>This action cannot be undone!</strong></p>
+        </div>
+      `,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, delete it',
+      cancelButtonText: 'Cancel',
+      focusCancel: true
+    });
+
+    if (!result.isConfirmed) {
+      return;
+    }
+
     try {
       await EventService.deleteEvent(id);
       showNotification('success', 'Event deleted successfully');
@@ -354,7 +388,7 @@ export function AdminEventsPage() {
 
       {/* Events Table */}
       <Card>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-visible">
           <table className="w-full">
             <thead className="bg-gray-50 border-b">
               <tr>
@@ -435,30 +469,31 @@ export function AdminEventsPage() {
                         </Button>
                         
                         {showDeleteConfirm === event.id && (
-                          <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border">
+                          <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg border" style={{ zIndex: 9999 }}>
                             <div className="py-1">
                               <button
-                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 block"
                                 onClick={() => handlePublishEvent(event)}
                               >
                                 {event.status === 'published' ? 'Unpublish' : 'Publish'}
                               </button>
                               <button
-                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 block"
                                 onClick={() => handleDuplicateEvent(event)}
                               >
                                 <Copy className="h-4 w-4 inline mr-2" />
                                 Duplicate
                               </button>
                               <button
-                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 block"
                                 onClick={() => navigate(`/admin/events/${event.id}/registrations`)}
                               >
+                                <Users className="h-4 w-4 inline mr-2" />
                                 View Registrations
                               </button>
                               <hr className="my-1" />
                               <button
-                                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 block"
                                 onClick={() => handleDeleteEvent(event.id)}
                               >
                                 <Trash2 className="h-4 w-4 inline mr-2" />

@@ -1,0 +1,6 @@
+User ID,Member First Name,Member Last Name,Member Email Address,Member Groups,Primary Contact's User ID,Company Name,Company Company Address Line 1,Company Company Suburb,Company Company State,Company Company Postcode,Company Company Country,Status,Type
+90001,Super,Admin,super.test@example.com,"Super Admin,Members",90002,Test Institution 1,123 Test St,Sydney,NSW,2000,Australia,Active,Member College - Full
+90002,System,Admin,system.test@example.com,"Admin,Members",90002,Test Institution 1,123 Test St,Sydney,NSW,2000,Australia,Active,Member College - Full
+90003,Institution,Admin,institution.test@example.com,"Members",90003,Test Institution 1,123 Test St,Sydney,NSW,2000,Australia,Active,Member College - Full
+90004,Regular,Member1,member1.test@example.com,"Members",90003,Test Institution 1,123 Test St,Sydney,NSW,2000,Australia,Active,Member College - Full
+90005,Regular,Member2,member2.test@example.com,"Members",90003,Test Institution 1,123 Test St,Sydney,NSW,2000,Australia,Active,Member College - Full

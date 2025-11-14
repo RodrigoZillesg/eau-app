@@ -6,7 +6,7 @@
         "/c",
         "npx",
         "@supabase/mcp-server-supabase@latest",
-        "--access-token=sbp_ecc27aeccb072cf77abbd6bbbaf40bd129486887",
+        "--access-token=sbp_ec2474053006bb2a0c1dbcf4324e5882927ba6de",
         "--project-ref=ypsvoxelitgceclohxfu"
       ]
     },

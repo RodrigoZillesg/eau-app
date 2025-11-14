@@ -9,15 +9,13 @@ import { Save, Settings, Calendar, Users, BookOpen } from 'lucide-react'
 interface SystemSettings {
   id?: string
   institutions_can_create_events: boolean
-  auto_approve_cpd_enabled: boolean
   created_at?: string
   updated_at?: string
 }
 
 export const SystemSettingsPage: React.FC = () => {
   const [settings, setSettings] = useState<SystemSettings>({
-    institutions_can_create_events: false,
-    auto_approve_cpd_enabled: false
+    institutions_can_create_events: false
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -30,24 +28,32 @@ export const SystemSettingsPage: React.FC = () => {
     try {
       setLoading(true)
 
-      // Try to get existing system settings
-      const { data: existingSettings, error } = await supabase
+      // Get event_management settings from system_settings table (JSONB format)
+      const { data: settingsRow, error } = await supabase
         .from('system_settings')
-        .select('*')
+        .select('id, setting_value, created_at, updated_at')
+        .eq('setting_key', 'event_management')
         .single()
 
-      if (existingSettings) {
-        setSettings(existingSettings)
+      if (settingsRow && settingsRow.setting_value) {
+        // Extract settings from JSONB
+        const value = settingsRow.setting_value as any
+        setSettings({
+          id: settingsRow.id,
+          institutions_can_create_events: value.institutions_can_create_events ?? false,
+          created_at: settingsRow.created_at,
+          updated_at: settingsRow.updated_at
+        })
       } else if (error?.code === 'PGRST116') {
         // No settings found, will use defaults
         console.log('No system settings found, using defaults')
       } else if (error) {
         console.error('Error loading system settings:', error)
-        showNotification('Error loading settings', 'error')
+        showNotification('error', 'Error loading settings')
       }
     } catch (error) {
       console.error('Error loading settings:', error)
-      showNotification('Error loading settings', 'error')
+      showNotification('error', 'Error loading settings')
     } finally {
       setLoading(false)
     }
@@ -57,44 +63,35 @@ export const SystemSettingsPage: React.FC = () => {
     try {
       setSaving(true)
 
-      // Check if settings exist
-      const { data: existingSettings } = await supabase
+      // Update event_management settings (JSONB format)
+      const { data: result, error } = await supabase
         .from('system_settings')
-        .select('id')
+        .update({
+          setting_value: {
+            institutions_can_create_events: settings.institutions_can_create_events
+          },
+          updated_at: new Date().toISOString()
+        })
+        .eq('setting_key', 'event_management')
+        .select('id, setting_value, created_at, updated_at')
         .single()
 
-      let result
-      if (existingSettings) {
-        // Update existing settings
-        result = await supabase
-          .from('system_settings')
-          .update({
-            institutions_can_create_events: settings.institutions_can_create_events,
-            auto_approve_cpd_enabled: settings.auto_approve_cpd_enabled,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingSettings.id)
-          .select()
-          .single()
-      } else {
-        // Create new settings
-        result = await supabase
-          .from('system_settings')
-          .insert({
-            institutions_can_create_events: settings.institutions_can_create_events,
-            auto_approve_cpd_enabled: settings.auto_approve_cpd_enabled
-          })
-          .select()
-          .single()
+      if (error) throw error
+
+      if (result && result.setting_value) {
+        const value = result.setting_value as any
+        setSettings({
+          id: result.id,
+          institutions_can_create_events: value.institutions_can_create_events ?? false,
+          created_at: result.created_at,
+          updated_at: result.updated_at
+        })
       }
 
-      if (result.error) throw result.error
-
-      setSettings(result.data)
-      showNotification('Settings saved successfully', 'success')
+      showNotification('success', 'Settings saved successfully')
     } catch (error) {
       console.error('Error saving settings:', error)
-      showNotification('Error saving settings', 'error')
+      showNotification('error', 'Error saving settings')
     } finally {
       setSaving(false)
     }
@@ -178,7 +175,7 @@ export const SystemSettingsPage: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* CPD Settings */}
+        {/* CPD Settings moved to dedicated CPD Settings page */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -186,36 +183,21 @@ export const SystemSettingsPage: React.FC = () => {
               CPD Management
             </CardTitle>
             <CardDescription>
-              Configure CPD activity approval settings
+              CPD settings have been moved to a dedicated configuration page
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div className="flex-1">
-                  <label htmlFor="cpd-toggle" className="text-sm font-medium text-gray-900">
-                    Enable Automatic CPD Approval
-                  </label>
-                  <p className="text-sm text-gray-500 mt-1">
-                    When enabled, CPD activities from English Australia events are automatically approved.
-                    External activities will still require manual approval.
-                  </p>
-                </div>
-                <Switch
-                  id="cpd-toggle"
-                  checked={settings.auto_approve_cpd_enabled}
-                  onCheckedChange={() => handleToggle('auto_approve_cpd_enabled')}
-                  className="ml-4"
-                />
-              </div>
-
-              {!settings.auto_approve_cpd_enabled && (
-                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-sm text-yellow-800">
-                    <strong>Manual Approval Mode:</strong> All CPD activities will require admin review
-                  </p>
-                </div>
-              )}
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800 mb-3">
+                <strong>Note:</strong> CPD approval settings and points configuration are now managed separately.
+              </p>
+              <Button
+                onClick={() => window.location.href = '/admin/cpd/settings'}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Go to CPD Settings
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -258,9 +240,7 @@ export const SystemSettingsPage: React.FC = () => {
                       <td className="px-4 py-3 text-gray-900">Review CPD Activities</td>
                       <td className="px-4 py-3 text-center">✅</td>
                       <td className="px-4 py-3 text-center">✅</td>
-                      <td className="px-4 py-3 text-center">
-                        {settings.auto_approve_cpd_enabled ? '❌' : '✅'}
-                      </td>
+                      <td className="px-4 py-3 text-center">✅</td>
                       <td className="px-4 py-3 text-center">❌</td>
                     </tr>
                     <tr>

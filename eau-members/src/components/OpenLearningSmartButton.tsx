@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from './ui/Button';
 import { BookOpen } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -17,40 +17,8 @@ export const OpenLearningSmartButton: React.FC<OpenLearningSmartButtonProps> = (
   courseTitle
 }) => {
   const [launching, setLaunching] = useState(false);
-  const [isOpenLearningAuthenticated, setIsOpenLearningAuthenticated] = useState(false);
   const { getEffectiveUserId } = useAuthStore();
   const effectiveUserId = getEffectiveUserId();
-
-  useEffect(() => {
-    checkOpenLearningAuth();
-  }, []);
-
-  const checkOpenLearningAuth = async () => {
-    try {
-      // Check if user has been provisioned in OpenLearning
-      if (!effectiveUserId) return;
-
-      const { data: member } = await supabase
-        .from('members')
-        .select('openlearning_user_id, openlearning_last_sso')
-        .eq('user_id', effectiveUserId)
-        .single();
-
-      if (member?.openlearning_user_id) {
-        // User has been provisioned
-        // Check if SSO was done recently (within last 24 hours)
-        if (member.openlearning_last_sso) {
-          const lastSSO = new Date(member.openlearning_last_sso);
-          const hoursSinceSSO = (Date.now() - lastSSO.getTime()) / (1000 * 60 * 60);
-
-          // Consider authenticated if SSO was done in the last 24 hours
-          setIsOpenLearningAuthenticated(hoursSinceSSO < 24);
-        }
-      }
-    } catch (error) {
-      console.error('Error checking OpenLearning auth:', error);
-    }
-  };
 
   const handleClick = async () => {
     if (!effectiveUserId) {
@@ -61,24 +29,38 @@ export const OpenLearningSmartButton: React.FC<OpenLearningSmartButtonProps> = (
     setLaunching(true);
 
     try {
-      if (isOpenLearningAuthenticated) {
-        // User is already authenticated, just open the course URL
-        console.log('User authenticated, opening direct link:', courseUrl);
-        window.open(courseUrl, '_blank');
-        showNotification('success', 'Opening course...');
-      } else {
-        // User needs SSO
-        console.log('User needs SSO, launching SSO flow');
+      // Check if user has done SSO recently (within last 4 hours)
+      const { data: member } = await supabase
+        .from('members')
+        .select('openlearning_last_sso')
+        .eq('user_id', effectiveUserId)
+        .single();
+
+      const lastSSO = member?.openlearning_last_sso;
+      const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
+      const needsSSO = !lastSSO || new Date(lastSSO) < fourHoursAgo;
+
+      if (needsSSO) {
+        // First time or SSO expired - do general SSO first
+        console.log('First time access or SSO expired - launching general SSO...');
         await launchWithSSO();
 
-        // Update the last SSO timestamp
+        // Update timestamp
         await supabase
           .from('members')
           .update({ openlearning_last_sso: new Date().toISOString() })
           .eq('user_id', effectiveUserId);
 
-        // Update local state
-        setIsOpenLearningAuthenticated(true);
+        // After SSO, redirect to course
+        setTimeout(() => {
+          console.log('Redirecting to course:', courseUrl);
+          window.open(courseUrl, '_blank');
+        }, 2000);
+      } else {
+        // Already authenticated - just open the course URL directly
+        console.log('Already authenticated - opening course directly:', courseUrl);
+        window.open(courseUrl, '_blank');
+        showNotification('success', 'Opening course...');
       }
     } catch (error: any) {
       console.error('Error accessing course:', error);
@@ -106,7 +88,7 @@ export const OpenLearningSmartButton: React.FC<OpenLearningSmartButtonProps> = (
       throw new Error('Member profile not found');
     }
 
-    // Launch SSO without specific course (general login)
+    // Launch GENERAL SSO (no courseId - just authenticate)
     const ssoResponse = await fetch('http://localhost:3001/api/v1/openlearning/sso/launch', {
       method: 'POST',
       headers: {
@@ -115,7 +97,7 @@ export const OpenLearningSmartButton: React.FC<OpenLearningSmartButtonProps> = (
       },
       body: JSON.stringify({
         memberId: member.id
-        // Not sending classId/courseId to avoid the "course not set up" error
+        // NOT sending classId - general SSO only
       })
     });
 
@@ -152,11 +134,7 @@ export const OpenLearningSmartButton: React.FC<OpenLearningSmartButtonProps> = (
         document.body.removeChild(form);
       }, 100);
 
-      // After SSO, user should navigate to the course manually
-      // Show a notification to guide them
-      setTimeout(() => {
-        showNotification('info', 'Now you can access the course from OpenLearning');
-      }, 3000);
+      showNotification('info', 'Authenticating... Course will open shortly');
     } else {
       throw new Error(result.error || 'No SSO data received');
     }
@@ -178,7 +156,7 @@ export const OpenLearningSmartButton: React.FC<OpenLearningSmartButtonProps> = (
       ) : (
         <>
           <BookOpen className="w-4 h-4 mr-2" />
-          {isOpenLearningAuthenticated ? 'Open Course' : 'Access Course (Login Required)'}
+          Access Course
         </>
       )}
     </Button>

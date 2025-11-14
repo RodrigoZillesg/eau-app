@@ -7,5 +7,8 @@ export declare class AuthController {
     me(req: Request & {
         user?: any;
     }, res: Response): Promise<Response<any, Record<string, any>> | undefined>;
+    impersonate(req: Request & {
+        user?: any;
+    }, res: Response): Promise<Response<any, Record<string, any>> | undefined>;
 }
 //# sourceMappingURL=auth.controller.d.ts.map

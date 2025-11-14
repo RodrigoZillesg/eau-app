@@ -236,14 +236,20 @@ export function CPDPage() {
           <div className="p-12 text-center">
             <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {searchTerm || filterStatus !== 'all' ? 'No activities found' : 'No CPD activities yet'}
+              {searchTerm || filterStatus !== 'all'
+                ? 'No activities found'
+                : activities.length > 0
+                  ? `No activities for ${selectedYear}`
+                  : 'No CPD activities yet'}
             </h3>
             <p className="text-gray-600 mb-4">
-              {searchTerm || filterStatus !== 'all' 
+              {searchTerm || filterStatus !== 'all'
                 ? 'Try adjusting your search or filters'
-                : 'Start tracking your professional development by adding your first activity'}
+                : activities.length > 0
+                  ? `You have ${activities.length} activities in other years. Change the year filter above to view them.`
+                  : 'Start tracking your professional development by adding your first activity'}
             </p>
-            {!searchTerm && filterStatus === 'all' && (
+            {!searchTerm && filterStatus === 'all' && activities.length === 0 && (
               <Button onClick={() => setIsModalOpen(true)}>
                 <Plus className="w-4 h-4 mr-2" />
                 Add Your First Activity
@@ -308,48 +314,9 @@ export function CPDPage() {
                           {/* View button */}
                           <button
                             onClick={() => {
-                              if (activity.evidence_url.startsWith('data:')) {
-                                // For base64 data, open in new tab
-                                const newTab = window.open()
-                                if (newTab) {
-                                  // Check if it's an image or PDF
-                                  if (activity.evidence_url.includes('image/') || 
-                                      activity.evidence_url.includes('application/pdf')) {
-                                    newTab.document.write(`
-                                      <html>
-                                        <head>
-                                          <title>${activity.evidence_filename || 'Certificate'}</title>
-                                          <style>
-                                            body { 
-                                              margin: 0; 
-                                              display: flex; 
-                                              justify-content: center; 
-                                              align-items: center; 
-                                              min-height: 100vh; 
-                                              background: #f3f4f6; 
-                                            }
-                                            img { max-width: 90%; max-height: 90vh; }
-                                            embed { width: 100vw; height: 100vh; }
-                                          </style>
-                                        </head>
-                                        <body>
-                                          ${activity.evidence_url.includes('application/pdf') 
-                                            ? `<embed src="${activity.evidence_url}" type="application/pdf" />` 
-                                            : `<img src="${activity.evidence_url}" alt="${activity.evidence_filename || 'Certificate'}" />`
-                                          }
-                                        </body>
-                                      </html>
-                                    `)
-                                    newTab.document.close()
-                                  } else {
-                                    // For other file types, just open the data URL
-                                    newTab.location.href = activity.evidence_url
-                                  }
-                                }
-                              } else {
-                                // For regular URLs, open in new tab
-                                window.open(activity.evidence_url, '_blank')
-                              }
+                              // Simply open the evidence URL in a new tab
+                              // Works for both data URLs (base64) and regular URLs
+                              window.open(activity.evidence_url, '_blank')
                             }}
                             className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
                             title="View certificate"

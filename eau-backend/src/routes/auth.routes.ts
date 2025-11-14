@@ -34,4 +34,15 @@ router.post('/logout', authenticate, authController.logout);
 // Get current user
 router.get('/me', authenticate, authController.me);
 
+// Impersonate user (admin only)
+router.post(
+  '/impersonate',
+  [
+    body('email').isEmail().normalizeEmail()
+  ],
+  handleValidationErrors,
+  authenticate,
+  authController.impersonate
+);
+
 export default router;

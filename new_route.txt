@@ -1,0 +1,11 @@
+
+      <Route
+        path="/admin/openlearning/courses"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute roles={['AdminSuper', 'Admin']}>
+              <OpenLearningCoursesManagement />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />

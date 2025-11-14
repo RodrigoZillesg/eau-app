@@ -448,17 +448,17 @@ export class EventRegistrationService {
           .select('*')
           .eq('id', registrationId)
           .single();
-        
+
         if (registration && !registration.cpd_activity_created) {
           // Get event details
           const event = await EventService.getEventById(registration.event_id);
-          
+
           if (event && event.cpd_points > 0) {
             // Get user details
             const { data: { user } } = await supabase.auth.getUser();
             const userEmail = user?.email || '';
             const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Member';
-            
+
             // Calculate hours from event duration
             const startDate = new Date(event.start_date);
             const endDate = new Date(event.end_date);
@@ -485,7 +485,7 @@ export class EventRegistrationService {
               hours: hours,
               minutes: minutes
             }, registration.user_id, userEmail);
-            
+
             // Update registration to mark CPD as created
             await supabase
               .from('event_registrations')
@@ -494,7 +494,7 @@ export class EventRegistrationService {
                 cpd_activity_id: cpdActivity.id
               })
               .eq('id', registrationId);
-            
+
             // Send CPD notification email
             await EmailService.sendCPDPointsNotification({
               to: userEmail,
@@ -504,7 +504,7 @@ export class EventRegistrationService {
               cpdCategory: event.cpd_category || 'Event Attendance',
               certificateLink: `/certificates/${registrationId}`
             });
-            
+
             console.log(`CPD activity created for registration ${registrationId}: ${event.cpd_points} points`);
           }
         }
