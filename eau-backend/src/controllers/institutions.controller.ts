@@ -6,7 +6,7 @@ import { ERROR_MESSAGES, USER_TYPES, INSTITUTION_STATUS } from '../config/consta
 export class InstitutionsController {
   async list(req: AuthRequest, res: Response) {
     try {
-      const { page = 1, limit = 10, status, membershipType } = req.query;
+      const { page = 1, limit = 10, status, membershipType, forLinking } = req.query;
       const offset = (Number(page) - 1) * Number(limit);
 
       let query = supabaseAdmin
@@ -21,9 +21,34 @@ export class InstitutionsController {
         query = query.eq('membership_type', membershipType);
       }
 
-      // Only show user's own institution if not super admin
-      if (req.user?.userType !== USER_TYPES.SUPER_ADMIN && req.user?.institutionId) {
-        query = query.eq('id', req.user.institutionId);
+      // Special mode: listing institutions for linking (available to all members)
+      if (forLinking === 'true') {
+        // Show only active institutions for linking - NO PAGINATION (return all)
+        query = query.eq('membership_status', 'active');
+
+        // For linking mode, return ALL institutions sorted by name
+        const { data: institutions, error, count } = await query
+          .order('name', { ascending: true }); // Sort alphabetically for better UX
+
+        if (error) throw error;
+
+        return res.json({
+          success: true,
+          data: {
+            institutions,
+            pagination: {
+              total: count,
+              page: 1,
+              limit: count || 0,
+              totalPages: 1
+            }
+          }
+        } as ApiResponse);
+      } else {
+        // Default list mode: Only show user's own institution if not super admin
+        if (req.user?.userType !== USER_TYPES.SUPER_ADMIN && req.user?.institutionId) {
+          query = query.eq('id', req.user.institutionId);
+        }
       }
 
       const { data: institutions, error, count } = await query

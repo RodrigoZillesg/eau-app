@@ -97,6 +97,11 @@ export function usePermissions() {
            hasRole('Admin') || hasRole('AdminSuper')
   }
 
+  const isInstitutionAdmin = (): boolean => {
+    const effectiveRoles = getEffectiveRoles()
+    return effectiveRoles.includes('InstitutionAdmin') || hasRole('InstitutionAdmin')
+  }
+
   const isSuper = (): boolean => {
     const effectiveRoles = getEffectiveRoles()
     return effectiveRoles.includes('AdminSuper') || hasRole('AdminSuper')
@@ -114,6 +119,7 @@ export function usePermissions() {
     hasAnyRole,
     hasAllRoles,
     isAdmin,
+    isInstitutionAdmin,
     isSuper,
     isMember,
   }

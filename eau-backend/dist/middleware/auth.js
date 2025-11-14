@@ -29,7 +29,8 @@ const authenticate = async (req, res, next) => {
                 // It's a Supabase token
                 console.log('Supabase token detected');
                 decoded = payload;
-                userId = payload.sub;
+                // Use member_id from user_metadata if available, otherwise use sub (Auth user ID)
+                userId = payload.user_metadata?.member_id || payload.sub;
             }
             else {
                 // Try as backend JWT
@@ -38,6 +39,7 @@ const authenticate = async (req, res, next) => {
                 userId = decoded.userId;
             }
             console.log('decoded token:', decoded);
+            console.log('userId to query:', userId);
             // Verify user still exists and is active using ID (more reliable than email for duplicates)
             const { data: member, error } = await database_1.supabaseAdmin
                 .from('members')

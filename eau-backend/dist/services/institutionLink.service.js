@@ -27,9 +27,10 @@ async function requestInstitutionLink(data) {
             console.error('Error fetching member:', memberError);
             throw new Error('Member not found');
         }
-        if (member.institution_id) {
-            throw new Error('You are already linked to an institution. Please unlink first before requesting a new link.');
-        }
+        // Note: Removed the check that prevents linked members from requesting.
+        // Members can now request to link to a different institution, and upon approval,
+        // they will be automatically unlinked from their current institution.
+        // This implements the client requirement: "ao ser aprovado por uma, deve ser deslidado da outra"
         // 2. Check if there's already a pending request
         const { data: existing, error: existingError } = await database_1.supabaseAdmin
             .from('institution_link_requests')
@@ -176,11 +177,60 @@ async function approveLinkRequest({ requestId, reviewedBy, notes }) {
         if (request.status !== 'pending') {
             throw new Error('This request has already been reviewed.');
         }
-        // 2. Check if member is already linked to another institution
-        if (request.member.institution_id) {
-            throw new Error('This member is already linked to an institution.');
+        // 2. Auto-unlink from previous institution if necessary
+        let previousInstitutionId = null;
+        let previousInstitutionName = null;
+        if (request.member.institution_id && request.member.institution_id !== request.institution_id) {
+            previousInstitutionId = request.member.institution_id;
+            // Fetch previous institution name for notification
+            const { data: prevInst } = await database_1.supabaseAdmin
+                .from('institutions')
+                .select('name')
+                .eq('id', previousInstitutionId)
+                .single();
+            previousInstitutionName = prevInst?.name || 'Unknown Institution';
+            console.log(`Auto-unlinking member ${request.member_id} from institution ${previousInstitutionId} (${previousInstitutionName})`);
+            // Send notification email to previous institution admins
+            try {
+                const { data: prevInstAdmins } = await database_1.supabaseAdmin
+                    .from('members')
+                    .select('email, first_name, last_name')
+                    .eq('institution_id', previousInstitutionId)
+                    .in('user_type', ['institution_admin', 'admin', 'super_admin']);
+                if (prevInstAdmins && prevInstAdmins.length > 0) {
+                    const memberFullName = `${request.member.first_name || ''} ${request.member.last_name || ''}`.trim() || request.member.email;
+                    for (const admin of prevInstAdmins) {
+                        await email_service_1.EmailService.sendEmail({
+                            to: admin.email,
+                            subject: 'Member Transferred to Another Institution',
+                            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                  <h2 style="color: #ea580c;">Member Transfer Notification</h2>
+                  <p>Hello ${admin.first_name || 'Admin'},</p>
+                  <p>This is to inform you that the following member has been transferred from your institution to another:</p>
+                  <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
+                    <p><strong>Member:</strong> ${memberFullName}</p>
+                    <p><strong>Email:</strong> ${request.member.email}</p>
+                    <p><strong>Previous Institution:</strong> ${previousInstitutionName}</p>
+                    <p><strong>New Institution:</strong> ${request.institution.name}</p>
+                    <p><strong>Transfer Date:</strong> ${new Date().toLocaleDateString()}</p>
+                  </div>
+                  <p>This is an automated notification. The member has been approved to link with ${request.institution.name}.</p>
+                  <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
+                  <p style="color: #6b7280; font-size: 14px;">English Australia Members Platform</p>
+                </div>
+              `
+                        });
+                    }
+                    console.log(`Transfer notification emails sent to ${prevInstAdmins.length} admin(s) of previous institution`);
+                }
+            }
+            catch (emailError) {
+                console.error('Error sending transfer notification emails:', emailError);
+                // Don't throw - email failure shouldn't block the transfer
+            }
         }
-        // 3. Update member with institution_id
+        // 3. Update member with new institution_id (this automatically unlinks from previous)
         const { error: updateError } = await database_1.supabaseAdmin
             .from('members')
             .update({
@@ -439,21 +489,34 @@ async function unlinkFromInstitution(memberId) {
  */
 async function getMemberLinkStatus(memberId) {
     try {
-        // Get current institution
+        // Get member data
         const { data: member, error: memberError } = await database_1.supabaseAdmin
             .from('members')
-            .select(`
-        id,
-        institution_id,
-        institution_linked_at,
-        institution_linked_by,
-        institution:institutions(id, name, email)
-      `)
+            .select('id, institution_id, institution_linked_at, institution_linked_by')
             .eq('id', memberId)
             .single();
         if (memberError) {
             console.error('Error fetching member:', memberError);
             throw new Error('Member not found');
+        }
+        // Get institution data separately if member has one
+        let institutionData = null;
+        if (member.institution_id) {
+            const { data: inst, error: instError } = await database_1.supabaseAdmin
+                .from('institutions')
+                .select('id, name, email')
+                .eq('id', member.institution_id)
+                .single();
+            if (!instError && inst) {
+                institutionData = {
+                    id: inst.id,
+                    name: inst.name,
+                    linkedAt: member.institution_linked_at
+                };
+            }
+            else {
+                console.error('Error fetching institution:', instError);
+            }
         }
         // Get pending request if any
         const { data: pendingRequest } = await database_1.supabaseAdmin
@@ -477,11 +540,7 @@ async function getMemberLinkStatus(memberId) {
             .order('requested_at', { ascending: false })
             .limit(10);
         return {
-            currentInstitution: member.institution_id ? {
-                id: member.institution_id,
-                name: Array.isArray(member.institution) ? member.institution[0]?.name : member.institution?.name,
-                linkedAt: member.institution_linked_at
-            } : null,
+            currentInstitution: institutionData,
             pendingRequest: pendingRequest ? {
                 id: pendingRequest.id,
                 institutionName: pendingRequest.institution?.name,

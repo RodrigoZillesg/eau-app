@@ -2,10 +2,11 @@ import React from 'react'
 import { usePermissions } from '../../../hooks/usePermissions'
 import { MemberDashboard } from '../components/MemberDashboard'
 import { AdminDashboard } from '../components/AdminDashboard'
+import { InstitutionAdminDashboard } from '../components/InstitutionAdminDashboard'
 import { useAuthStore } from '../../../stores/authStore'
 
 export const DashboardPage: React.FC = () => {
-  const { isAdmin } = usePermissions()
+  const { isAdmin, isInstitutionAdmin } = usePermissions()
   const { user, isLoading } = useAuthStore()
 
   if (isLoading) {
@@ -32,6 +33,11 @@ export const DashboardPage: React.FC = () => {
   // Show admin dashboard if user has admin permissions
   if (isAdmin()) {
     return <AdminDashboard />
+  }
+
+  // Show institution admin dashboard if user is institution admin
+  if (isInstitutionAdmin()) {
+    return <InstitutionAdminDashboard />
   }
 
   // Default to member dashboard

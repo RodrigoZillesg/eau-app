@@ -100,3 +100,6 @@ Thumbs.db
 restore-*.js
 *-smtp*.js
 *.secret.js
+
+# Local backups (Git bundles)
+backups-local/

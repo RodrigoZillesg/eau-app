@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Building2, Check, Clock, X, AlertCircle, Link as LinkIcon, Unlink } from 'lucide-react'
 import { Card } from '../../../components/ui/Card'
 import { Button } from '../../../components/ui/Button'
+import { SearchableSelect } from '../../../components/ui/SearchableSelect'
 import { useAuthStore } from '../../../stores/authStore'
 import { showNotification } from '../../../lib/notifications'
 import { supabase } from '../../../lib/supabase/client'
@@ -60,8 +61,8 @@ export function InstitutionLinkPage() {
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
 
-      // Load institutions list
-      const institutionsResponse = await fetch(`${API_BASE_URL}/institutions`, {
+      // Load institutions list (with forLinking flag to get all active institutions)
+      const institutionsResponse = await fetch(`${API_BASE_URL}/institutions?forLinking=true`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -302,11 +303,11 @@ export function InstitutionLinkPage() {
         </Card>
 
         {/* Request New Link */}
-        {!linkStatus?.currentInstitution && !linkStatus?.pendingRequest && (
+        {!linkStatus?.pendingRequest && (
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
               <LinkIcon className="w-5 h-5" />
-              Request Institution Link
+              {linkStatus?.currentInstitution ? 'Request Institution Transfer' : 'Request Institution Link'}
             </h2>
 
             <div className="space-y-4">
@@ -314,18 +315,16 @@ export function InstitutionLinkPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Select Institution
                 </label>
-                <select
+                <SearchableSelect
+                  options={institutions.map((inst) => ({
+                    value: inst.id,
+                    label: inst.name
+                  }))}
                   value={selectedInstitutionId}
-                  onChange={(e) => setSelectedInstitutionId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">-- Select an institution --</option>
-                  {institutions.map((inst) => (
-                    <option key={inst.id} value={inst.id}>
-                      {inst.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setSelectedInstitutionId}
+                  placeholder="-- Select an institution --"
+                  emptyMessage="No institutions found"
+                />
               </div>
 
               <Button

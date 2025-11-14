@@ -5,7 +5,7 @@ import { Card } from '../../../components/ui/Card'
 import { Button } from '../../../components/ui/Button'
 import { useAuthStore } from '../../../stores/authStore'
 import { usePermissions } from '../../../hooks/usePermissions'
-import { showNotification } from '../../../lib/notifications'
+import { showNotification, notifications } from '../../../lib/notifications'
 import { supabase } from '../../../lib/supabase/client'
 
 const API_BASE_URL = 'http://localhost:3001/api/v1'
@@ -44,21 +44,39 @@ export function InstitutionLinkRequestsPage() {
   const [processingId, setProcessingId] = useState<string | null>(null)
   const [reviewNotes, setReviewNotes] = useState<{ [key: string]: string }>({})
   const [showNotesFor, setShowNotesFor] = useState<{ [key: string]: boolean }>({})
-  const { user } = useAuthStore()
-  const { isAdmin } = usePermissions()
+  const { user, isLoading: authLoading } = useAuthStore()
+  const { isAdmin, isInstitutionAdmin, roles } = usePermissions()
   const navigate = useNavigate()
 
   // Check admin status ONCE outside useEffect to prevent loop
   const userIsAdmin = isAdmin()
+  const userIsInstitutionAdmin = isInstitutionAdmin()
+  const hasAccess = userIsAdmin || userIsInstitutionAdmin
 
   useEffect(() => {
+    console.log('🔴 InstitutionLinkRequestsPage useEffect triggered')
+    console.log('  - user:', user ? '✅ exists' : '❌ null')
+    console.log('  - authLoading:', authLoading)
+    console.log('  - roles:', roles)
+    console.log('  - userIsAdmin:', userIsAdmin)
+    console.log('  - userIsInstitutionAdmin:', userIsInstitutionAdmin)
+    console.log('  - hasAccess:', hasAccess)
+
     if (!user) {
+      console.log('❌ No user, redirecting to login')
       navigate('/login')
       return
     }
 
-    // Check if user is admin using permissions system
-    if (!userIsAdmin) {
+    // Wait for roles to load before checking access
+    if (authLoading) {
+      console.log('⏳ Auth still loading, waiting...')
+      return
+    }
+
+    // Check if user is admin or institution admin
+    if (!hasAccess) {
+      console.log('🚫 No access! Redirecting to dashboard')
       navigate('/dashboard')
       showNotification({
         title: 'Access Denied',
@@ -68,8 +86,9 @@ export function InstitutionLinkRequestsPage() {
       return
     }
 
+    console.log('✅ Access granted! Loading requests...')
     loadRequests()
-  }, [user, navigate, activeTab, userIsAdmin])
+  }, [user, navigate, activeTab, hasAccess, authLoading])
 
   const loadRequests = async () => {
     try {
@@ -108,7 +127,14 @@ export function InstitutionLinkRequestsPage() {
   }
 
   const handleApprove = async (requestId: string) => {
-    if (!window.confirm('Are you sure you want to approve this link request?')) {
+    const result = await notifications.confirm(
+      'Approve Link Request',
+      'Are you sure you want to approve this link request? The member will be linked to your institution.',
+      'Yes, Approve',
+      'Cancel'
+    )
+
+    if (!result.isConfirmed) {
       return
     }
 
@@ -178,7 +204,14 @@ export function InstitutionLinkRequestsPage() {
       return
     }
 
-    if (!window.confirm('Are you sure you want to reject this link request?')) {
+    const result = await notifications.confirm(
+      'Reject Link Request',
+      'Are you sure you want to reject this link request? The member will be notified of the rejection.',
+      'Yes, Reject',
+      'Cancel'
+    )
+
+    if (!result.isConfirmed) {
       return
     }
 

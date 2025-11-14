@@ -6,6 +6,57 @@
 - **Communication**: All conversation with the user should be in Portuguese (PT-BR)
 - **Code and Application**: All code, UI text, error messages, and application content must be in English
 
+### 💾 BACKUP SYSTEM (LOCAL E REMOTO)
+**⚠️ CRITICAL: Sistema de backups rápidos e eficientes**
+
+#### Backup Remoto (GitHub Tags)
+**Quando o usuário pedir:** "faça um backup" ou "crie um backup"
+**O que fazer:**
+1. Commitar todas as mudanças com mensagem descritiva
+2. Criar tag anotada com formato: `vX.Y-descricao-da-feature`
+3. Push do commit e tag para GitHub
+4. Confirmar ao usuário o nome da tag criada
+
+**Exemplo:**
+```bash
+git add -A
+git commit -m "feat: Descrição detalhada da mudança"
+git tag -a v1.1-feature-name -m "Backup: Descrição do estado"
+git push origin main
+git push origin v1.1-feature-name
+```
+
+#### Backup Local (Git Bundle)
+**Quando o usuário pedir:** "faça um backup local"
+**O que fazer:**
+1. Criar git bundle na pasta `backups-local/`
+2. Nome do arquivo: `backup-YYYY-MM-DD_HH-MM-SS.bundle`
+3. Confirmar ao usuário o arquivo criado
+
+**Estrutura:**
+- **Pasta:** `backups-local/` (já adicionada ao .gitignore)
+- **Formato:** Git bundle com todo histórico (--all)
+- **Tamanho típico:** ~60MB (sem node_modules, logs, etc.)
+
+**Comando padrão:**
+```bash
+git bundle create "backups-local/backup-$(date +%Y-%m-%d_%H-%M-%S).bundle" --all
+```
+
+**Vantagens:**
+- ✅ Muito mais rápido que copiar pasta inteira
+- ✅ Inclui todo histórico de commits e tags
+- ✅ Arquivo único e portável
+- ✅ Não inclui node_modules, logs, cache
+- ✅ Pode ser restaurado facilmente em qualquer máquina
+
+**Restauração (se necessário):**
+```bash
+git clone backups-local/backup-YYYY-MM-DD_HH-MM-SS.bundle nome-pasta-restaurada
+```
+
+**🔥 REGRA DE OURO: Sempre que usuário pedir "backup local", criar bundle sem perguntar nada!**
+
 ## 💳 PAYMENT COMPONENTS SYSTEM (PADRÃO OBRIGATÓRIO)
 **⚠️ CRITICAL: Sistema modular e reutilizável de componentes de pagamento**
 

@@ -4,6 +4,8 @@ import { Button } from '../../../components/ui/Button'
 import { Label } from '../../../components/ui/Label'
 import { StatsCardSkeleton, MembershipTableSkeleton, DistributionCardSkeleton } from '../../../components/ui/SkeletonLoader'
 import { AdvancedFilters, type FilterConfig, type FilterValues } from '../../../components/filters/AdvancedFilters'
+import { MembershipEditModal } from '../components/MembershipEditModal'
+import { MembershipPaymentExportService } from '../../../services/membershipPaymentExportService'
 import { supabase } from '../../../lib/supabase/client'
 import { adminClient } from '../../../lib/supabase/adminClient'
 import { showNotification } from '../../../lib/notifications'
@@ -12,7 +14,7 @@ import { useAuthStore } from '../../../stores/authStore'
 import {
   Building2, Users, Award, Calendar,
   RefreshCw, Download, Edit, Eye,
-  CheckCircle, XCircle, Clock, AlertCircle
+  CheckCircle, XCircle, Clock, AlertCircle, DollarSign, FileText
 } from 'lucide-react'
 
 interface InstitutionMembership {
@@ -25,6 +27,8 @@ interface InstitutionMembership {
   total_members: number
   primary_contact_email: string
   abn: string
+  payment_status?: string
+  membership_fee_total?: number
 }
 
 interface MembershipStats {
@@ -277,7 +281,9 @@ export function MembershipManagementPage() {
           membership_renewal_date: data.membership_renewal_date,
           total_members: data.member_count || 0,
           primary_contact_email: data.company_email,
-          abn: data.abn
+          abn: data.abn,
+          payment_status: data.payment_status || 'pending',
+          membership_fee_total: data.membership_fee_total
         }]
 
         setInstitutions(formattedData)
@@ -349,7 +355,9 @@ export function MembershipManagementPage() {
         membership_renewal_date: inst.membership_renewal_date,
         total_members: inst.member_count || 0,
         primary_contact_email: inst.company_email,
-        abn: inst.abn
+        abn: inst.abn,
+        payment_status: inst.payment_status || 'pending',
+        membership_fee_total: inst.membership_fee_total
       }))
 
       setInstitutions(formattedData)
@@ -461,23 +469,16 @@ export function MembershipManagementPage() {
     }
   }
 
-  const handleUpdateMembership = async (institutionId: string, updates: any) => {
-    try {
-      const { error } = await supabase
-        .from('institutions')
-        .update(updates)
-        .eq('id', institutionId)
-
-      if (error) throw error
-
-      showNotification('success', 'Membership updated successfully')
+  const handleSave = () => {
+    // Reload data after save
+    if (!roles.includes('AdminSuper') && userInstitution.institutionId) {
+      loadSingleInstitution(userInstitution.institutionId)
+    } else {
       loadInstitutions()
       loadMembershipStats()
-      setShowEditModal(false)
-    } catch (error) {
-      console.error('Error updating membership:', error)
-      showNotification('error', 'Failed to update membership')
     }
+    setShowEditModal(false)
+    setSelectedInstitution(null)
   }
 
   const handleExportMemberships = async () => {
@@ -531,6 +532,18 @@ export function MembershipManagementPage() {
     }
   }
 
+  const getPaymentStatusColor = (status: string) => {
+    switch (status) {
+      case 'paid': return 'bg-green-100 text-green-800'
+      case 'partially_paid': return 'bg-yellow-100 text-yellow-800'
+      case 'pending': return 'bg-gray-100 text-gray-800'
+      case 'exempt': return 'bg-blue-100 text-blue-800'
+      case 'failed': return 'bg-red-100 text-red-800'
+      case 'refunded': return 'bg-purple-100 text-purple-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'active': return <CheckCircle className="w-4 h-4 text-green-600" />
@@ -551,14 +564,57 @@ export function MembershipManagementPage() {
     }
   }
 
+  const handleExportCSV = async () => {
+    try {
+      await MembershipPaymentExportService.exportToCSV();
+      showNotification('success', 'Payments exported to CSV successfully');
+    } catch (error: any) {
+      showNotification('error', error.message || 'Failed to export to CSV');
+    }
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      await MembershipPaymentExportService.exportToPDF();
+      showNotification('success', 'Payments exported to PDF successfully');
+    } catch (error: any) {
+      showNotification('error', error.message || 'Failed to export to PDF');
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Membership Management</h1>
-        <p className="text-gray-600">
-          Manage institutional memberships for English Australia
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Membership Management</h1>
+            <p className="text-gray-600">
+              Manage institutional memberships for English Australia
+            </p>
+          </div>
+
+          {/* Export Buttons */}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleExportCSV}
+              className="flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Export CSV
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleExportPDF}
+              className="flex items-center gap-2"
+            >
+              <FileText className="w-4 h-4" />
+              Export PDF
+            </Button>
+          </div>
+        </div>
+
         {/* Show context for Institution Admins */}
         {!roles.includes('AdminSuper') && userInstitution.institutionId && (
           <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -767,6 +823,9 @@ export function MembershipManagementPage() {
                     Status
                   </th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                    Payment
+                  </th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                     Members
                   </th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
@@ -792,6 +851,11 @@ export function MembershipManagementPage() {
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(inst.membership_status)}`}>
                         {inst.membership_status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPaymentStatusColor(inst.payment_status || 'pending')}`}>
+                        {(inst.payment_status || 'pending').replace('_', ' ')}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm">
@@ -831,83 +895,14 @@ export function MembershipManagementPage() {
 
       {/* Edit Modal */}
       {showEditModal && selectedInstitution && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold mb-4">Edit Membership</h3>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="edit-type">Membership Type</Label>
-                <select
-                  id="edit-type"
-                  defaultValue={selectedInstitution.membership_type}
-                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
-                  onChange={(e) => setSelectedInstitution({
-                    ...selectedInstitution,
-                    membership_type: e.target.value
-                  })}
-                >
-                  <option value="Full Provider">Full Provider</option>
-                  <option value="Associate Provider">Associate Provider (Access)</option>
-                  <option value="Corporate Affiliate">Corporate Affiliate</option>
-                  <option value="Professional Affiliate">Professional Affiliate</option>
-                </select>
-              </div>
-
-              <div>
-                <Label htmlFor="edit-status">Status</Label>
-                <select
-                  id="edit-status"
-                  defaultValue={selectedInstitution.membership_status}
-                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
-                  onChange={(e) => setSelectedInstitution({
-                    ...selectedInstitution,
-                    membership_status: e.target.value
-                  })}
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                  <option value="expired">Expired</option>
-                  <option value="pending">Pending</option>
-                </select>
-              </div>
-
-              <div>
-                <Label htmlFor="edit-expiry">Renewal Date</Label>
-                <input
-                  id="edit-expiry"
-                  type="date"
-                  defaultValue={selectedInstitution.membership_renewal_date?.split('T')[0]}
-                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
-                  onChange={(e) => setSelectedInstitution({
-                    ...selectedInstitution,
-                    membership_renewal_date: e.target.value
-                  })}
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 mt-6">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowEditModal(false)
-                    setSelectedInstitution(null)
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={() => handleUpdateMembership(selectedInstitution.id, {
-                    membership_type: selectedInstitution.membership_type,
-                    membership_status: selectedInstitution.membership_status,
-                    membership_renewal_date: selectedInstitution.membership_renewal_date
-                  })}
-                >
-                  Save Changes
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <MembershipEditModal
+          institution={selectedInstitution}
+          onClose={() => {
+            setShowEditModal(false)
+            setSelectedInstitution(null)
+          }}
+          onSave={handleSave}
+        />
       )}
     </div>
   )

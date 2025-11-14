@@ -1,0 +1,20 @@
+/* SearchableSelect - Override any global list styles */
+.searchable-select-list ul,
+.searchable-select-list ul *,
+.searchable-select-list li,
+.searchable-select-list li * {
+  list-style: none !important;
+  list-style-type: none !important;
+}
+
+.searchable-select-list ul::before,
+.searchable-select-list li::before {
+  content: none !important;
+  display: none !important;
+}
+
+.searchable-select-list ul::marker,
+.searchable-select-list li::marker {
+  content: none !important;
+  display: none !important;
+}

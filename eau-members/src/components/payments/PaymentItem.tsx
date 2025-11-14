@@ -67,8 +67,8 @@ export function PaymentItem({
         </Label>
         <div className="mt-1">
           <CurrencyInput
-            value={payment.amount * 100} // Convert dollars to cents
-            onChange={(cents) => onChange('amount', cents / 100)} // Convert back to dollars
+            value={payment.amount} // CurrencyInput handles dollars directly
+            onChange={(dollars) => onChange('amount', dollars)} // Store as dollars
             currency={payment.currency}
             onCurrencyChange={(currency) => onChange('currency', currency)}
             showCurrencySelector

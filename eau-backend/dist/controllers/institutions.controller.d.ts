@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../types';
 export declare class InstitutionsController {
-    list(req: AuthRequest, res: Response): Promise<void>;
+    list(req: AuthRequest, res: Response): Promise<Response<any, Record<string, any>> | undefined>;
     getById(req: AuthRequest, res: Response): Promise<Response<any, Record<string, any>> | undefined>;
     create(req: AuthRequest, res: Response): Promise<Response<any, Record<string, any>> | undefined>;
     update(req: AuthRequest, res: Response): Promise<Response<any, Record<string, any>> | undefined>;
