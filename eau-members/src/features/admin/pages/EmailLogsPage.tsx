@@ -83,7 +83,15 @@ const EmailLogsPage: React.FC = () => {
   const fetchEmailLogs = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+
+      // Get access token from Supabase session
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      if (!token) {
+        showNotification('Authentication required', 'error');
+        return;
+      }
 
       const params = new URLSearchParams({
         page: currentPage.toString(),
@@ -125,7 +133,13 @@ const EmailLogsPage: React.FC = () => {
 
   const fetchStatistics = async () => {
     try {
-      const token = localStorage.getItem('token');
+      // Get access token from Supabase session
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      if (!token) {
+        return; // Silently fail for statistics
+      }
 
       const params = new URLSearchParams();
       if (filters.start_date) params.append('start_date', filters.start_date);

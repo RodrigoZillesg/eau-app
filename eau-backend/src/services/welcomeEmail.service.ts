@@ -87,9 +87,7 @@ export class WelcomeEmailService {
 
       if (result.success) {
         logInfo(`Welcome email sent successfully to ${email}`)
-        
-        // Record email sent in database
-        await this.recordEmailSent(userId, email, 'welcome')
+        // Email logging is handled automatically by EmailService.sendEmail()
         return true
       } else {
         logError(new Error(`Failed to send welcome email: ${result.message}`))
@@ -210,29 +208,6 @@ export class WelcomeEmailService {
     return token
   }
 
-  /**
-   * Record that an email was sent
-   */
-  private static async recordEmailSent(
-    userId: string,
-    email: string,
-    type: string
-  ): Promise<void> {
-    try {
-      await supabaseAdmin
-        .from('email_logs')
-        .insert({
-          user_id: userId,
-          recipient_email: email,
-          email_type: type,
-          sent_at: new Date().toISOString(),
-          status: 'sent'
-        })
-    } catch (error) {
-      // Don't fail if we can't log the email
-      logError(error instanceof Error ? error : new Error('Failed to record email sent'))
-    }
-  }
 
   /**
    * Resend welcome email to a user
