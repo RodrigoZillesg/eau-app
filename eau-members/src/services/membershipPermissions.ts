@@ -49,7 +49,7 @@ export class MembershipPermissionsService {
       const { data: member, error: memberError } = await supabase
         .from('members')
         .select('membership_type')
-        .eq('id', user.id)
+        .eq('user_id', user.id)
         .single()
 
       if (memberError || !member) {
@@ -75,7 +75,7 @@ export class MembershipPermissionsService {
       const { data: member } = await supabase
         .from('members')
         .select('membership_type, membership_status, user_type')
-        .eq('id', targetUserId)
+        .eq('user_id', targetUserId)
         .single()
 
       if (!member) return false
@@ -113,7 +113,7 @@ export class MembershipPermissionsService {
       const { data: member } = await supabase
         .from('members')
         .select('membership_type, membership_status')
-        .eq('id', targetUserId)
+        .eq('user_id', targetUserId)
         .single()
 
       if (!member) return false
@@ -140,7 +140,7 @@ export class MembershipPermissionsService {
       const { data: member } = await supabase
         .from('members')
         .select('membership_type, membership_status')
-        .eq('id', targetUserId)
+        .eq('user_id', targetUserId)
         .single()
 
       if (!member) return false
@@ -167,7 +167,7 @@ export class MembershipPermissionsService {
       const { data: member } = await supabase
         .from('members')
         .select('membership_type, membership_status')
-        .eq('id', targetUserId)
+        .eq('user_id', targetUserId)
         .single()
 
       if (!member) return false
@@ -194,7 +194,7 @@ export class MembershipPermissionsService {
       const { data: member } = await supabase
         .from('members')
         .select('membership_type')
-        .eq('id', targetUserId)
+        .eq('user_id', targetUserId)
         .single()
 
       if (!member) return true

@@ -117,7 +117,7 @@ export class EventRegistrationService {
         const { data: member, error: memberError } = await supabase
           .from('members')
           .select('id, membership_status, user_type')
-          .eq('id', userId)
+          .eq('user_id', userId)
           .single();
 
         if (memberError || !member) {
@@ -183,7 +183,7 @@ export class EventRegistrationService {
         .from('event_registrations')
         .insert({
           event_id: eventId,
-          user_id: userId,
+          user_id: userId, // Auth user UUID - FK references auth.users.id
           status: 'confirmed',
           payment_status: paymentAmount === 0 ? 'exempt' : 'pending',
           payment_amount: paymentAmount,
