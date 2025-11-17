@@ -52,7 +52,8 @@ export const OpenLearningCourseCatalog: React.FC = () => {
       }
 
       // Fetch courses from backend API
-      const response = await fetch('http://localhost:3001/api/v1/openlearning-courses/available', {
+      const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const response = await fetch(`${backendUrl}/api/v1/openlearning-courses/available`, {
         headers: {
           'Authorization': `Bearer ${session.session.access_token}`,
           'Content-Type': 'application/json'

@@ -65,31 +65,37 @@ export function AvatarUpload({ currentAvatar, onAvatarChange, size = 'lg' }: Ava
     try {
       setUploading(true)
 
+      // Get current user's auth ID
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      if (!authUser) {
+        showNotification('error', 'Not authenticated')
+        setUploading(false)
+        return
+      }
+
       // Upload using storage service
-      const publicUrl = await StorageService.uploadAvatar(user.id, file)
+      const publicUrl = await StorageService.uploadAvatar(authUser.id, file)
 
-      // Update user profile with new avatar URL
-      if (user.email) {
-        const { error: updateError } = await supabase
-          .from('members')
-          .update({ avatar_url: publicUrl })
-          .eq('email', user.email)
+      // Update user profile with new avatar URL using user_id
+      const { error: updateError } = await supabase
+        .from('members')
+        .update({ avatar_url: publicUrl })
+        .eq('user_id', authUser.id)
 
-        if (updateError) {
-          // If member doesn't exist, create one
-          if (updateError.code === 'PGRST116') {
-            await supabase
-              .from('members')
-              .insert({
-                email: user.email,
-                avatar_url: publicUrl,
-                created_by: user.id,
-                membership_status: 'active',
-                membership_type: 'standard'
-              })
-          } else {
-            throw updateError
-          }
+      if (updateError) {
+        // If member doesn't exist, create one
+        if (updateError.code === 'PGRST116') {
+          await supabase
+            .from('members')
+            .insert({
+              user_id: authUser.id,
+              email: user.email,
+              avatar_url: publicUrl,
+              membership_status: 'active',
+              user_type: 'member'
+            })
+        } else {
+          throw updateError
         }
       }
 
@@ -105,16 +111,24 @@ export function AvatarUpload({ currentAvatar, onAvatarChange, size = 'lg' }: Ava
   }
 
   const handleRemoveAvatar = async () => {
-    if (!user?.email) return
+    if (!user) return
 
     try {
       setUploading(true)
 
-      // Update user profile to remove avatar
+      // Get current user's auth ID
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      if (!authUser) {
+        showNotification('error', 'Not authenticated')
+        setUploading(false)
+        return
+      }
+
+      // Update user profile to remove avatar using user_id
       const { error } = await supabase
         .from('members')
         .update({ avatar_url: null })
-        .eq('email', user.email)
+        .eq('user_id', authUser.id)
 
       if (error && error.code !== 'PGRST116') {
         throw error

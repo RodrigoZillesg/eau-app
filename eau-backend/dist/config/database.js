@@ -11,10 +11,14 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     throw new Error('Missing Supabase environment variables');
 }
 // Admin client with service role key for backend operations
+// IMPORTANT: db.schema option bypasses RLS for service_role
 exports.supabaseAdmin = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
     auth: {
         autoRefreshToken: false,
         persistSession: false
+    },
+    db: {
+        schema: 'public'
     }
 });
 // Regular client for user-scoped operations

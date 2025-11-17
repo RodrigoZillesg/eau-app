@@ -5,9 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../../components/ui/Button'
 import { PendingLinkRequestsCard } from './PendingLinkRequestsCard'
 import { useAuthStore } from '../../../stores/authStore'
+import { OpenLearningCourseCatalog } from '../../../components/OpenLearningCourseCatalog'
 
 export const InstitutionAdminDashboard: React.FC = () => {
-  const { user } = useAuthStore()
+  const { memberData } = useAuthStore()
   const navigate = useNavigate()
 
   return (
@@ -15,7 +16,15 @@ export const InstitutionAdminDashboard: React.FC = () => {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Institution Admin Dashboard</h1>
         <p className="mt-2 text-gray-600">
-          Manage your institution's members and link requests
+          {memberData?.first_name && memberData?.last_name && (
+            <span className="font-medium">{memberData.first_name} {memberData.last_name}</span>
+          )}
+          {memberData?.institution_name && (
+            <span> • {memberData.institution_name}</span>
+          )}
+          {!memberData?.first_name && !memberData?.institution_name && (
+            'Manage your institution\'s members and link requests'
+          )}
         </p>
       </div>
 
@@ -112,6 +121,11 @@ export const InstitutionAdminDashboard: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* OpenLearning Course Catalog Section */}
+      <div className="mt-8">
+        <OpenLearningCourseCatalog />
+      </div>
     </div>
   )
 }

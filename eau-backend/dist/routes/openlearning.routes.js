@@ -72,5 +72,77 @@ router.post('/sso/launch', auth_1.authenticate, async (req, res) => {
         });
     }
 });
+/**
+ * @route   GET /api/v1/openlearning/courses/:memberId?
+ * @desc    Get OpenLearning course completions for a member
+ * @access  Private (Admin or Self)
+ */
+router.get('/courses/:memberId?', auth_1.authenticate, async (req, res) => {
+    try {
+        const requestedMemberId = req.params.memberId;
+        const requestingAuthUserId = req.user?.id;
+        if (!requestingAuthUserId) {
+            return res.status(401).json({
+                success: false,
+                error: 'User not authenticated'
+            });
+        }
+        // Get the requesting user's member record
+        const { data: requestingMember, error: requestingMemberError } = await database_1.supabaseAdmin
+            .from('members')
+            .select('id, user_type')
+            .eq('user_id', requestingAuthUserId)
+            .single();
+        if (requestingMemberError || !requestingMember) {
+            return res.status(404).json({
+                success: false,
+                error: 'Member record not found'
+            });
+        }
+        // Determine which member's courses to fetch
+        let targetMemberId;
+        if (requestedMemberId) {
+            // Admin trying to view another member's courses
+            if (!['super_admin', 'admin'].includes(requestingMember.user_type)) {
+                // Not admin, check if viewing own data
+                if (requestedMemberId !== requestingMember.id) {
+                    return res.status(403).json({
+                        success: false,
+                        error: 'Insufficient permissions'
+                    });
+                }
+            }
+            targetMemberId = requestedMemberId;
+        }
+        else {
+            // No memberId specified, use requesting user's member ID
+            targetMemberId = requestingMember.id;
+        }
+        // Get courses from database
+        const { data: courses, error } = await database_1.supabaseAdmin
+            .from('openlearning_courses')
+            .select(`
+        *,
+        cpd_activity:cpd_activities(*)
+      `)
+            .eq('member_id', targetMemberId)
+            .order('completion_date', { ascending: false });
+        if (error) {
+            console.error('Error fetching OpenLearning courses:', error);
+            throw error;
+        }
+        res.json({
+            success: true,
+            courses: courses || []
+        });
+    }
+    catch (error) {
+        console.error('Error getting courses:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Internal server error'
+        });
+    }
+});
 exports.default = router;
 //# sourceMappingURL=openlearning.routes.js.map

@@ -60,6 +60,14 @@ export function ProfileForm() {
     try {
       setLoadingData(true)
 
+      // Get current user's auth ID
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      if (!authUser) {
+        console.error('No authenticated user found')
+        setLoadingData(false)
+        return
+      }
+
       // Add timeout to prevent infinite loading
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Load timeout')), 3000)
@@ -68,7 +76,7 @@ export function ProfileForm() {
       const queryPromise = supabase
         .from('members')
         .select('*')
-        .eq('email', user.email)
+        .eq('user_id', authUser.id)
         .single()
 
       let memberData = null
@@ -140,11 +148,19 @@ export function ProfileForm() {
     try {
       setLoading(true)
 
-      // Verificar se o membro existe pelo email
+      // Get current user's auth ID
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      if (!authUser) {
+        showNotification('error', 'Not authenticated')
+        setLoading(false)
+        return
+      }
+
+      // Verificar se o membro existe pelo user_id
       const { data: existingMember } = await supabase
         .from('members')
         .select('id')
-        .eq('email', user.email)
+        .eq('user_id', authUser.id)
         .single()
 
       const memberData = {
@@ -166,11 +182,11 @@ export function ProfileForm() {
       }
 
       if (existingMember) {
-        // Atualizar membro existente usando o email
+        // Atualizar membro existente usando o user_id
         const { error: memberError } = await supabase
           .from('members')
           .update(memberData)
-          .eq('email', user.email)
+          .eq('user_id', authUser.id)
 
         if (memberError) {
           console.error('Update error:', memberError)
@@ -182,10 +198,9 @@ export function ProfileForm() {
           .from('members')
           .insert({
             ...memberData,
+            user_id: authUser.id,
             membership_status: 'active',
-            user_type: 'member',
-            receive_newsletters: true,
-            receive_event_notifications: true
+            user_type: 'member'
           })
 
         if (memberError) {

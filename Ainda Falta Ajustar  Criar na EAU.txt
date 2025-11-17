@@ -1,8 +1,26 @@
 *Ainda Falta Ajustar / Criar na EAU*
 
-✅ Subir a imagem de perfil no My Profile 
-✅ Erro ao tentar atualizar os dados no My profile - "Error updating profile"
-• Fazer funcionar o modo "Imperson"
-• Aparentemente os comprovantes das atividades não estão sendo importadas junto com as atividades. Fiz um teste clicando no "olho" das atividades de alguns membros e não abre nada.
-• Gerar o certificado após assistir a um evento
-• Colocar um espaçamento entre os cards de "Upcoming Events" e "Past Events"
+✅ Subir a imagem de perfil no My Profile
+✅  Em alguns casos, recebo erro ao tentar atualizar os dados no My profile - "Could not find the 'receive_event_notifications' column of 'members' in the schema cache"
+✅ Fazer funcionar o modo "Imperson"
+⚠️ Gerar o certificado após assistir a um evento
+✅ Colocar um espaçamento entre os cards de "Upcoming Events" e "Past Events"
+✅ Ao criar novo evento, o campo "Category" deve buscar as categorias que o admin configurou na página "http://localhost:5180/admin/cpd-categories". E consequentemente a pontuação de CPD do evento deve equivaler ao que foi configurado.
+✅ Ao tentar subir uma imagem para um evento, estamos com o mesmo problema de storage que estávamos pra subir a imagem de perfil no My Profile. Precisamos adaptar o formato de upload para o mesmo que aplicamos no My Profile e que agora funciona perfeitamente.
+✅ A página Single do evento não está identificando que eu sou membro e está apresentando o preço para não membros: "Non-Member Price Free"
+✅ Na hora de me inscrever em um evento, recebo: "Your membership type does not allow registration for paid events. Please upgrade your membership or contact support.". Aparentemente o novo formato de tipo de membro não foi aplicado para todos os assuntos relacionados aos eventos.
+⚠️ Aparentemente os comprovantes das atividades não estão sendo importadas junto com as atividades. Fiz um teste clicando no "olho" das atividades de alguns membros e não abre nada.
+✅ A opção de deletar evento deve ter uma confirmação antes de excluir. Atualmente não tem.
+✅ A página "System Settings" (http://localhost:5180/admin/settings), não está salvando. Eu ativo a "Automatic CPD Approval" e salvo. Quando a página é carregada, volta ao que estava. Acredito que essa configuração nem deveria mais estar ali. Tenho a impressão que a informação se as atividades devem ser aprovadas automaticamente ou não, deva estar sendo puxada de outro lugar. Preciso que analise, ajuste, exclua a versão antiga caso realmente esteja duplicado, deixe apenas uma configuração clara e teste.
+✅ Verificar na página "System Settings" (http://localhost:5180/admin/settings), se a configuração de "Event Management" ainda está funcionando e se influencia mesmo na autorização de quem pode criar eventos. Ajustar ou remover se necessário.
+✅ No "Administrative Panel" (http://localhost:5180/admin) Remover os cards: CPDs, Aprovals, OpenLearning Sync, e OpenLearning
+• Corrigir o sistema de "Email Logs" (http://localhost:5180/admin/email-logs). Nenhum item aparece no Log. Nós já enviamos muitos emails de teste. Esse log deveria ter bastante coisa. Precisamos de uma revisão geral nessa funcionalidade.
+• Membership Applications (http://localhost:5180/admin/applications) não está funcionando. Acho que ainda não adaptamos e testamos ela com o novo formato de member type. Além disso, nem sei como testar uma aplicação pois não entendo bem o caminho que um usuário deve fazer para aplicar. Precisamos esclarecer isso e ajustar confirme necessário. Ao fazer isso, devemos aproveitar para aplicar o sistema de status e pagamento manual das aplicações, semelhante ao que fizemos com os eventos pagos; (temos documentação sobre isso)
+✅ CPD Categories Management (http://localhost:5180/admin/cpd-categories) estava funcionando perfeitamente, mas agora fui testar e não está mais funcionando. Retorna "Error Failed to load CPD categories". Precisamos corrigir isso, mas sem alterar colunas e coisas como essas no banco de dados, pois outras partes do sistema buscam e usam essas categorias e seus valores de CPDs.
+• Membership Management (http://localhost:5180/admin/membership): precisamos aplicar o esquema de status e pagamentos manuais para os membership, semelhante ao que usamos nos eventos pagos. (temos documentação sobre isso)
+• Institution Link Requests (http://localhost:5180/admin/institution-links) está retornando "Error Failed to load link requests". Precisamos analisar e corrigir isso. Além disso, não sei como um membro faz pra se inscrever pra fazer parte de uma Instituição. Precisamos esclarecer e ajustar isso conforme necessário. Levando em conta as regras do cliente que um membro tem que ser aprovado pela instituição e só pode fazer parde de uma instituição. Então, obviamente ao ser aprovado por uma, deve ser deslidado da outra.
+• A instituição deve ver as solicitações de membros e aceitar ou não a linkagem dele.
+✅ No card "Your Institution" no Dashoboard do admin de istituição, aparece o botão "Manage Institution Details", mas ele ainda não serve para nada.
+✅ Incoerência com os dados das instituições. Para o admin da instituição aparece uma coisa, mas para o admin do sistema aparece outra.
+✅ O membro deve receber um email de confirmação se foi reprovado pela instituição
+• Logado como Institution admin, não consigo me inscrever para um evento. Recebo "Your membership type does not allow registration for paid events. Please upgrade your membership or contact support."

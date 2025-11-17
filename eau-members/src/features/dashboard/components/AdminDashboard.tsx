@@ -12,6 +12,7 @@ import { OpenLearningStatus } from '../../../components/OpenLearningStatus'
 import { getUserInstitution } from '../../../services/institutionService'
 import { supabase } from '../../../lib/supabase/client'
 import { EventRegistrationService } from '../../../services/eventRegistrationService'
+import { OpenLearningCourseCatalog } from '../../../components/OpenLearningCourseCatalog'
 
 const { CPDService } = cpd
 
@@ -522,6 +523,11 @@ export const AdminDashboard: React.FC = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* OpenLearning Course Catalog Section */}
+        <div className="mt-8">
+          <OpenLearningCourseCatalog />
+        </div>
       </div>
     </div>
   )

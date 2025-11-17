@@ -36,8 +36,6 @@ interface FormData {
   profession: string
   experience_years: string
   qualifications: string
-  receive_newsletters: boolean
-  receive_event_notifications: boolean
   user_type: UserType
 }
 
@@ -71,8 +69,6 @@ export const MemberForm: React.FC<MemberFormProps> = ({
     profession: member?.profession || '',
     experience_years: member?.experience_years?.toString() || '',
     qualifications: member?.qualifications || '',
-    receive_newsletters: member?.receive_newsletters ?? true,
-    receive_event_notifications: member?.receive_event_notifications ?? true,
     user_type: (member?.user_type as UserType) || 'member'
   })
 
@@ -153,8 +149,6 @@ export const MemberForm: React.FC<MemberFormProps> = ({
         profession: formData.profession || null,
         experience_years: formData.experience_years ? parseInt(formData.experience_years) : null,
         qualifications: formData.qualifications || null,
-        receive_newsletters: formData.receive_newsletters,
-        receive_event_notifications: formData.receive_event_notifications,
         user_type: formData.user_type
       }
 
@@ -398,31 +392,6 @@ export const MemberForm: React.FC<MemberFormProps> = ({
         {/* User Type - Removed from UI as per client request
             All new members are created as regular members (user_type: 'member')
             User type assignments are managed by system administrators through backend */}
-
-        {/* Configurações */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium text-gray-900">Settings</h3>
-          <div className="space-y-2">
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={formData.receive_newsletters}
-                onChange={(e) => setFormData(prev => ({ ...prev, receive_newsletters: e.target.checked }))}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm text-gray-700">Receive newsletters</span>
-            </label>
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={formData.receive_event_notifications}
-                onChange={(e) => setFormData(prev => ({ ...prev, receive_event_notifications: e.target.checked }))}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm text-gray-700">Receive event notifications</span>
-            </label>
-          </div>
-        </div>
 
         {/* Profissional */}
         <div className="space-y-4">

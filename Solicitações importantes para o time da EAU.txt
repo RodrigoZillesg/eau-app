@@ -1,0 +1,4 @@
+*Solicitações importantes para o time da EAU*
+• Perguntar qual email será usado como remetente dos e-mails da plataforma (exemplo: contact@englishaustralia.com.au)
+• Acesso às configurações do domínio para configurar e validar o remetente de e-mails na Brevo
+• 

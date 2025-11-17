@@ -1,9 +1,13 @@
 *Já está desenvolvido e testado na EAU*
 
-• Alteração de senha através do My Profile
-• Atualizar os dados completos na página My profile
-• SSO com a OpenLearning
-• Apresentar no Dashboard dos membros, os cursos que estão cadastrados na OpenLearning
-• Cadastro e edição das categorias dos CPDs
-• Modo Inperson
-• Sistema de Merge de membros
+✅ Alteração de senha através do My Profile
+✅ Atualizar os dados completos na página My profile
+✅ SSO com a OpenLearning
+✅ Apresentar no Dashboard dos membros, os cursos que estão cadastrados na OpenLearning
+✅ Cadastro e edição das categorias dos CPDs
+✅ Modo Inperson
+✅ Sistema de Merge de membros
+✅ Email já é enviado para a Instituição quando um membro solicita para se linkar a ela
+✅ O membro deve receber um email de confirmação que foi aprovado na instituição
+✅ O membro deve receber um email de confirmação se foi reprovado pela instituição
+✅ Sistema de SMTP para envio de e-mails

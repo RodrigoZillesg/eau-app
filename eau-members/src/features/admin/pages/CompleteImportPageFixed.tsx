@@ -98,10 +98,12 @@ export default function CompleteImportPageFixed() {
           if (!institutionsMap.has(institutionName)) {
             institutionsMap.set(institutionName, {
               name: institutionName,
-              address: record['Company Company Address Line 1'] || record['Company Address Line1'] || '',
-              city: record['Company Company Suburb'] || record['Company Suburb'] || '',
+              // ✅ CORRECTED: Map CSV columns to correct database fields
+              // Database fields: address, city, postal_code (NOT address_line1, suburb, postcode)
+              address: record['Company Company Address Line 1'] || record['Company Address Line1'] || record['Company Address'] || '',
+              city: record['Company Company Suburb'] || record['Company Suburb'] || record['Company City'] || '', // ✅ city (CSV might use "Suburb" or "City")
               state: record['Company Company State'] || record['Company State'] || '',
-              postal_code: record['Company Company Postcode'] || record['Company Postcode'] || '',
+              postal_code: record['Company Company Postcode'] || record['Company Postcode'] || record['Company Postal Code'] || '', // ✅ postal_code
               country: record['Company Company Country'] || record['Company Country'] || 'Australia',
               phone: record['Company Company Phone'] || record['Company Phone'] || '',
               email: record['Company Company Email Address'] || record['Company Email'] || '',

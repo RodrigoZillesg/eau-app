@@ -70,8 +70,7 @@ class WelcomeEmailService {
             });
             if (result.success) {
                 (0, logger_1.logInfo)(`Welcome email sent successfully to ${email}`);
-                // Record email sent in database
-                await this.recordEmailSent(userId, email, 'welcome');
+                // Email logging is handled automatically by EmailService.sendEmail()
                 return true;
             }
             else {
@@ -171,26 +170,6 @@ class WelcomeEmailService {
             token += chars.charAt(Math.floor(Math.random() * chars.length));
         }
         return token;
-    }
-    /**
-     * Record that an email was sent
-     */
-    static async recordEmailSent(userId, email, type) {
-        try {
-            await database_1.supabaseAdmin
-                .from('email_logs')
-                .insert({
-                user_id: userId,
-                recipient_email: email,
-                email_type: type,
-                sent_at: new Date().toISOString(),
-                status: 'sent'
-            });
-        }
-        catch (error) {
-            // Don't fail if we can't log the email
-            (0, logger_1.logError)(error instanceof Error ? error : new Error('Failed to record email sent'));
-        }
     }
     /**
      * Resend welcome email to a user

@@ -227,7 +227,7 @@ class AuthController {
                 });
             }
             // Get full member details
-            const { data: member } = await database_1.supabaseAdmin
+            const { data: member, error: memberError } = await database_1.supabaseAdmin
                 .from('members')
                 .select(`
           *,
@@ -235,11 +235,18 @@ class AuthController {
             id,
             name,
             membership_type,
-            status
+            membership_status
           )
         `)
                 .eq('id', req.user.id)
                 .single();
+            console.log('📊 /auth/me query result:', { member, memberError });
+            // Set no-cache headers to prevent browser caching stale data
+            res.set({
+                'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            });
             res.json({
                 success: true,
                 data: member

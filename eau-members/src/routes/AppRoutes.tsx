@@ -59,6 +59,7 @@ import MemberImpersonationPage from '../features/admin/pages/MemberImpersonation
 import { SystemSettingsPage } from '../features/admin/pages/SystemSettingsPage'
 import { InstitutionLinkPage } from '../features/institutions/pages/InstitutionLinkPage'
 import { InstitutionLinkRequestsPage } from '../features/institutions/pages/InstitutionLinkRequestsPage'
+import { InstitutionDetailsPage } from '../features/institutions/pages/InstitutionDetailsPage'
 import InstitutionCPDReportPage from '../features/admin/pages/InstitutionCPDReportPage'
 import TestLogin from '../pages/TestLogin'
 import DebugLogin from '../pages/DebugLogin'
@@ -363,6 +364,17 @@ export const AppRoutes: React.FC = () => {
           <ProtectedRoute>
             <RoleBasedRoute roles={['AdminSuper', 'Admin', 'InstitutionAdmin']}>
               <InstitutionLinkRequestsPage />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/institution"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute roles={['InstitutionAdmin']}>
+              <InstitutionDetailsPage />
             </RoleBasedRoute>
           </ProtectedRoute>
         }

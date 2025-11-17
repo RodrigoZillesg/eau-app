@@ -38,8 +38,9 @@ export const authenticate = async (
         // It's a Supabase token
         console.log('Supabase token detected');
         decoded = payload;
-        // Use member_id from user_metadata if available, otherwise use sub (Auth user ID)
-        userId = payload.user_metadata?.member_id || payload.sub;
+        // ALWAYS use sub (Auth user ID) for Supabase tokens
+        // The sub is the user_id in the members table
+        userId = payload.sub;
       } else {
         // Try as backend JWT
         console.log('Trying as backend JWT');
@@ -50,11 +51,11 @@ export const authenticate = async (
       console.log('decoded token:', decoded);
       console.log('userId to query:', userId);
 
-      // Verify user still exists and is active using ID (more reliable than email for duplicates)
+      // Verify user still exists and is active using user_id (Auth user ID)
       const { data: member, error } = await supabaseAdmin
         .from('members')
         .select('id, email, institution_id, user_type, membership_status')
-        .eq('id', userId)
+        .eq('user_id', userId)  // ✅ CORRETO - Usa user_id (Auth user ID)
         .maybeSingle();
 
       console.log('member query result:', { member, error });

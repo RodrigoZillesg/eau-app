@@ -1,0 +1,59 @@
+• No editor de CPD, trazer mais informações, como horas por exemplo.
+
+• Na lista de CPDS do My CPDs, acrescentar na tabela a descrição e as horas
+
+• Documentar para o Léo de forma técnica o motivo de não trazer automaticamente os dados de cursos concluídos na OpenLearning
+
+• Refazer o calculo de CPD / hora / Categoria (colocar um disclaimer que isso é só pra eventos futuros)
+
+• Log das alterações na Fórmula de cálculo de CPDs
+
+• Mudar o botão da OpenLearning para se parecer mais com os itens do menu
+
+• Corrigir lista de cursos da OpenLearning
+
+• Cada membro pode se vincular à escola que quiser
+
+• A instituição poderá remover um membro (desvincular) - enviar notificação para o membro desvinculado
+
+• O Léo vai descobrir com eles se um membro pode estar vinculado a mais de uma instituição
+
+• Criar um log de todos os merges de membros que foram feitos
+
+• Mais um popup de confirmação antes do merge, avisando que isso não é reversível
+
+• Reminders de membership expirando
+
+• Corrigir o Membership Applications (become a member) (status de pagamento e datas de inicio e fim)
+
+• Criar uma forma de não-membros se inscrever em um evento (toda essa questão de pagamento o Léo ainda vai levantar com eles mais informações)
+
+• Nos eventos, teremos a funcionalidade de convidados
+
+• Podemos remover Featured Event (shown prominently)
+
+
+• Os inscritos nos eventos terão aprovação automática?
+
+• 
+
+
+
+
+✅ Alterar a barra de texto rotativo para faixa (deixar em maiúscula e menorzinho)
+✅ Alterar o title e o alt da logo principal (Titulo e Alt Text Logotipo:
+Decant Perfume | Decants | Perfume Shopping)
+✅ Alterar o title e o alt no Banner
+• Colocar legenda no Logotipo do site
+• Colocar o texto de SEO na Home (no lugar da caixa verde) com (click pra ver mais)
+• Colocar os selos e o link de site seguro (rodapé)
+• Colocar selo de avaliações no Google (rodapé)
+• Arrumar o Menu > mostrando todas as subcategorias ao passar o mouse
+✅ Finalizar o sistema de estoque (automático para variações)
+✅ Gravar vídeo ensinando o Thiago a usar o sistema de estoque
+✅ Alterar texto da Home - Decant perfumes: CONHEÇA OS MELHORES PERFUMES DO MUNDO SEM SAIR DE CASA
+✅ Alterar texto do widget da CartStack - DECANT PERFUME: MAIS VISTOS
+✅ Criar sistema para carregar os banners em modo aleatório
+• News letter Edrone
+• AVISE-ME por volume
+• Excluir da Hostgator os sites  http://jbrf.com.br/ ou https://perfumesimportados.jbrf.com.br/

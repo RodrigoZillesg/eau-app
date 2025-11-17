@@ -7,7 +7,7 @@ import { StatsCardSkeleton, InstitutionTableSkeleton } from '../../../components
 import { supabase } from '../../../lib/supabase/client'
 import { adminClient } from '../../../lib/supabase/adminClient'
 import { showNotification } from '../../../lib/notifications'
-import { 
+import {
   Building2, Users, Mail, Phone, Globe, MapPin,
   Plus, Edit2, Trash2, Search, Download, Upload,
   Building, GraduationCap, Briefcase, CheckCircle, XCircle
@@ -16,26 +16,22 @@ import {
 interface Institution {
   id: string
   name: string
-  parent_company: string | null
-  abn: string | null
-  company_email: string | null
-  company_type: string | null
-  cricos_code: string | null
-  address_line1: string | null
-  address_line2: string | null
-  address_line3: string | null
-  suburb: string | null
-  postcode: string | null
-  state: string | null
-  country: string | null
+  code: string | null
+  email: string | null
   phone: string | null
   website: string | null
-  primary_contact_id: string | null
-  courses_offered: string | null
-  logo_url: string | null
-  member_since: string | null
-  cancellation_details: string | null
-  status: 'active' | 'inactive' | 'suspended'
+  address: string | null
+  city: string | null
+  state: string | null
+  country: string | null
+  postal_code: string | null
+  membership_type: string | null
+  membership_status: string
+  membership_start_date: string | null
+  membership_renewal_date: string | null
+  membership_fee_amount: number | null
+  membership_fee_gst: number | null
+  membership_fee_total: number | null
   created_at: string
   updated_at: string
   member_count?: number
@@ -44,22 +40,17 @@ interface Institution {
 
 interface InstitutionFormData {
   name: string
-  parent_company: string
-  abn: string
-  company_email: string
-  company_type: string
-  cricos_code: string
-  address_line1: string
-  address_line2: string
-  address_line3: string
-  suburb: string
-  postcode: string
-  state: string
-  country: string
+  code: string
+  email: string
   phone: string
   website: string
-  courses_offered: string
-  status: 'active' | 'inactive' | 'suspended'
+  address: string
+  city: string
+  state: string
+  country: string
+  postal_code: string
+  membership_type: string
+  membership_status: string
 }
 
 export function InstitutionsManagementPage() {
@@ -71,22 +62,17 @@ export function InstitutionsManagementPage() {
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState<InstitutionFormData>({
     name: '',
-    parent_company: '',
-    abn: '',
-    company_email: '',
-    company_type: '',
-    cricos_code: '',
-    address_line1: '',
-    address_line2: '',
-    address_line3: '',
-    suburb: '',
-    postcode: '',
-    state: '',
-    country: 'Australia',
+    code: '',
+    email: '',
     phone: '',
     website: '',
-    courses_offered: '',
-    status: 'active'
+    address: '',
+    city: '',
+    state: '',
+    country: 'Australia',
+    postal_code: '',
+    membership_type: '',
+    membership_status: 'active'
   })
 
   const [stats, setStats] = useState({
@@ -107,40 +93,34 @@ export function InstitutionsManagementPage() {
     try {
       setLoading(true)
 
-      // First get all institutions
-      const { data: institutionsData, error: instError } = await supabase
-        .from('institutions')
-        .select('*')
-        .order('name')
+      // Get session token for authentication
+      const { data: { session } } = await supabase.auth.getSession()
 
-      if (instError) throw instError
-
-      // Then get member counts for each institution
-      // Use adminClient to bypass RLS restrictions on members table
-      const { data: membersData, error: membersError } = await adminClient
-        .from('members')
-        .select('institution_id')
-
-      if (membersError) {
-        console.error('Error loading member counts:', membersError)
+      if (!session) {
+        throw new Error('No active session')
       }
 
-      // Count members per institution
-      const memberCounts = membersData?.reduce((acc, member) => {
-        if (member.institution_id) {
-          acc[member.institution_id] = (acc[member.institution_id] || 0) + 1
+      // Use backend API with aggregations for accurate counts
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
+      const response = await fetch(`${backendUrl}/api/v1/institutions?withCounts=true&limit=1000`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
         }
-        return acc
-      }, {} as Record<string, number>) || {}
+      })
 
-      // Process the data to include counts
-      const processedData = institutionsData?.map(inst => ({
-        ...inst,
-        member_count: memberCounts[inst.id] || 0,
-        active_memberships: memberCounts[inst.id] || 0 // Use member count as active memberships
-      })) || []
+      if (!response.ok) {
+        throw new Error('Failed to fetch institutions from API')
+      }
 
-      setInstitutions(processedData)
+      const result = await response.json()
+      console.log('🔍 API Response:', result)
+
+      if (result.success && result.data?.institutions) {
+        setInstitutions(result.data.institutions)
+      } else {
+        throw new Error('Invalid API response format')
+      }
     } catch (error) {
       console.error('Error loading institutions:', error)
       showNotification('error', 'Failed to load institutions')
@@ -200,25 +180,21 @@ export function InstitutionsManagementPage() {
     e.preventDefault()
     console.log('🔵 HandleSubmit called!')
     console.log('Form data:', formData)
-    
+
     try {
       const dataToSubmit = {
-        ...formData,
-        parent_company: formData.parent_company || null,
-        abn: formData.abn || null,
-        company_email: formData.company_email || null,
-        company_type: formData.company_type || null,
-        cricos_code: formData.cricos_code || null,
-        address_line1: formData.address_line1 || null,
-        address_line2: formData.address_line2 || null,
-        address_line3: formData.address_line3 || null,
-        suburb: formData.suburb || null,
-        postcode: formData.postcode || null,
-        state: formData.state || null,
-        country: formData.country || null,
+        name: formData.name,
+        code: formData.code || null,
+        email: formData.email || null,
         phone: formData.phone || null,
         website: formData.website || null,
-        courses_offered: formData.courses_offered || null
+        address: formData.address || null,
+        city: formData.city || null,
+        state: formData.state || null,
+        country: formData.country || null,
+        postal_code: formData.postal_code || null,
+        membership_type: formData.membership_type || null,
+        membership_status: formData.membership_status
       }
       console.log('Data to submit:', dataToSubmit)
 
@@ -263,22 +239,17 @@ export function InstitutionsManagementPage() {
     setSelectedInstitution(institution)
     setFormData({
       name: institution.name,
-      parent_company: institution.parent_company || '',
-      abn: institution.abn || '',
-      company_email: institution.company_email || '',
-      company_type: institution.company_type || '',
-      cricos_code: institution.cricos_code || '',
-      address_line1: institution.address_line1 || '',
-      address_line2: institution.address_line2 || '',
-      address_line3: institution.address_line3 || '',
-      suburb: institution.suburb || '',
-      postcode: institution.postcode || '',
-      state: institution.state || '',
-      country: institution.country || 'Australia',
+      code: institution.code || '',
+      email: institution.email || '',
       phone: institution.phone || '',
       website: institution.website || '',
-      courses_offered: institution.courses_offered || '',
-      status: institution.status
+      address: institution.address || '',
+      city: institution.city || '',
+      state: institution.state || '',
+      country: institution.country || 'Australia',
+      postal_code: institution.postal_code || '',
+      membership_type: institution.membership_type || '',
+      membership_status: institution.membership_status
     })
     setShowForm(true)
   }
@@ -308,29 +279,24 @@ export function InstitutionsManagementPage() {
     setSelectedInstitution(null)
     setFormData({
       name: '',
-      parent_company: '',
-      abn: '',
-      company_email: '',
-      company_type: '',
-      cricos_code: '',
-      address_line1: '',
-      address_line2: '',
-      address_line3: '',
-      suburb: '',
-      postcode: '',
-      state: '',
-      country: 'Australia',
+      code: '',
+      email: '',
       phone: '',
       website: '',
-      courses_offered: '',
-      status: 'active'
+      address: '',
+      city: '',
+      state: '',
+      country: 'Australia',
+      postal_code: '',
+      membership_type: '',
+      membership_status: 'active'
     })
   }
 
   const filteredInstitutions = institutions.filter(inst =>
     inst.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    inst.company_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    inst.abn?.toLowerCase().includes(searchTerm.toLowerCase())
+    inst.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    inst.code?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   const getStatusColor = (status: string) => {
@@ -352,14 +318,15 @@ export function InstitutionsManagementPage() {
   }
 
   const exportToCSV = () => {
-    const headers = ['Name', 'ABN', 'Email', 'Phone', 'State', 'Status', 'Members', 'Memberships']
+    const headers = ['Name', 'Code', 'Email', 'Phone', 'City', 'State', 'Status', 'Members', 'Memberships']
     const rows = filteredInstitutions.map(inst => [
       inst.name,
-      inst.abn || '',
-      inst.company_email || '',
+      inst.code || '',
+      inst.email || '',
       inst.phone || '',
+      inst.city || '',
       inst.state || '',
-      inst.status,
+      inst.membership_status,
       inst.member_count || 0,
       inst.active_memberships || 0
     ])
@@ -376,7 +343,7 @@ export function InstitutionsManagementPage() {
     a.download = `institutions-${new Date().toISOString().split('T')[0]}.csv`
     a.click()
     window.URL.revokeObjectURL(url)
-    
+
     showNotification('success', `Exported ${filteredInstitutions.length} institutions`)
   }
 
@@ -474,14 +441,14 @@ export function InstitutionsManagementPage() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <Input
                 type="text"
-                placeholder="Search by name, email, or ABN..."
+                placeholder="Search by name, email, or code..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
               />
             </div>
           </div>
-          
+
           <div className="flex gap-2">
             <Button
               onClick={() => {
@@ -513,7 +480,7 @@ export function InstitutionsManagementPage() {
               <h2 className="text-xl font-semibold mb-4">
                 {selectedInstitution ? 'Edit Institution' : 'Add New Institution'}
               </h2>
-              
+
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Basic Information */}
@@ -526,62 +493,26 @@ export function InstitutionsManagementPage() {
                       required
                     />
                   </div>
-                  
+
                   <div>
-                    <Label htmlFor="parent_company">Parent Company</Label>
+                    <Label htmlFor="code">Institution Code</Label>
                     <Input
-                      id="parent_company"
-                      value={formData.parent_company}
-                      onChange={(e) => setFormData({ ...formData, parent_company: e.target.value })}
+                      id="code"
+                      value={formData.code}
+                      onChange={(e) => setFormData({ ...formData, code: e.target.value })}
                     />
                   </div>
-                  
+
                   <div>
-                    <Label htmlFor="abn">ABN</Label>
+                    <Label htmlFor="email">Email</Label>
                     <Input
-                      id="abn"
-                      value={formData.abn}
-                      onChange={(e) => setFormData({ ...formData, abn: e.target.value })}
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="company_email">Email</Label>
-                    <Input
-                      id="company_email"
+                      id="email"
                       type="email"
-                      value={formData.company_email}
-                      onChange={(e) => setFormData({ ...formData, company_email: e.target.value })}
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     />
                   </div>
-                  
-                  <div>
-                    <Label htmlFor="company_type">Institution Type</Label>
-                    <select
-                      id="company_type"
-                      value={formData.company_type}
-                      onChange={(e) => setFormData({ ...formData, company_type: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    >
-                      <option value="">Select Type</option>
-                      <option value="University">University</option>
-                      <option value="College">College</option>
-                      <option value="Institute">Institute</option>
-                      <option value="Language School">Language School</option>
-                      <option value="Training Provider">Training Provider</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="cricos_code">CRICOS Code</Label>
-                    <Input
-                      id="cricos_code"
-                      value={formData.cricos_code}
-                      onChange={(e) => setFormData({ ...formData, cricos_code: e.target.value })}
-                    />
-                  </div>
-                  
+
                   <div>
                     <Label htmlFor="phone">Phone</Label>
                     <Input
@@ -590,7 +521,7 @@ export function InstitutionsManagementPage() {
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="website">Website</Label>
                     <Input
@@ -599,48 +530,54 @@ export function InstitutionsManagementPage() {
                       onChange={(e) => setFormData({ ...formData, website: e.target.value })}
                     />
                   </div>
+
+                  <div>
+                    <Label htmlFor="membership_type">Membership Type</Label>
+                    <select
+                      id="membership_type"
+                      value={formData.membership_type}
+                      onChange={(e) => setFormData({ ...formData, membership_type: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    >
+                      <option value="">Select Type</option>
+                      <option value="standard">Standard</option>
+                      <option value="premium">Premium</option>
+                      <option value="corporate">Corporate</option>
+                    </select>
+                  </div>
                 </div>
 
                 {/* Address Information */}
                 <div className="border-t pt-4">
                   <h3 className="font-medium mb-3">Address Information</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="address_line1">Address Line 1</Label>
+                    <div className="md:col-span-2">
+                      <Label htmlFor="address">Address</Label>
                       <Input
-                        id="address_line1"
-                        value={formData.address_line1}
-                        onChange={(e) => setFormData({ ...formData, address_line1: e.target.value })}
+                        id="address"
+                        value={formData.address}
+                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                       />
                     </div>
-                    
+
                     <div>
-                      <Label htmlFor="address_line2">Address Line 2</Label>
+                      <Label htmlFor="city">City</Label>
                       <Input
-                        id="address_line2"
-                        value={formData.address_line2}
-                        onChange={(e) => setFormData({ ...formData, address_line2: e.target.value })}
+                        id="city"
+                        value={formData.city}
+                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                       />
                     </div>
-                    
+
                     <div>
-                      <Label htmlFor="suburb">Suburb</Label>
+                      <Label htmlFor="postal_code">Postal Code</Label>
                       <Input
-                        id="suburb"
-                        value={formData.suburb}
-                        onChange={(e) => setFormData({ ...formData, suburb: e.target.value })}
+                        id="postal_code"
+                        value={formData.postal_code}
+                        onChange={(e) => setFormData({ ...formData, postal_code: e.target.value })}
                       />
                     </div>
-                    
-                    <div>
-                      <Label htmlFor="postcode">Postcode</Label>
-                      <Input
-                        id="postcode"
-                        value={formData.postcode}
-                        onChange={(e) => setFormData({ ...formData, postcode: e.target.value })}
-                      />
-                    </div>
-                    
+
                     <div>
                       <Label htmlFor="state">State</Label>
                       <select
@@ -660,7 +597,7 @@ export function InstitutionsManagementPage() {
                         <option value="NT">Northern Territory</option>
                       </select>
                     </div>
-                    
+
                     <div>
                       <Label htmlFor="country">Country</Label>
                       <Input
@@ -672,33 +609,20 @@ export function InstitutionsManagementPage() {
                   </div>
                 </div>
 
-                {/* Additional Information */}
+                {/* Status */}
                 <div className="border-t pt-4">
-                  <div className="grid grid-cols-1 gap-4">
-                    <div>
-                      <Label htmlFor="courses_offered">Courses Offered</Label>
-                      <textarea
-                        id="courses_offered"
-                        value={formData.courses_offered}
-                        onChange={(e) => setFormData({ ...formData, courses_offered: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                        rows={3}
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="status">Status</Label>
-                      <select
-                        id="status"
-                        value={formData.status}
-                        onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      >
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                        <option value="suspended">Suspended</option>
-                      </select>
-                    </div>
+                  <div>
+                    <Label htmlFor="membership_status">Status</Label>
+                    <select
+                      id="membership_status"
+                      value={formData.membership_status}
+                      onChange={(e) => setFormData({ ...formData, membership_status: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    >
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                      <option value="suspended">Suspended</option>
+                    </select>
                   </div>
                 </div>
 
@@ -727,7 +651,7 @@ export function InstitutionsManagementPage() {
       {/* Institutions List */}
       <Card className="p-6">
         <h2 className="text-lg font-semibold mb-4">Institutions List</h2>
-        
+
         {loading ? (
           <InstitutionTableSkeleton rows={8} />
         ) : filteredInstitutions.length === 0 ? (
@@ -749,9 +673,6 @@ export function InstitutionsManagementPage() {
                     Location
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Type
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Members
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -768,17 +689,17 @@ export function InstitutionsManagementPage() {
                     <td className="px-4 py-3">
                       <div>
                         <div className="font-medium text-gray-900">{institution.name}</div>
-                        {institution.abn && (
-                          <div className="text-sm text-gray-500">ABN: {institution.abn}</div>
+                        {institution.code && (
+                          <div className="text-sm text-gray-500">Code: {institution.code}</div>
                         )}
                       </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="text-sm">
-                        {institution.company_email && (
+                        {institution.email && (
                           <div className="flex items-center gap-1 text-gray-600">
                             <Mail className="w-3 h-3" />
-                            {institution.company_email}
+                            {institution.email}
                           </div>
                         )}
                         {institution.phone && (
@@ -799,10 +720,10 @@ export function InstitutionsManagementPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="text-sm text-gray-600">
-                        {institution.suburb && institution.state ? (
+                        {institution.city && institution.state ? (
                           <div className="flex items-center gap-1">
                             <MapPin className="w-3 h-3" />
-                            {institution.suburb}, {institution.state}
+                            {institution.city}, {institution.state}
                           </div>
                         ) : (
                           <span className="text-gray-400">-</span>
@@ -810,20 +731,14 @@ export function InstitutionsManagementPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-1 text-sm">
-                        {getTypeIcon(institution.company_type)}
-                        <span>{institution.company_type || '-'}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
                       <div className="text-sm">
                         <div>{institution.member_count || 0} members</div>
-                        <div className="text-gray-500">{institution.active_memberships || 0} memberships</div>
+                        <div className="text-gray-500">{institution.active_memberships || 0} active</div>
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(institution.status)}`}>
-                        {institution.status}
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(institution.membership_status)}`}>
+                        {institution.membership_status}
                       </span>
                     </td>
                     <td className="px-4 py-3">

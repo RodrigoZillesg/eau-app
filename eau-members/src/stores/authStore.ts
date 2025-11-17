@@ -2,12 +2,24 @@ import { create } from 'zustand'
 import type { User } from '@supabase/supabase-js'
 import type { UserRole } from '../types/permissions'
 
+interface MemberData {
+  id: string
+  first_name: string
+  last_name: string
+  email: string
+  institution_id: string | null
+  institution_name: string | null
+  user_type: string
+}
+
 interface AuthState {
   user: User | null
+  memberData: MemberData | null
   roles: UserRole[]
   isLoading: boolean
   rolesLoaded: boolean
   setUser: (user: User | null) => void
+  setMemberData: (memberData: MemberData | null) => void
   setRoles: (roles: UserRole[]) => void
   setIsLoading: (isLoading: boolean) => void
   setRolesLoaded: (loaded: boolean) => void
@@ -19,12 +31,15 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
+  memberData: null,
   roles: [],
   isLoading: true,
   rolesLoaded: false,
 
   setUser: (user) => set({ user }),
-  
+
+  setMemberData: (memberData) => set({ memberData }),
+
   setRoles: (roles) => set({ roles, rolesLoaded: true }),
   
   setIsLoading: (isLoading) => {
@@ -97,7 +112,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // CRITICAL: Clear role cache on logout to ensure clean state
     sessionStorage.removeItem('eau_cached_roles')
     console.log('🧹 Role cache cleared on logout')
-    set({ user: null, roles: [], isLoading: false, rolesLoaded: false })
+    set({ user: null, memberData: null, roles: [], isLoading: false, rolesLoaded: false })
   },
 }))
 

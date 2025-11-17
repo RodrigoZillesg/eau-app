@@ -29,10 +29,6 @@ export declare class WelcomeEmailService {
      */
     private static generateSecureToken;
     /**
-     * Record that an email was sent
-     */
-    private static recordEmailSent;
-    /**
      * Resend welcome email to a user
      */
     static resendWelcomeEmail(userId: string): Promise<boolean>;

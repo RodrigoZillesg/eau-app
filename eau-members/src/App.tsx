@@ -5,10 +5,11 @@ import { useAuthStore } from './stores/authStore'
 import { auth } from './lib/supabase/auth'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { fetchUserRoles } from './services/roleService'
+import { fetchMemberData } from './services/memberDataService'
 import { logVersion } from './components/VersionDisplay'
 
 function App() {
-  const { setUser, setIsLoading, setRoles } = useAuthStore()
+  const { setUser, setIsLoading, setRoles, setMemberData } = useAuthStore()
 
   // REMOVED: useAuthHealthCheck and useRoleMonitor - they were causing timeouts
   // Once logged in, user keeps roles until logout - no re-checking needed
@@ -24,26 +25,36 @@ function App() {
         if (session?.user) {
           setUser(session.user)
 
-          // Fetch actual roles from database - WAIT for them
+          // Fetch member data and roles in parallel
           try {
-            const roles = await fetchUserRoles(session.user.id)
+            const [roles, memberData] = await Promise.all([
+              fetchUserRoles(session.user.id),
+              fetchMemberData(session.user.id)
+            ])
+
             console.log('✅ User roles from database:', roles)
+            console.log('✅ Member data from database:', memberData)
+
             setRoles(roles)
+            setMemberData(memberData)
             // Mark roles as loaded
             useAuthStore.getState().setRolesLoaded(true)
-          } catch (roleError) {
-            console.error('❌ Error fetching roles:', roleError)
+          } catch (error) {
+            console.error('❌ Error fetching user data:', error)
             setRoles(['Members']) // Default fallback
+            setMemberData(null)
             useAuthStore.getState().setRolesLoaded(true)
           }
         } else {
           setUser(null)
+          setMemberData(null)
           setRoles([])
           useAuthStore.getState().setRolesLoaded(false)
         }
       } catch (error) {
         console.error('Auth error:', error)
         setUser(null)
+        setMemberData(null)
         setRoles([])
         useAuthStore.getState().setRolesLoaded(false)
       } finally {
@@ -67,16 +78,22 @@ function App() {
       // Update user in store
       setUser(session?.user ?? null)
 
-      // Only fetch roles on actual sign in or initial load
+      // Only fetch roles and member data on actual sign in or initial load
       if (session?.user && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
-        console.log('🔄 Fetching roles for:', session.user.id)
-        const roles = await fetchUserRoles(session.user.id)
+        console.log('🔄 Fetching user data for:', session.user.id)
+        const [roles, memberData] = await Promise.all([
+          fetchUserRoles(session.user.id),
+          fetchMemberData(session.user.id)
+        ])
         console.log('✅ Roles set:', roles)
+        console.log('✅ Member data set:', memberData)
         setRoles(roles)
+        setMemberData(memberData)
         useAuthStore.getState().setRolesLoaded(true)
       } else if (!session?.user) {
-        // Only clear roles if user is actually signed out
+        // Only clear data if user is actually signed out
         setRoles([])
+        setMemberData(null)
         useAuthStore.getState().setRolesLoaded(false)
       }
       // OTHERWISE: Keep existing roles (don't re-fetch on TOKEN_REFRESHED or focus events)
