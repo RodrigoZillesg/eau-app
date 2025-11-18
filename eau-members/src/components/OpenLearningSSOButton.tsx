@@ -47,7 +47,8 @@ export const OpenLearningSSOButton: React.FC<OpenLearningSSOButtonProps> = ({
       }
 
       // Generate SSO launch URL from backend
-      const response = await axios.post('http://localhost:3001/api/v1/openlearning/sso/launch', {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const response = await axios.post(`${backendUrl}/api/v1/openlearning/sso/launch`, {
         memberId: member.id,
         classId: classId
       }, {

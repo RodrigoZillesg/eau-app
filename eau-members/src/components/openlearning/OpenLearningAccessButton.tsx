@@ -50,7 +50,8 @@ export const OpenLearningAccessButton: React.FC<OpenLearningAccessButtonProps> =
       // Generate SSO link from backend (backend will handle provisioning if needed)
       console.log('Generating OpenLearning SSO link for member:', member.id);
 
-      const ssoResponse = await fetch('http://localhost:3001/api/v1/openlearning/sso/launch', {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const ssoResponse = await fetch(`${backendUrl}/api/v1/openlearning/sso/launch`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.session.access_token}`,

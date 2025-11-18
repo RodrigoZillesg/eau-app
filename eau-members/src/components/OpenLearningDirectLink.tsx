@@ -81,7 +81,8 @@ export const OpenLearningDirectLink: React.FC<OpenLearningDirectLinkProps> = ({
   const launchWithSSO = async (token: string, memberId: string, courseId: string) => {
     console.log('Launching with SSO for course:', courseId);
 
-    const ssoResponse = await fetch('http://localhost:3001/api/v1/openlearning/sso/launch', {
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+    const ssoResponse = await fetch(`${backendUrl}/api/v1/openlearning/sso/launch`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,

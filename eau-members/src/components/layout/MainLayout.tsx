@@ -112,7 +112,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       }
 
       // Generate SSO link from backend
-      const ssoResponse = await fetch('http://localhost:3001/api/v1/openlearning/sso/launch', {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const ssoResponse = await fetch(`${backendUrl}/api/v1/openlearning/sso/launch`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.session.access_token}`,
