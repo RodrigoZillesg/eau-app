@@ -50,6 +50,24 @@ Este guia documenta o processo completo de deploy do EAU App no EasyPanel, inclu
   ```
 - **Verificação**: Use `git ls-files eau-members/dist/assets/` para confirmar que TODOS os arquivos estão trackeados
 
+### 7. **DOCKERFILE DEVE USAR PREFIXO eau-backend/ OU eau-members/** 🚨 CRÍTICO!
+- **Problema**: Backend retorna erro "Cannot find module '/app/dist/index.js'" no EasyPanel
+- **Causa**: Dockerfile usa `COPY . .` que assume contexto local, mas EasyPanel usa contexto root
+- **Sintoma**: Container inicia mas não encontra arquivos, status amarelo no EasyPanel
+- **Solução**: Todos os comandos COPY devem usar prefixo do diretório:
+  ```dockerfile
+  # ❌ ERRADO (contexto local)
+  COPY package*.json ./
+  COPY . .
+  COPY dist ./dist
+
+  # ✅ CORRETO (contexto root do EasyPanel)
+  COPY eau-backend/package*.json ./
+  COPY eau-backend/dist ./dist
+  ```
+- **Importante**: Isto afeta AMBOS os Dockerfiles (backend E frontend)
+- **Verificação**: Se aparecer "MODULE_NOT_FOUND" nos logs, este é o problema!
+
 ## 📁 Estrutura de Arquivos Necessária
 
 ```
@@ -423,3 +441,6 @@ Arquivos JS e CSS grandes podem ser ignorados. SEMPRE use `git add -f` primeiro!
 4. SEMPRE criar `.env.production` antes do build para injetar URLs corretas
 5. Página em branco = faltam arquivos JS/CSS no Git
 6. Página sem estilos = falta arquivo CSS no Git
+7. **CORS**: Backend deve incluir URL de produção em `allowedOrigins` array
+8. **Dockerfile**: Deve usar prefixo `eau-backend/` em todos os COPY commands (contexto root)
+9. **MODULE_NOT_FOUND**: Indica que Dockerfile não está copiando arquivos corretamente
