@@ -7,7 +7,7 @@ WORKDIR /app
 COPY eau-backend/package*.json ./
 
 # Install production dependencies
-RUN npm ci --only=production --no-optional
+RUN npm install --only=production --no-optional
 
 # Copy pre-built dist folder
 COPY eau-backend/dist ./dist
