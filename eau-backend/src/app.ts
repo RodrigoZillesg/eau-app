@@ -62,8 +62,15 @@ const corsOptions = {
 app.use((req, res, next) => {
   const origin = req.get('origin');
 
+  // Debug logging
+  if (req.method === 'OPTIONS') {
+    console.log(`🔍 OPTIONS request from origin: ${origin || 'NO ORIGIN'} to ${req.path}`);
+    console.log(`   Allowed origins:`, allowedOrigins);
+  }
+
   // Check if origin is allowed
   if (origin && (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development')) {
+    console.log(`✅ CORS: Allowing origin ${origin}`);
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
@@ -71,10 +78,14 @@ app.use((req, res, next) => {
 
     // Handle preflight requests
     if (req.method === 'OPTIONS') {
+      console.log(`📤 Sending OPTIONS 204 response with headers`);
       return res.status(204).end();
     }
   } else if (origin && !allowedOrigins.includes(origin) && process.env.NODE_ENV !== 'development') {
+    console.log(`❌ CORS: Rejecting origin ${origin}`);
     return res.status(403).json({ success: false, error: 'Not allowed by CORS' });
+  } else if (!origin) {
+    console.log(`⚠️  No origin header in request`);
   }
 
   next();
