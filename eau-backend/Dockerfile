@@ -4,14 +4,17 @@ FROM node:18-alpine
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+# EasyPanel uses root context, so we need eau-backend/ prefix
+COPY eau-backend/package*.json ./
 
 # Install only production dependencies
 RUN npm ci --omit=dev
 
-# Copy all files first, then use the dist folder
-COPY . .
-# The dist folder is now available
+# Copy pre-built dist folder (compiled locally before push)
+COPY eau-backend/dist ./dist
+
+# Copy public folder for static assets
+RUN mkdir -p ./public
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
