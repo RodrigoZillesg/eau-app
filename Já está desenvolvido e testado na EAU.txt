@@ -1,8 +1,11 @@
 *Já está desenvolvido e testado na EAU*
 
 ✅ Alteração de senha através do My Profile
+✅ Subir a imagem de perfil no My Profile
 ✅ Atualizar os dados completos na página My profile
+✅ Alteração de senha na página My Profile
 ✅ SSO com a OpenLearning
+✅ Colocar um espaçamento entre os cards de "Upcoming Events" e "Past Events"
 ✅ Apresentar no Dashboard dos membros, os cursos que estão cadastrados na OpenLearning
 ✅ Cadastro e edição das categorias dos CPDs
 ✅ Modo Inperson
@@ -11,3 +14,5 @@
 ✅ O membro deve receber um email de confirmação que foi aprovado na instituição
 ✅ O membro deve receber um email de confirmação se foi reprovado pela instituição
 ✅ Sistema de SMTP para envio de e-mails
+✅ Ao criar novo evento, o campo "Category" deve buscar as categorias que o admin configurou na página "http://localhost:5180/admin/cpd-categories". E consequentemente a pontuação de CPD do evento deve equivaler ao que foi configurado.
+✅ Correção no upload de imagem para o evento

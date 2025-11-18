@@ -44,6 +44,7 @@
 ✅ Alterar o title e o alt da logo principal (Titulo e Alt Text Logotipo:
 Decant Perfume | Decants | Perfume Shopping)
 ✅ Alterar o title e o alt no Banner
+• O Banner da Madrugada está passando das 06hs. Precisamos confirmar que vá somente das 00hs às 06hs
 • Colocar legenda no Logotipo do site
 • Colocar o texto de SEO na Home (no lugar da caixa verde) com (click pra ver mais)
 • Colocar os selos e o link de site seguro (rodapé)
