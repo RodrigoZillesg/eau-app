@@ -13,8 +13,8 @@ RUN npm ci --omit=dev
 # Copy pre-built dist folder (compiled locally before push)
 COPY eau-backend/dist ./dist
 
-# Copy public folder for static assets
-RUN mkdir -p ./public
+# Copy public folder with uploaded assets (avatars, receipts, events)
+COPY eau-backend/public ./public
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
