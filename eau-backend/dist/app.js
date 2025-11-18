@@ -55,8 +55,11 @@ const corsOptions = {
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    optionsSuccessStatus: 204,
 };
 app.use((0, cors_1.default)(corsOptions));
+// Handle preflight requests explicitly
+app.options('*', (0, cors_1.default)(corsOptions));
 // Rate limiting
 const limiter = (0, express_rate_limit_1.default)({
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
