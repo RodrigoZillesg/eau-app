@@ -1,37 +1,22 @@
-# Production stage
+# Production stage - Simplified for EasyPanel
 FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy package files
-# EasyPanel uses root context, so we need eau-backend/ prefix
+# Copy package files (EasyPanel uses root context)
 COPY eau-backend/package*.json ./
 
-# Install only production dependencies
-RUN npm ci --omit=dev
+# Install production dependencies
+RUN npm ci --only=production --no-optional
 
-# Copy pre-built dist folder (compiled locally before push)
+# Copy pre-built dist folder
 COPY eau-backend/dist ./dist
 
-# Create public folder structure for file uploads
-# Note: public/ is in .gitignore, so we create it instead of copying
+# Create public folder structure for uploads
 RUN mkdir -p ./public/avatars ./public/events ./public/receipts
-
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
-
-# Change ownership
-RUN chown -R nodejs:nodejs /app
-
-USER nodejs
 
 # Expose port
 EXPOSE 3001
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3001/health', (r) => {r.statusCode === 200 ? process.exit(0) : process.exit(1)})"
-
-# Start application
+# Start application (run as root to avoid permission issues)
 CMD ["node", "dist/index.js"]
