@@ -1,9 +1,11 @@
+# Files to exclude from Docker context
+# Since we're using pre-built dist/, we exclude development files
+
 node_modules
 npm-debug.log
 .git
 .gitignore
 README.md
-.env
 .env.local
 .vscode
 coverage
@@ -11,6 +13,8 @@ coverage
 .idea
 .DS_Store
 *.log
+
+# Development files (not needed since we use pre-built dist/)
 src
 public
 .eslintrc.json
@@ -18,3 +22,8 @@ tsconfig.json
 vite.config.ts
 package-lock.json
 yarn.lock
+
+# Keep these files:
+# - dist/ (our pre-built application)
+# - nginx.conf (nginx configuration)
+# - .env.production (production env vars)
