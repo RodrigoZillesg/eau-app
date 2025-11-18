@@ -27,6 +27,12 @@ const allowedOrigins = [
   'http://91.108.104.122:8080'    // Production frontend URL (Ubuntu direct)
 ];
 
+// ABSOLUTE FIRST - Log every single request that reaches Express
+app.use((req, res, next) => {
+  console.log(`📥 REQUEST: ${req.method} ${req.path} from ${req.get('origin') || 'NO ORIGIN'}`);
+  next();
+});
+
 // Custom CORS middleware (FIRST middleware to handle all CORS including OPTIONS)
 app.use((req, res, next) => {
   const origin = req.get('origin');
