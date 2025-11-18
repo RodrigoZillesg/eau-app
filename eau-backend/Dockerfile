@@ -1,13 +1,13 @@
-# Production stage - Simplified for EasyPanel
+# Production stage - Simplified for Ubuntu
 FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy package files (EasyPanel uses root context)
-COPY eau-backend/package*.json ./
+# Copy package files explicitly (context is repo root)
+COPY eau-backend/package.json eau-backend/package-lock.json ./
 
-# Install production dependencies
-RUN npm install --only=production --no-optional
+# Install production dependencies using npm ci (we have lock file)
+RUN npm ci --omit=dev
 
 # Copy pre-built dist folder
 COPY eau-backend/dist ./dist
