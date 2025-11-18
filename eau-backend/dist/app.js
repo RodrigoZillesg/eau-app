@@ -4,7 +4,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
-const cors_1 = __importDefault(require("cors"));
 const helmet_1 = __importDefault(require("helmet"));
 const compression_1 = __importDefault(require("compression"));
 const morgan_1 = __importDefault(require("morgan"));
@@ -57,18 +56,25 @@ const corsOptions = {
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     optionsSuccessStatus: 204,
 };
-app.use((0, cors_1.default)(corsOptions));
-// Custom middleware to ensure CORS headers are always present
+// Custom CORS middleware (replaces cors() library to ensure headers are present)
 app.use((req, res, next) => {
     const origin = req.get('origin');
+    // Check if origin is allowed
     if (origin && (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development')) {
         res.setHeader('Access-Control-Allow-Origin', origin);
         res.setHeader('Access-Control-Allow-Credentials', 'true');
+        res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With');
+        // Handle preflight requests
+        if (req.method === 'OPTIONS') {
+            return res.status(204).end();
+        }
+    }
+    else if (origin && !allowedOrigins.includes(origin) && process.env.NODE_ENV !== 'development') {
+        return res.status(403).json({ success: false, error: 'Not allowed by CORS' });
     }
     next();
 });
-// Handle preflight requests explicitly
-app.options('*', (0, cors_1.default)(corsOptions));
 // Rate limiting
 const limiter = (0, express_rate_limit_1.default)({
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes

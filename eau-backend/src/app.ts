@@ -58,20 +58,27 @@ const corsOptions = {
   optionsSuccessStatus: 204,
 };
 
-app.use(cors(corsOptions));
-
-// Custom middleware to ensure CORS headers are always present
+// Custom CORS middleware (replaces cors() library to ensure headers are present)
 app.use((req, res, next) => {
   const origin = req.get('origin');
+
+  // Check if origin is allowed
   if (origin && (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development')) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With');
+
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+      return res.status(204).end();
+    }
+  } else if (origin && !allowedOrigins.includes(origin) && process.env.NODE_ENV !== 'development') {
+    return res.status(403).json({ success: false, error: 'Not allowed by CORS' });
   }
+
   next();
 });
-
-// Handle preflight requests explicitly
-app.options('*', cors(corsOptions));
 
 // Rate limiting
 const limiter = rateLimit({
