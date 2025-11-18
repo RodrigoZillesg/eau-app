@@ -36,7 +36,8 @@ const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:3000',
     'http://localhost:3001',
-    'https://eauapp.platty.tech' // Production frontend URL
+    'https://eauapp.platty.tech', // Production frontend URL (EasyPanel)
+    'http://91.108.104.122:8080' // Production frontend URL (Ubuntu direct)
 ];
 const corsOptions = {
     origin: (origin, callback) => {
