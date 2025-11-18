@@ -41,11 +41,15 @@
 
 
 ✅ Alterar a barra de texto rotativo para faixa (deixar em maiúscula e menorzinho)
-✅ Alterar o title e o alt da logo principal (Titulo e Alt Text Logotipo:
-Decant Perfume | Decants | Perfume Shopping)
+✅ Alterar o title e o alt da logo principal (Titulo e Alt Text Logotipo: Decant Perfume | Decants | Perfume Shopping)
 ✅ Alterar o title e o alt no Banner
+✅ Gravar o vídeo para os novos afiliados
+✅ Gravar o vídeo para os gestores de afiliados
+✅ Padronizar forma como valores monetários são apresentados no Banner de texto e seção de autoridade
+• Setar a Carol e o Raul como Gestores de afiliados
 • O Banner da Madrugada está passando das 06hs. Precisamos confirmar que vá somente das 00hs às 06hs
-• Colocar legenda no Logotipo do site
+• Para quem ainda não está logado, fica aparecendo o banner da coruja
+✅ Colocar legenda no Logotipo do site
 • Colocar o texto de SEO na Home (no lugar da caixa verde) com (click pra ver mais)
 • Colocar os selos e o link de site seguro (rodapé)
 • Colocar selo de avaliações no Google (rodapé)
@@ -58,3 +62,10 @@ Decant Perfume | Decants | Perfume Shopping)
 • News letter Edrone
 • AVISE-ME por volume
 • Excluir da Hostgator os sites  http://jbrf.com.br/ ou https://perfumesimportados.jbrf.com.br/
+
+
+*Vídeo para quem quer ser afiliado PS*
+https://tha6o4zbij.vmaker.com/record/O6dWWRJC1EqoZbHn/?a=1763462555481
+
+*Vídeo para Gestores de afiliados*
+https://tha6o4zbij.vmaker.com/record/JYpHtgXECnSpM1Ux/?a=1763463376286
