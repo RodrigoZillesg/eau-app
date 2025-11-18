@@ -17,19 +17,7 @@ dotenv_1.default.config();
 const app = (0, express_1.default)();
 // Trust proxy (important for EasyPanel deployment)
 app.set('trust proxy', 1);
-// Security middleware
-app.use((0, helmet_1.default)({
-    crossOriginResourcePolicy: { policy: "cross-origin" },
-    contentSecurityPolicy: {
-        directives: {
-            defaultSrc: ["'self'"],
-            styleSrc: ["'self'", "'unsafe-inline'"],
-            scriptSrc: ["'self'"],
-            imgSrc: ["'self'", "data:", "https:"],
-        },
-    },
-}));
-// CORS configuration
+// CORS configuration - MUST BE FIRST to handle preflight
 const allowedOrigins = [
     'http://localhost:5180',
     'http://localhost:5173',
@@ -38,25 +26,7 @@ const allowedOrigins = [
     'https://eauapp.platty.tech', // Production frontend URL (EasyPanel)
     'http://91.108.104.122:8080' // Production frontend URL (Ubuntu direct)
 ];
-const corsOptions = {
-    origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps or Postman)
-        if (!origin)
-            return callback(null, true);
-        if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
-            // Return the origin explicitly so it's reflected in Access-Control-Allow-Origin header
-            callback(null, origin);
-        }
-        else {
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-    optionsSuccessStatus: 204,
-};
-// Custom CORS middleware (replaces cors() library to ensure headers are present)
+// Custom CORS middleware (FIRST middleware to handle all CORS including OPTIONS)
 app.use((req, res, next) => {
     const origin = req.get('origin');
     // Debug logging
@@ -86,6 +56,18 @@ app.use((req, res, next) => {
     }
     next();
 });
+// Security middleware (AFTER CORS to not interfere)
+app.use((0, helmet_1.default)({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            scriptSrc: ["'self'"],
+            imgSrc: ["'self'", "data:", "https:"],
+        },
+    },
+}));
 // Rate limiting
 const limiter = (0, express_rate_limit_1.default)({
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
