@@ -58,6 +58,15 @@ const corsOptions = {
     optionsSuccessStatus: 204,
 };
 app.use((0, cors_1.default)(corsOptions));
+// Custom middleware to ensure CORS headers are always present
+app.use((req, res, next) => {
+    const origin = req.get('origin');
+    if (origin && (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development')) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
+    next();
+});
 // Handle preflight requests explicitly
 app.options('*', (0, cors_1.default)(corsOptions));
 // Rate limiting
