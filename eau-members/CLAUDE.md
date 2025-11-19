@@ -421,16 +421,16 @@ O sistema usa um campo único `user_type` com 4 valores possíveis:
 - **Console Messages**: Development mode shows cache-clearing instructions in console
 
 ### Supabase Connection Details
-**IMPORTANT: ALWAYS USE ONLINE SUPABASE - NEVER LOCAL**
-- **Online URL**: https://english-australia-eau-supabase.lkobs5.easypanel.host
-- **Anon Key**: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE
-- **Service Role Key**: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q
-- **JWT Secret**: your-super-secret-jwt-token-with-at-least-32-characters-long
+**IMPORTANT: NOW USING SUPABASE CLOUD - Migrated 24/01/2025**
+- **Cloud URL**: https://ypsvoxelitgceclohxfu.supabase.co
+- **Anon Key**: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwc3ZveGVsaXRnY2VjbG9oeGZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3MDE3NTUsImV4cCI6MjA3NDI3Nzc1NX0.-NO0-hrp4GajpOK9WnryqIeyEtS9iUiv03qkp9ScL9w
+- **Service Role Key**: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwc3ZveGVsaXRnY2VjbG9oeGZ1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODcwMTc1NSwiZXhwIjoyMDc0Mjc3NzU1fQ.y_k4b4TlAev9R4TTFqHA08EjdZA-7Ymm5V1zMl-CYhA
+- **Project ID**: ypsvoxelitgceclohxfu
+- **Region**: Sydney (ap-southeast-2)
 
 ### Supabase Studio Access
-- **Studio URL**: https://english-australia-eau-supabase.lkobs5.easypanel.host/
-- **Username**: supabase
-- **Password**: this_password_is_insecure_and_should_be_updated
+- **Studio URL**: https://supabase.com/dashboard/project/ypsvoxelitgceclohxfu
+- **Access**: Via Supabase Cloud account (dev@platty.tech)
 
 ### Email System Configuration
 **CRITICAL: SMTP is fully configured and functional**

@@ -193,92 +193,114 @@ SE modo_teste == FALSE:
 4. **USE** apenas as cores e espaçamentos definidos
 5. **TESTE** responsividade em todos os breakpoints
 
-### 🚀 DEPLOYMENT TO PRODUCTION - PROCESSO COMPLETO
+### 🚀 DEPLOYMENT TO PRODUCTION - VPS HOSTINGER + DOCKER
 **⚠️ CRITICAL: SEMPRE CONSULTE A DOCUMENTAÇÃO DE DEPLOY ANTES DE FAZER DEPLOY**
 
-#### 📖 DOCUMENTAÇÃO OFICIAL DE DEPLOY (ATUALIZADA 18/11/2025)
-- **📋 GUIA PRINCIPAL**: `PROCESSO_DEPLOY_PRODUCAO.md` - Processo completo passo a passo
-- **🔍 VALIDAÇÃO**: `scripts/validate-pre-deploy.sh` - Script de validação automatizado
-- **📚 GUIA LEGADO**: `EASYPANEL_DEPLOYMENT_COMPLETE_GUIDE.md` (ainda válido como referência)
+#### 📖 DOCUMENTAÇÃO OFICIAL DE DEPLOY
+- **📋 GUIA COMPLETO**: `DEPLOYMENT_VPS_DOCKER.md` - Processo completo e atualizado
+- **⚠️ IMPORTANTE**: NÃO usamos mais EasyPanel! Deploy é direto via Docker no VPS Hostinger
+
+#### 🏗️ ARQUITETURA ATUAL
+- **Servidor**: VPS Hostinger (91.108.104.122)
+- **Frontend**: Docker container `eau-frontend-prod` (porta 8080)
+- **Backend**: Docker container `eau-backend-prod` (porta 3002)
+- **Proxy**: Nginx (/api → backend, / → frontend)
+- **SSL**: Cloudflare gerencia HTTPS
+- **Domínio**: https://appeau.platty.tech
 
 #### 🚨 REGRAS CRÍTICAS DE DEPLOY
 
-**1. VALIDAÇÃO PRÉ-DEPLOY (OBRIGATÓRIA!)**
+**1. SEMPRE BUILD LOCALMENTE PRIMEIRO**
 ```bash
-# SEMPRE executar ANTES de qualquer deploy
-bash scripts/validate-pre-deploy.sh
+# Frontend
+cd eau-members && npm run build && ls -la dist/
 
-# Se passar (exit 0) → Pode fazer deploy
-# Se falhar (exit 1) → PARE! Corrija erros primeiro
+# Backend
+cd eau-backend && npm run build && ls -la dist/
 ```
 
-**2. NUNCA FAÇA DEPLOY SEM:**
-- ✅ Verificar URLs hardcoded (grep localhost:3001)
-- ✅ Build local completo (npm run build)
-- ✅ Verificar hash do bundle em index.html
-- ✅ Testar localmente antes
-- ✅ Validação pré-deploy passar
-
-**3. WORKFLOW COMPLETO:**
+**2. WORKFLOW COMPLETO (PASSO A PASSO):**
 ```bash
-# 1. Validação
-bash scripts/validate-pre-deploy.sh
+# 1. Build local (frontend e backend)
+cd eau-members && npm run build && cd ../eau-backend && npm run build && cd ..
 
-# 2. Build frontend
-cd eau-members && npm run build && cd ..
-
-# 3. Commit (incluindo dist/)
-git add -A && git commit -m "fix: descrição da mudança"
-
-# 4. Push
+# 2. Commit e push
+git add -A && git commit -m "feat: descrição da mudança"
 git push origin main
 
-# 5. Deploy no servidor (via SSH ou EasyPanel)
+# 3. Upload dist folders via SCP
+cd eau-members && tar -czf dist.tar.gz dist
+scp dist.tar.gz root@91.108.104.122:/tmp/frontend-dist.tar.gz
+cd ../eau-backend && tar -czf dist.tar.gz dist
+scp dist.tar.gz root@91.108.104.122:/tmp/backend-dist.tar.gz
+
+# 4. Deploy no servidor
 ssh root@91.108.104.122
 cd /home/eau-production/eau-app
-git pull origin main
-docker compose build --no-cache eau-frontend
-docker stop eau-frontend-prod && docker rm eau-frontend-prod
+
+# Extract dist folders
+cd eau-members && rm -rf dist && tar -xzf /tmp/frontend-dist.tar.gz
+cd ../eau-backend && rm -rf dist && tar -xzf /tmp/backend-dist.tar.gz
+
+# Rebuild containers
+docker stop eau-frontend-prod eau-backend-prod
+docker rm eau-frontend-prod eau-backend-prod
+cd /home/eau-production/eau-app/eau-members && docker build -t eau-app-eau-frontend:latest .
+cd /home/eau-production/eau-app/eau-backend && docker build -t eau-backend:latest -f Dockerfile.deploy .
+
+# Run containers
 docker run -d --name eau-frontend-prod -p 8080:80 eau-app-eau-frontend:latest
+docker run -d --name eau-backend-prod -p 3002:3001 \
+  -e NODE_ENV=production -e PORT=3001 \
+  -e SUPABASE_URL=https://ypsvoxelitgceclohxfu.supabase.co \
+  -e SUPABASE_ANON_KEY=... \
+  -e CORS_ORIGIN=https://appeau.platty.tech \
+  eau-backend:latest
 ```
 
-**4. VALIDAÇÃO PÓS-DEPLOY:**
-- ✅ Frontend carrega (HTTP 200)
-- ✅ Bundle correto sendo servido
-- ✅ Console sem erros
-- ✅ Funcionalidades críticas funcionam (Login, OpenLearning SSO, Dashboard)
+**3. VALIDAÇÃO PÓS-DEPLOY:**
+```bash
+# Verificar containers
+docker ps
+
+# Verificar logs
+docker logs eau-frontend-prod --tail 50
+docker logs eau-backend-prod --tail 50
+
+# Testar endpoints
+curl -I https://appeau.platty.tech
+curl https://appeau.platty.tech/api/v1/health
+```
 
 #### ⚠️ PROBLEMAS COMUNS E SOLUÇÕES
 
-**Problema: URLs Hardcoded**
+**Problema: Mixed Content Error (HTTPS → HTTP)**
 ```bash
-# Verificar:
-grep -r "localhost:3001" eau-members/src/
-
-# Solução:
-const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+# Solução: Sempre use URLs HTTPS no .env.production
+VITE_BACKEND_URL=https://appeau.platty.tech  # ✅ Correto
+# NÃO use: http://91.108.104.122:3002  # ❌ Errado
 ```
 
-**Problema: Container Serve Bundle Antigo**
+**Problema: Backend Container Não Inicia**
 ```bash
-# Solução: Rebuild SEM CACHE
-docker compose build --no-cache eau-frontend
-```
+# Verificar porta em uso
+netstat -tlnp | grep 3002
 
-**Problema: Git Push Falha (503/500)**
-```bash
-# Solução: Usar SCP como fallback
-scp eau-members/dist/index.html root@91.108.104.122:/home/eau-production/eau-app/eau-members/dist/
+# Verificar logs
+docker logs eau-backend-prod
+
+# Usar Dockerfile.deploy (ignora .dockerignore)
+docker build -t eau-backend:latest -f Dockerfile.deploy .
 ```
 
 #### 📊 TEMPO ESTIMADO
-- **Deploy sem problemas**: 10-15 minutos
-- **Deploy com troubleshooting**: 30-60 minutos
+- **Deploy completo**: 10-15 minutos
+- **Deploy com troubleshooting**: 30-45 minutos
 
-#### 📞 DOCUMENTAÇÃO ADICIONAL
-- **Guia Completo**: Ver `PROCESSO_DEPLOY_PRODUCAO.md`
-- **Edge Cases OpenLearning**: Ver `OPENLEARNING_SSO_EDGE_CASES.md`
-- **Troubleshooting**: Ambos documentos contêm seções extensivas
+#### 📞 DOCUMENTAÇÃO COMPLETA
+- **Guia Detalhado**: Ver `DEPLOYMENT_VPS_DOCKER.md`
+- **Quick Deploy Script**: One-liner disponível no guia
+- **Troubleshooting**: Seção completa no documento
 
 ### Development Server Management
 **CRITICAL: Port Management Rules**
@@ -474,13 +496,16 @@ code eau-backend/package.json
 
 - **Console Messages**: Development mode shows cache-clearing instructions in console
 
-### Server Access (VPS)
+### Server Access (VPS Hostinger + Docker)
 **SSH Access - Use whenever server access is needed**
 - **IP**: 91.108.104.122
 - **SSH Command**: `ssh root@91.108.104.122`
 - **Password**: `Y#n9nah@=E@6ws8m!F/q\`
-- **EasyPanel URL**: http://91.108.104.122:3000/
-- **EasyPanel Login**: dev@platty.tech / F27i486fb3gVyPC
+- **Architecture**: Direct Docker containers (no control panel)
+- **Frontend Container**: eau-frontend-prod (port 8080)
+- **Backend Container**: eau-backend-prod (port 3002)
+- **Nginx Proxy**: Routes requests (/api → backend, / → frontend)
+- **Domain**: https://appeau.platty.tech (via Cloudflare SSL)
 
 ### Supabase Connection Details
 **IMPORTANT: NOW USING SUPABASE CLOUD - Migrated 24/01/2025**
@@ -722,24 +747,27 @@ When implementing WYSIWYG in new areas:
 - **Members**: `/api/v1/members/*` - Gestão de membros
 - **CPD**: `/api/v1/cpd/*` - Sistema CPD completo
 - **Invitations**: `/api/v1/invitations/*` - Sistema de convites
+- **System**: `/api/v1/system/status` - System monitoring (Super Admin only)
 
 #### Backend Features Implementadas
 - ✅ **Autenticação JWT** com refresh tokens
 - ✅ **Sistema hierárquico** de permissões (Super Admin → Institution Admin → Staff)
-- ✅ **CRUD completo** para instituições e membros  
+- ✅ **CRUD completo** para instituições e membros
 - ✅ **Sistema CPD** com auto-aprovação e tracking anual
 - ✅ **Convites seguros** com tokens temporários
 - ✅ **Exportação CSV** para admins
 - ✅ **Rate limiting** e segurança
-- ✅ **Dockerfile** ready para EasyPanel
+- ✅ **System Status Monitoring** - CPU, Memory, Disk, Uptime (Super Admin)
+- ✅ **Dockerfile** ready para Docker deployment
 - ✅ **Logging** estruturado
 - ✅ **Error handling** padronizado
 
 #### Deploy Instructions
-1. **EasyPanel**: Use o Dockerfile incluído (`eau-backend/Dockerfile`)
-2. **Environment Variables**: Configurar no EasyPanel conforme `.env.example`
-3. **GitHub Integration**: Push para main branch ativa auto-deploy
+1. **VPS Docker**: Use `Dockerfile.deploy` que ignora .dockerignore issues
+2. **Environment Variables**: Passadas via `-e` no `docker run` command
+3. **GitHub Integration**: Pull manual via SSH, build local + upload dist/
 4. **Health Monitoring**: Endpoint `/health` para status checks
+5. **System Monitoring**: `/api/v1/system/status` mostra métricas do servidor
 
 #### Desenvolvimento
 - **Start Backend**: `cd eau-backend && npm run dev` 
@@ -747,14 +775,53 @@ When implementing WYSIWYG in new areas:
 - **TypeScript**: Configuração em `tsconfig.json`
 - **Tests**: Estrutura preparada para Jest
 
-### Production URLs (DEPLOYMENT SUCCESSFUL!)
-- **Frontend (Official Domain)**: https://eauapp.platty.tech/
-- **Backend API**: https://eau-app-servico-eau-backend.lkobs5.easypanel.host/
-- **Admin Login Page**: https://eauapp.platty.tech/login
+### Production URLs (VPS HOSTINGER + DOCKER)
+- **Official Domain**: https://appeau.platty.tech (Cloudflare SSL)
+- **Frontend**: https://appeau.platty.tech/ (Nginx proxy → port 8080)
+- **Backend API**: https://appeau.platty.tech/api (Nginx proxy → port 3002)
+- **Admin Login**: https://appeau.platty.tech/login
+- **System Status**: https://appeau.platty.tech/dashboard (Super Admin only)
+
+### 📊 SYSTEM STATUS MONITORING (Super Admin Feature)
+**⚠️ IMPLEMENTADO: 19/11/2025 - Monitoramento em tempo real do servidor**
+
+#### Overview
+Sistema de monitoramento de saúde do servidor visível apenas para Super Admins no dashboard principal.
+
+#### Features Implementadas
+- ✅ **CPU Usage** - Porcentagem de uso atual dos cores
+- ✅ **Memory Usage** - Porcentagem de RAM utilizada
+- ✅ **Disk Usage** - Porcentagem de disco utilizado (Linux)
+- ✅ **Server Uptime** - Tempo de atividade do servidor (horas/minutos)
+- ✅ **Backend Status** - Online/Offline com uptime
+- ✅ **Auto-refresh** - Atualização automática a cada 30 segundos
+- ✅ **Manual Refresh** - Botão para atualização manual
+
+#### Arquivos Principais
+- **Backend**: `eau-backend/src/routes/system.routes.ts` - API endpoint
+- **Frontend**: `eau-members/src/components/ui/SystemStatusCard.tsx` - UI component
+- **Dashboard**: Integrado em `/dashboard` para Super Admins
+
+#### Como Funciona
+1. Frontend faz request para `/api/v1/system/status` com token JWT
+2. Backend verifica permissão (apenas Super Admin)
+3. Node.js `os` module coleta métricas do sistema
+4. Frontend exibe em card visual com cores (verde/amarelo/vermelho)
+5. Auto-refresh mantém dados atualizados
+
+#### Acesso
+- **Permissão**: Apenas Super Admin (`user_type = 'super_admin'`)
+- **Localização**: Dashboard principal (`/dashboard`)
+- **Visibilidade**: Card aparece apenas para Super Admins
+
+#### Uso em Produção
+- **Testado**: ✅ Funcionando em https://appeau.platty.tech/dashboard
+- **Métricas Reais**: CPU 7%, Memory 4%, Disk 5%, Uptime 5591h
+- **Performance**: Sem impacto, apenas leitura de métricas do sistema
 
 ### Credentials & Access
 - **Admin Login**: dev@platty.tech / wSZ72i-M7X[bV)Hdu%Qi0V03hf8f%6
-- **Supabase Admin**: supabase / this_password_is_insecure_and_should_be_updated
+- **SSH Access**: root@91.108.104.122 / Y#n9nah@=E@6ws8m!F/q\
 - **Frontend (Dev)**: Port 5180 (http://localhost:5180)
 - **Backend (Dev)**: Port 3001 (http://localhost:3001)
 
@@ -775,13 +842,12 @@ When implementing WYSIWYG in new areas:
 - **API Documentation**: https://api.openlearning.com/docs
 - **Help Documentation**: https://help.openlearning.com/category/apis
 
-#### ✅ SSO IMPLEMENTADO E VALIDADO (18/11/2025)
+#### ✅ SSO IMPLEMENTADO E VALIDADO (19/11/2025)
 **Status: FUNCIONANDO 100% - Testado e validado com sucesso em produção**
-- **✅ Deploy Validado**: 18/11/2025 - Sistema testado e funcionando em produção
+- **✅ Deploy Validado**: 19/11/2025 - Sistema testado e funcionando em https://appeau.platty.tech
 - **📖 Documentação Completa**:
   - `OPENLEARNING_SSO_EDGE_CASES.md` - Edge cases, troubleshooting e soluções
-  - `PROCESSO_DEPLOY_PRODUCAO.md` - Guia completo de deploy
-  - `scripts/validate-pre-deploy.sh` - Script de validação automatizado
+  - `DEPLOYMENT_VPS_DOCKER.md` - Guia completo de deploy VPS Hostinger + Docker
 - **Provisionamento Automático**: Usuários são provisionados automaticamente no primeiro SSO
 - **Login sem senha**: SSO permite login direto sem necessidade de senha
 - **Segurança**: Links são de uso único (one-time use) por segurança
