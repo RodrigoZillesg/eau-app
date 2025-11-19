@@ -193,26 +193,92 @@ SE modo_teste == FALSE:
 4. **USE** apenas as cores e espaçamentos definidos
 5. **TESTE** responsividade em todos os breakpoints
 
-### DEPLOYMENT TO EASYPANEL
+### 🚀 DEPLOYMENT TO PRODUCTION - PROCESSO COMPLETO
 **⚠️ CRITICAL: SEMPRE CONSULTE A DOCUMENTAÇÃO DE DEPLOY ANTES DE FAZER DEPLOY**
-- **📖 LEIA PRIMEIRO**: `EASYPANEL_DEPLOYMENT_COMPLETE_GUIDE.md`
-- **🚨 NÃO FAÇA DEPLOY** sem consultar o guia completo
-- **❌ EVITE ERROS**: O guia contém todas as lições aprendidas e soluções
 
-**Regras de Deploy:**
-1. **SEMPRE** faça build local antes (`npm run build`)
-2. **NUNCA** compile TypeScript no Docker do EasyPanel
-3. **SEMPRE** commite as pastas `dist` antes do push
-4. **USE** os Dockerfiles simplificados do guia
-5. **LEMBRE-SE** que EasyPanel usa contexto root
+#### 📖 DOCUMENTAÇÃO OFICIAL DE DEPLOY (ATUALIZADA 18/11/2025)
+- **📋 GUIA PRINCIPAL**: `PROCESSO_DEPLOY_PRODUCAO.md` - Processo completo passo a passo
+- **🔍 VALIDAÇÃO**: `scripts/validate-pre-deploy.sh` - Script de validação automatizado
+- **📚 GUIA LEGADO**: `EASYPANEL_DEPLOYMENT_COMPLETE_GUIDE.md` (ainda válido como referência)
 
-**Comando Rápido de Deploy:**
+#### 🚨 REGRAS CRÍTICAS DE DEPLOY
+
+**1. VALIDAÇÃO PRÉ-DEPLOY (OBRIGATÓRIA!)**
 ```bash
-# Build e deploy completo
-cd eau-backend && npm run build && cd ../eau-members && npm run build && cd ..
-git add -A && git commit -m "Production build" && git push
-# Depois vá para EasyPanel e clique em Deploy
+# SEMPRE executar ANTES de qualquer deploy
+bash scripts/validate-pre-deploy.sh
+
+# Se passar (exit 0) → Pode fazer deploy
+# Se falhar (exit 1) → PARE! Corrija erros primeiro
 ```
+
+**2. NUNCA FAÇA DEPLOY SEM:**
+- ✅ Verificar URLs hardcoded (grep localhost:3001)
+- ✅ Build local completo (npm run build)
+- ✅ Verificar hash do bundle em index.html
+- ✅ Testar localmente antes
+- ✅ Validação pré-deploy passar
+
+**3. WORKFLOW COMPLETO:**
+```bash
+# 1. Validação
+bash scripts/validate-pre-deploy.sh
+
+# 2. Build frontend
+cd eau-members && npm run build && cd ..
+
+# 3. Commit (incluindo dist/)
+git add -A && git commit -m "fix: descrição da mudança"
+
+# 4. Push
+git push origin main
+
+# 5. Deploy no servidor (via SSH ou EasyPanel)
+ssh root@91.108.104.122
+cd /home/eau-production/eau-app
+git pull origin main
+docker compose build --no-cache eau-frontend
+docker stop eau-frontend-prod && docker rm eau-frontend-prod
+docker run -d --name eau-frontend-prod -p 8080:80 eau-app-eau-frontend:latest
+```
+
+**4. VALIDAÇÃO PÓS-DEPLOY:**
+- ✅ Frontend carrega (HTTP 200)
+- ✅ Bundle correto sendo servido
+- ✅ Console sem erros
+- ✅ Funcionalidades críticas funcionam (Login, OpenLearning SSO, Dashboard)
+
+#### ⚠️ PROBLEMAS COMUNS E SOLUÇÕES
+
+**Problema: URLs Hardcoded**
+```bash
+# Verificar:
+grep -r "localhost:3001" eau-members/src/
+
+# Solução:
+const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+```
+
+**Problema: Container Serve Bundle Antigo**
+```bash
+# Solução: Rebuild SEM CACHE
+docker compose build --no-cache eau-frontend
+```
+
+**Problema: Git Push Falha (503/500)**
+```bash
+# Solução: Usar SCP como fallback
+scp eau-members/dist/index.html root@91.108.104.122:/home/eau-production/eau-app/eau-members/dist/
+```
+
+#### 📊 TEMPO ESTIMADO
+- **Deploy sem problemas**: 10-15 minutos
+- **Deploy com troubleshooting**: 30-60 minutos
+
+#### 📞 DOCUMENTAÇÃO ADICIONAL
+- **Guia Completo**: Ver `PROCESSO_DEPLOY_PRODUCAO.md`
+- **Edge Cases OpenLearning**: Ver `OPENLEARNING_SSO_EDGE_CASES.md`
+- **Troubleshooting**: Ambos documentos contêm seções extensivas
 
 ### Development Server Management
 **CRITICAL: Port Management Rules**
@@ -709,12 +775,17 @@ When implementing WYSIWYG in new areas:
 - **API Documentation**: https://api.openlearning.com/docs
 - **Help Documentation**: https://help.openlearning.com/category/apis
 
-#### ✅ SSO IMPLEMENTADO E VALIDADO (19/01/2025)
-**Status: FUNCIONANDO 100% - Testado e validado com sucesso**
-- **Documento de Validação**: `OPENLEARNING_SSO_VALIDATED.md`
+#### ✅ SSO IMPLEMENTADO E VALIDADO (18/11/2025)
+**Status: FUNCIONANDO 100% - Testado e validado com sucesso em produção**
+- **✅ Deploy Validado**: 18/11/2025 - Sistema testado e funcionando em produção
+- **📖 Documentação Completa**:
+  - `OPENLEARNING_SSO_EDGE_CASES.md` - Edge cases, troubleshooting e soluções
+  - `PROCESSO_DEPLOY_PRODUCAO.md` - Guia completo de deploy
+  - `scripts/validate-pre-deploy.sh` - Script de validação automatizado
 - **Provisionamento Automático**: Usuários são provisionados automaticamente no primeiro SSO
 - **Login sem senha**: SSO permite login direto sem necessidade de senha
 - **Segurança**: Links são de uso único (one-time use) por segurança
+- **⚠️ Edge Case Conhecido**: Usuário em outra instituição OpenLearning (ver documentação)
 
 #### Implementação SSO Funcional
 1. **Backend Service**: `eau-backend/src/services/openlearningCorrect.service.ts`
