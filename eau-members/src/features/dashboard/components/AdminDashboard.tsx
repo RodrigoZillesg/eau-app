@@ -13,6 +13,7 @@ import { getUserInstitution } from '../../../services/institutionService'
 import { supabase } from '../../../lib/supabase/client'
 import { EventRegistrationService } from '../../../services/eventRegistrationService'
 import { OpenLearningCourseCatalog } from '../../../components/OpenLearningCourseCatalog'
+import { SystemStatusCard } from '../../../components/ui/SystemStatusCard'
 
 const { CPDService } = cpd
 
@@ -277,6 +278,11 @@ export const AdminDashboard: React.FC = () => {
 
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+          {/* System Status - Super Admin Only */}
+          <PermissionGuard roles={['AdminSuper']}>
+            <SystemStatusCard />
+          </PermissionGuard>
 
           {/* Admin Actions */}
           <Card>

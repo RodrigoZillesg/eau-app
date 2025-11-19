@@ -22,6 +22,7 @@ const public_routes_1 = __importDefault(require("./public.routes"));
 const membershipApplications_routes_1 = __importDefault(require("./admin/membershipApplications.routes"));
 const emailLogs_routes_1 = __importDefault(require("./admin/emailLogs.routes"));
 const tracking_routes_1 = __importDefault(require("./tracking.routes"));
+const system_routes_1 = __importDefault(require("./system.routes")); // System status routes
 // import applicationsRoutes from './applications.routes';
 const constants_1 = require("../config/constants");
 const email_controller_1 = require("../controllers/email.controller");
@@ -55,6 +56,7 @@ router.use(`${constants_1.API_PREFIX}/public`, public_routes_1.default); // Publ
 router.use(`${constants_1.API_PREFIX}/admin/membership-applications`, membershipApplications_routes_1.default); // Admin application management routes
 router.use(`${constants_1.API_PREFIX}/admin/email-logs`, emailLogs_routes_1.default); // Email logs admin routes
 router.use(`${constants_1.API_PREFIX}/track`, tracking_routes_1.default); // Email tracking routes (public, no auth required)
+router.use(`${constants_1.API_PREFIX}/system`, system_routes_1.default); // System status routes (Super Admin only)
 // router.use(`${API_PREFIX}/applications`, applicationsRoutes); // Admin application management routes - disabled temporarily
 exports.default = router;
 //# sourceMappingURL=index.js.map

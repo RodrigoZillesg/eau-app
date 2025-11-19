@@ -17,6 +17,7 @@ import publicRoutes from './public.routes';
 import adminMembershipApplicationsRoutes from './admin/membershipApplications.routes';
 import emailLogsRoutes from './admin/emailLogs.routes';
 import trackingRoutes from './tracking.routes';
+import systemRoutes from './system.routes'; // System status routes
 // import applicationsRoutes from './applications.routes';
 import { API_PREFIX } from '../config/constants';
 import { EmailController } from '../controllers/email.controller';
@@ -54,6 +55,7 @@ router.use(`${API_PREFIX}/public`, publicRoutes); // Public membership applicati
 router.use(`${API_PREFIX}/admin/membership-applications`, adminMembershipApplicationsRoutes); // Admin application management routes
 router.use(`${API_PREFIX}/admin/email-logs`, emailLogsRoutes); // Email logs admin routes
 router.use(`${API_PREFIX}/track`, trackingRoutes); // Email tracking routes (public, no auth required)
+router.use(`${API_PREFIX}/system`, systemRoutes); // System status routes (Super Admin only)
 // router.use(`${API_PREFIX}/applications`, applicationsRoutes); // Admin application management routes - disabled temporarily
 
 export default router;
